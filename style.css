@@ -1,0 +1,30 @@
+.fade-in { animation: fadeIn 0.25s ease-out forwards; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.custom-scroll::-webkit-scrollbar-track { background: transparent; }
+.custom-scroll::-webkit-scrollbar-thumb { background: #262626; border-radius: 4px; }
+.custom-scroll::-webkit-scrollbar-thumb:hover { background: #404040; }
+
+.asset-grid-card { transition: all 0.2s ease; border: 1px solid #262626; }
+.asset-grid-card:hover { border-color: #10b981; box-shadow: 0 0 20px rgba(16, 185, 129, 0.15); transform: translateY(-2px); }
+
+.portal-tab.active-tab {
+    background-color: #172554;
+    border-color: #3b82f6;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+@media print {
+    body { background: #ffffff !important; color: #000000 !important; height: auto !important; overflow: visible !important; }
+    header, nav, #mutex-bar, button, #viva-padlock-btn { display: none !important; }
+    .print-active {
+        background: #ffffff !important;
+        color: #000000 !important;
+        border: 1px solid #000000 !important;
+        box-shadow: none !important;
+        width: 100% !important;
+    }
+    .print-active * { color: #000000 !important; border-color: #cccccc !important; background: transparent !important; }
+}
