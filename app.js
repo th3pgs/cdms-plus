@@ -1,6 +1,5 @@
-// V9 Update
+// V10 Update
 // CDMS+ ENTERPRISE ENGINE WITH CAMERA PERMISSION + MANUAL ID CHECKBOX + FILTERS
-
 const SUPABASE_URL = 'https://uvfmircbplfqkgkmzssb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_NZNswR7y9y-oSJIC-unRvw_wioNx760';
 const realSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -59,8 +58,21 @@ let DB = {
     immutable_audit_logs: []
 };
 
+let vivaBypassUnlocked = false;
+let currentLoggedInUser = null;
+let currentMode = 'gateway';
+let kioskAuthMode = 'unlock';
+let idleSecondsRemaining = 300;
+let selectedOperatorForAssign = null;
+let supervisorPoolLineFilter = 'ALL';
+let activeCommTab = 'inbox';
+let mutexPollInterval = null;
+let isAuthBusy = false;
+let lastToastMessage = '';
+let lastToastTime = 0;
+
 // ============================================================================
-// 1. 1 (GREEN SYSTEM MODE) vs 0 (GLOWING RED TESTING SANDBOX) INTERCEPTOR
+// 1. 1 (NORMAL SYSTEM) vs 0 (SANDBOX) INTERCEPTOR & STATUS LABEL CONTROLLER
 // ============================================================================
 function saveSandboxDB() {
     if (systemOperatingMode === '0') {
@@ -133,6 +145,23 @@ const supa = {
     }
 };
 
+// Updates the bottom-right corner status text:
+// Mode 0 -> "Sandbox Online"
+// Mode 1 + Padlock Locked -> "Online Secured"
+// Mode 1 + Padlock Unlocked -> "Online Only"
+function updateGatewayStatusLabel() {
+    const statusLbl = document.getElementById('db-status-label');
+    if (!statusLbl) return;
+
+    if (systemOperatingMode === '0') {
+        statusLbl.innerText = 'Sandbox Online';
+    } else if (vivaBypassUnlocked) {
+        statusLbl.innerText = 'Online Only';
+    } else {
+        statusLbl.innerText = 'Online Secured';
+    }
+}
+
 function updateModeButtonUI() {
     const btn = document.getElementById('mode-switch-btn');
     const letter = document.getElementById('mode-switch-letter');
@@ -140,13 +169,14 @@ function updateModeButtonUI() {
 
     if (systemOperatingMode === '0') {
         letter.innerText = '0';
-        btn.classList.remove('ctrl-btn-green');
-        btn.classList.add('ctrl-btn-red');
+        btn.classList.remove('ctrl-btn-minimal-light');
+        btn.classList.add('ctrl-btn-minimal-dark');
     } else {
         letter.innerText = '1';
-        btn.classList.remove('ctrl-btn-red');
-        btn.classList.add('ctrl-btn-green');
+        btn.classList.remove('ctrl-btn-minimal-dark');
+        btn.classList.add('ctrl-btn-minimal-light');
     }
+    updateGatewayStatusLabel();
 }
 
 async function toggleSystemTestingMode() {
@@ -156,7 +186,7 @@ async function toggleSystemTestingMode() {
         localStorage.setItem(MODE_STORAGE_KEY, '0');
         localStorage.setItem(SANDBOX_DB_KEY, JSON.stringify(DB));
         updateModeButtonUI();
-        showToast('Testing Mode (0): Temporary sandbox active.');
+        showToast('Sandbox Online (0): Temporary testing mode active.');
     } else {
         localStorage.removeItem(SANDBOX_DB_KEY);
         systemOperatingMode = '1';
@@ -211,21 +241,8 @@ function resolveRepoLogos() {
 }
 
 // ============================================================================
-// 3. STATE VARIABLES & TOP BAR CONTROLLER
+// 3. TOP BAR CONTROLLER
 // ============================================================================
-let vivaBypassUnlocked = false;
-let currentLoggedInUser = null;
-let currentMode = 'gateway';
-let kioskAuthMode = 'unlock';
-let idleSecondsRemaining = 300;
-let selectedOperatorForAssign = null;
-let supervisorPoolLineFilter = 'ALL';
-let activeCommTab = 'inbox';
-let mutexPollInterval = null;
-let isAuthBusy = false;
-let lastToastMessage = '';
-let lastToastTime = 0;
-
 function setTopBarState(state) {
     const inner = document.getElementById('top-bar-inner');
     const divider = document.getElementById('top-bar-compact-divider');
@@ -350,6 +367,7 @@ async function writeImmutableAudit(actionVerb, targetEntity, targetId, snapshotO
 document.addEventListener('DOMContentLoaded', async () => {
     setTopBarState('compact');
     updateModeButtonUI();
+    updateGatewayStatusLabel();
     resolveRepoLogos();
     document.getElementById('header-user-avatar').src = DEFAULT_AVATAR_SVG;
     document.getElementById('popover-user-avatar').src = DEFAULT_AVATAR_SVG;
@@ -579,7 +597,7 @@ function getNextSequentialId(list, keyField, prefix) {
 }
 
 // ============================================================================
-// 7. GREEN / GLOWING RED PADLOCK & INSTANT 0MS LOGIN
+// 7. MINIMALIST PADLOCK & INSTANT 0MS LOGIN
 // ============================================================================
 function toggleVivaPadlock() {
     vivaBypassUnlocked = !vivaBypassUnlocked;
@@ -587,14 +605,15 @@ function toggleVivaPadlock() {
     const btn = document.getElementById('viva-padlock-btn');
 
     if (vivaBypassUnlocked) {
-        icon.className = 'ph-fill ph-lock-key-open text-2xl text-white';
-        btn.classList.remove('ctrl-btn-green');
-        btn.classList.add('ctrl-btn-red');
+        icon.className = 'ph-fill ph-lock-key-open text-xl';
+        btn.classList.remove('ctrl-btn-minimal-light');
+        btn.classList.add('ctrl-btn-minimal-dark');
     } else {
-        icon.className = 'ph-fill ph-lock-key text-2xl text-white';
-        btn.classList.remove('ctrl-btn-red');
-        btn.classList.add('ctrl-btn-green');
+        icon.className = 'ph-fill ph-lock-key text-xl';
+        btn.classList.remove('ctrl-btn-minimal-dark');
+        btn.classList.add('ctrl-btn-minimal-light');
     }
+    updateGatewayStatusLabel();
 }
 
 function openUserLoginModal() {
@@ -753,6 +772,7 @@ function returnToWelcomeScreenImmediate() {
     closeProfilePopover();
     closeCommDrawer();
     setTopBarState('compact');
+    updateGatewayStatusLabel();
     document.getElementById('comm-floating-Dock').classList.add('hidden');
     document.getElementById('view-gateway').classList.remove('hidden');
 }
@@ -1135,16 +1155,14 @@ async function startHtml5CameraStream(onDecodedCallback) {
     }
 }
 
-// FLOATING BUTTON OR SEARCH BAR QR ICON -> QUICK SCAN AN ITEM QR
 function openQuickQrScanner() {
     document.getElementById('modal-title').innerText = 'Scan Pattern or 3D Mold QR';
     document.getElementById('verify-modal').classList.remove('hidden');
     const area = document.getElementById('modal-dynamic-area');
 
-    // Sample Pattern Buttons ONLY in Testing Mode (0)
     const sandboxItemsHtml = systemOperatingMode === '0' ? `
         <div class="border-t border-zinc-200 pt-3 mt-3">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-2">Testing Mode (0): Sample Pattern QR Triggers</p>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-2">Sandbox Mode (0): Sample Pattern QR Triggers</p>
             <div class="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
                 ${DB.pattern_assets.map(p => `
                     <button type="button" onclick="openScannerForAsset('${p.asset_id}')" class="p-2 rounded-lg bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-left text-xs truncate">
@@ -1190,7 +1208,6 @@ function submitManualQuickAssetLocate() {
     openScannerForAsset(found.asset_id);
 }
 
-// ITEM BORROW OR RETURN MODAL (CAMERA + MANUAL ID WITH RESPONSIBILITY TICK + SANDBOX ONLY IN 0 MODE)
 function openScannerForAsset(assetId) {
     const asset = DB.pattern_assets.find(a => a.asset_id === assetId);
     if (!asset) return;
@@ -1213,12 +1230,11 @@ function openScannerForAsset(assetId) {
     const floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-'));
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // IF ITEM IS ACTIVE ON LINE -> RETURN PROTOCOL (CAMERA QR OR MANUAL ID + RESPONSIBILITY CHECKBOX)
     if (asset.operational_status === 'Active on Line') {
         const sandboxReturnBtns = systemOperatingMode === '0' ? `
             <div class="border-t border-zinc-200 pt-3 mt-2">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1.5">Testing Mode (0): Quick Return Simulation</p>
-                <button type="button" onclick="executeAssetReturn('${asset.asset_id}', '${asset.borrowed_by_id || 'CW-L1-CMO-01'}')" class="w-full p-2 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-800 text-xs font-semibold">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Sandbox Mode (0): Quick Return Simulation</p>
+                <button type="button" onclick="executeAssetReturn('${asset.asset_id}', '${asset.borrowed_by_id || 'CW-L1-CMO-01'}')" class="w-full p-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 text-zinc-900 text-xs font-semibold">
                     Simulate Badge Scan (${asset.borrowed_by_id || 'Operator'}) & Return
                 </button>
             </div>
@@ -1265,11 +1281,9 @@ function openScannerForAsset(assetId) {
         return;
     }
 
-    // IF ITEM IS AVAILABLE -> BORROW PROTOCOL (CAMERA QR OR MANUAL ID + RESPONSIBILITY CHECKBOX)
-    // Sample Operator Badges ONLY shown when systemOperatingMode === '0' (Red 0 Testing Sandbox)
     const sandboxBorrowSection = systemOperatingMode === '0' ? `
         <div class="border-t border-zinc-200 pt-3">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1.5">Testing Mode (0): Sample Operator Badges</p>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Sandbox Mode (0): Sample Operator Badges</p>
             <div class="space-y-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
                 ${floorOps.map(op => {
                     const isSched = DB.shift_assignments.some(s => s.borrower_id === op.employee_id && s.assigned_date === todayStr);
@@ -1427,7 +1441,6 @@ function startMutexBarCountdown(assetId, operatorId, shift) {
     const timer = document.getElementById('mutex-timer');
     const btn = document.getElementById('mutex-action-btn');
 
-    // Only show bar when inside Pattern Room
     if (currentMode === 'terminal') {
         bar.classList.remove('hidden');
     }

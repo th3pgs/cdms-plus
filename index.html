@@ -16,7 +16,7 @@
 </head>
 <body class="bg-zinc-50 text-zinc-900 antialiased min-h-screen flex flex-col font-sans relative overflow-x-hidden">
 
-    <!-- BOTTOM-LEFT INTERNAL NOTIFICATION CONTAINER -->
+    <!-- BOTTOM-LEFT INTERNAL NOTIFICATION CONTAINER (NO OVERLAP WITH TOP BAR OR CENTER BUTTONS) -->
     <div id="toast-container" class="fixed bottom-5 left-5 z-[220] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
 
     <!-- ================================================================= -->
@@ -99,6 +99,7 @@
                     CDMS<span class="text-red-600 font-black">+</span>
                 </h1>
 
+                <!-- PRIMARY ENTRY BUTTONS -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button type="button" onclick="openUserLoginModal()" class="bg-zinc-900 hover:bg-zinc-800 text-white py-5 px-6 rounded-xl font-semibold text-sm tracking-wide transition-colors shadow-sm flex items-center justify-center gap-2.5">
                         <i class="ph-bold ph-user text-lg"></i>
@@ -110,21 +111,22 @@
                         <span>Pattern Room</span>
                     </button>
                 </div>
-            </div>
 
-            <!-- BOTTOM BAR: GREEN/RED PADLOCK + 1/0 MODE BUTTON -->
-            <div class="max-w-6xl mx-auto w-full flex justify-between items-center pt-4">
-                <div class="flex items-center gap-3">
-                    <button type="button" id="viva-padlock-btn" onclick="toggleVivaPadlock()" class="w-12 h-12 rounded-xl flex items-center justify-center transition-all ctrl-btn-green select-none">
-                        <i id="viva-padlock-icon" class="ph-fill ph-lock-key text-2xl text-white"></i>
+                <!-- MINIMALIST PADLOCK & 1/0 CONTROLS (CENTERED DIRECTLY BELOW ENTRY BUTTONS) -->
+                <div class="mt-7 flex items-center justify-center gap-3">
+                    <button type="button" id="viva-padlock-btn" onclick="toggleVivaPadlock()" title="Toggle Auth Lock" class="w-12 h-12 rounded-xl flex items-center justify-center transition-all ctrl-btn-minimal-light select-none">
+                        <i id="viva-padlock-icon" class="ph-fill ph-lock-key text-xl"></i>
                     </button>
 
-                    <button type="button" id="mode-switch-btn" onclick="toggleSystemTestingMode()" class="w-12 h-12 rounded-xl font-mono font-black text-xl flex items-center justify-center transition-all ctrl-btn-green select-none">
-                        <span id="mode-switch-letter" class="text-white">1</span>
+                    <button type="button" id="mode-switch-btn" onclick="toggleSystemTestingMode()" title="Toggle System (1) / Sandbox (0)" class="w-12 h-12 rounded-xl font-mono font-bold text-lg flex items-center justify-center transition-all ctrl-btn-minimal-light select-none">
+                        <span id="mode-switch-letter">1</span>
                     </button>
                 </div>
+            </div>
 
-                <span id="db-status-label" class="text-[11px] text-zinc-400 font-mono">Online</span>
+            <!-- BOTTOM-RIGHT STATUS LABEL (ONLINE SECURED / ONLINE ONLY / SANDBOX ONLINE) -->
+            <div class="max-w-6xl mx-auto w-full flex justify-end items-center pt-4">
+                <span id="db-status-label" class="text-xs text-zinc-500 font-mono font-medium tracking-wide">Online Secured</span>
             </div>
         </main>
 
@@ -141,7 +143,6 @@
                     <i class="ph-bold ph-magnifying-glass absolute left-5 text-lg text-zinc-400"></i>
                     <input type="text" id="searchInput" oninput="handlePatternSearch()" autocomplete="off" placeholder="" class="w-full py-3.5 pl-12 pr-28 bg-transparent outline-none text-zinc-900 text-sm rounded-full">
                     
-                    <!-- Right-Side Embedded Google-Bar Icons (Clear, Filter, QR Scan) -->
                     <div class="absolute right-3 flex items-center gap-1">
                         <button type="button" onclick="clearSearch()" id="clearBtn" title="Clear Search" class="w-8 h-8 rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 flex items-center justify-center hidden">
                             <i class="ph-bold ph-x text-base"></i>
@@ -149,7 +150,7 @@
                         <div class="h-4 w-px bg-zinc-200 mx-0.5"></div>
                         <button type="button" onclick="toggleSearchFilterMenu(event)" id="search-filter-btn" title="Filter by Brand or Rack" class="w-8 h-8 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 flex items-center justify-center transition-colors relative">
                             <i class="ph-bold ph-sliders-horizontal text-base"></i>
-                            <span id="filter-active-dot" class="hidden w-2 h-2 rounded-full bg-red-600 absolute top-1.5 right-1.5"></span>
+                            <span id="filter-active-dot" class="hidden w-2 h-2 rounded-full bg-zinc-900 absolute top-1.5 right-1.5"></span>
                         </button>
                         <button type="button" onclick="openQuickQrScanner()" title="Scan QR Code" class="w-8 h-8 rounded-full text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 flex items-center justify-center transition-colors">
                             <i class="ph-bold ph-qr-code text-lg"></i>
@@ -161,7 +162,7 @@
                 <div id="search-filter-popover" onclick="event.stopPropagation()" class="hidden absolute left-0 right-0 mt-2 bg-white rounded-2xl border border-zinc-200 shadow-xl p-4 z-50 text-left">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5 mb-3">
                         <span class="text-xs font-bold text-zinc-900">Filter Pattern Room</span>
-                        <button type="button" onclick="resetPatternRoomFilters()" class="text-[11px] font-semibold text-red-600 hover:underline">Reset Filters</button>
+                        <button type="button" onclick="resetPatternRoomFilters()" class="text-[11px] font-semibold text-zinc-600 hover:text-zinc-900 underline">Reset Filters</button>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                         <div>
