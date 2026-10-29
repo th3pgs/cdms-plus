@@ -1,11 +1,10 @@
 // ============================================================================
-// CDMS+ ENTERPRISE ENGINE — 100% LIVE SUPABASE POSTGRESQL (NO LOCALSTORAGE DB)
+// CDMS+ ENTERPRISE ENGINE (MONOCHROME MINIMALIST EDITION + LIVE SUPABASE)
 // ============================================================================
 const SUPABASE_URL = 'https://uvfmircbplfqkgkmzssb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_NZNswR7y9y-oSJIC-unRvw_wioNx760';
 const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// LIVE IN-MEMORY CACHE POPULATED STRICTLY FROM SUPABASE POSTGRESQL
 let DB = {
     employees: [],
     pattern_assets: [],
@@ -24,15 +23,13 @@ let DB = {
 let vivaBypassUnlocked = false;
 let currentLoggedInUser = null;
 let currentMode = 'gateway';
-let idleSecondsRemaining = 300; // 5-Minute Unfinished Procedure Reset
+let idleSecondsRemaining = 300;
 let selectedOperatorForAssign = null;
-let currentGridFilter = 'ALL';
 let activeCommTab = 'inbox';
-let editingDraftId = null;
 let mutexPollInterval = null;
 
 // ============================================================================
-// 1. SUPABASE LIVE SYNC & IMMUTABLE AUDIT ENGINE
+// 1. SUPABASE LIVE SYNC & IMMUTABLE AUDIT
 // ============================================================================
 async function syncFromSupabase() {
     try {
@@ -66,18 +63,24 @@ async function syncFromSupabase() {
         if (com.data) DB.department_communications = com.data;
         if (aud.data) DB.immutable_audit_logs = aud.data;
 
+        if (currentLoggedInUser) {
+            const refreshed = DB.employees.find(e => e.employee_id === currentLoggedInUser.employee_id);
+            if (refreshed) {
+                currentLoggedInUser = refreshed;
+                updateProfileUI(refreshed);
+            }
+        }
         applyCustomLogosFromDB();
         updateCommUnreadBadge();
     } catch (err) {
         console.error('Supabase Sync Error:', err);
-        showToast('Database sync warning: check network connection.', 'error');
     }
 }
 
 async function writeImmutableAudit(actionVerb, targetEntity, targetId, snapshotObj) {
     const actorId = currentLoggedInUser ? currentLoggedInUser.employee_id : 'TERMINAL';
-    const actorName = currentLoggedInUser ? currentLoggedInUser.full_name : 'Floor Pattern Terminal';
-    const actorRole = currentLoggedInUser ? currentLoggedInUser.role_designation : 'General Kiosk';
+    const actorName = currentLoggedInUser ? currentLoggedInUser.full_name : 'Pattern Room Terminal';
+    const actorRole = currentLoggedInUser ? currentLoggedInUser.role_designation : 'Floor Terminal';
 
     await supa.from('immutable_audit_logs').insert([{
         actor_id: actorId,
@@ -91,50 +94,71 @@ async function writeImmutableAudit(actionVerb, targetEntity, targetId, snapshotO
 }
 
 // ============================================================================
-// 2. BOOT & 5-MINUTE UNFINISHED PROCEDURE TIMEOUT
+// 2. BOOT, MODALS & 5-MINUTE IDLE PROCEDURE RESET
 // ============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     await syncFromSupabase();
 
-    ['click', 'keydown', 'Touchstart'].forEach(evt => {
+    ['click', 'keydown', 'touchstart'].forEach(evt => {
         document.addEventListener(evt, () => { idleSecondsRemaining = 300; });
+    });
+
+    // Close profile popover when clicking outside
+    document.addEventListener('click', (e) => {
+        const wrapper = document.getElementById('header-profile-wrapper');
+        const pop = document.getElementById('profile-popover-menu');
+        if (wrapper && pop && !wrapper.contains(e.target)) {
+            pop.classList.add('hidden');
+        }
     });
 
     setInterval(() => {
         if (currentMode === 'gateway') return;
         idleSecondsRemaining--;
-        const m = Math.floor(idleSecondsRemaining / 60).toString().padStart(2, '0');
-        const s = (idleSecondsRemaining % 60).toString().padStart(2, '0');
-        const disp = document.getElementById('idle-countdown-display');
-        if (disp) disp.innerText = `${m}:${s}`;
-
         if (idleSecondsRemaining <= 0) {
             idleSecondsRemaining = 300;
             closeVerifyModal();
             returnToWelcomeScreen();
-            showToast('5-Minute Procedure Timeout: Unfinished session reset to Welcome Screen.', 'error');
+            showToast('Session timed out due to 5 minutes of inactivity.', 'error');
         }
     }, 1000);
 });
 
-// BOTTOM-LEFT TOAST NOTIFICATIONS (NEVER BLOCKS TOP-RIGHT HEADER)
 function showToast(msg, type = 'success') {
     const container = document.getElementById('toast-container');
+    if (!container) return;
     const t = document.createElement('div');
-    const style = type === 'error'
-        ? 'bg-rose-900 border-rose-700 text-white'
-        : 'bg-slate-900 border-slate-700 text-white';
-    t.className = `${style} border px-4 py-3 rounded-xl shadow-xl text-xs font-medium flex items-center gap-2.5 fade-in pointer-events-auto`;
-    t.innerHTML = `<i class="ph-fill ${type === 'error' ? 'ph-warning-octagon text-rose-400' : 'ph-check-circle text-emerald-400'} text-lg shrink-0"></i> <span>${msg}</span>`;
+    const border = type === 'error' ? 'border-rose-600' : 'border-zinc-700';
+    const dot = type === 'error' ? 'bg-rose-500' : 'bg-emerald-500';
+    t.className = `bg-zinc-900 ${border} border text-white px-4 py-3 rounded-xl shadow-lg text-xs font-medium flex items-center gap-2.5 fade-in pointer-events-auto`;
+    t.innerHTML = `<span class="w-2 h-2 rounded-full ${dot} shrink-0"></span> <span>${msg}</span>`;
     container.appendChild(t);
-    setTimeout(() => t.remove(), 3800);
+    setTimeout(() => t.remove(), 3500);
 }
 
 function closeModal(id) {
-    document.getElementById(id).classList.add('hidden');
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
 }
 
-// IMAGE FILE COMPRESSOR (STORES REAL PHOTOS DIRECTLY IN SUPABASE TEXT COLUMNS)
+function closeVerifyModal() {
+    closeModal('verify-modal');
+}
+
+function closeCommDrawer() {
+    closeModal('comm-drawer-window');
+}
+
+function toggleProfilePopover(e) {
+    if (e) e.stopPropagation();
+    const pop = document.getElementById('profile-popover-menu');
+    if (pop) pop.classList.toggle('hidden');
+}
+
+function closeProfilePopover() {
+    closeModal('profile-popover-menu');
+}
+
 function readAndCompressImage(fileInput, maxWidth = 360) {
     return new Promise((resolve) => {
         if (!fileInput || !fileInput.files || !fileInput.files[0]) return resolve(null);
@@ -148,7 +172,7 @@ function readAndCompressImage(fileInput, maxWidth = 360) {
                 canvas.height = img.height * scale;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                resolve(canvas.toDataURL('image/jpeg', 0.78));
+                resolve(canvas.toDataURL('image/png', 0.85));
             };
             img.src = e.target.result;
         };
@@ -157,21 +181,19 @@ function readAndCompressImage(fileInput, maxWidth = 360) {
 }
 
 // ============================================================================
-// 3. STEALTH VIVA BYPASS PADLOCK & ROLE-ISOLATED LOGIN
+// 3. BIG ICON-ONLY PADLOCK & DYNAMIC SIGN-IN MODAL
 // ============================================================================
 function toggleVivaPadlock() {
     vivaBypassUnlocked = !vivaBypassUnlocked;
     const icon = document.getElementById('viva-padlock-icon');
-    const txt = document.getElementById('viva-padlock-text');
+    const btn = document.getElementById('viva-padlock-btn');
 
     if (vivaBypassUnlocked) {
-        icon.className = 'ph-fill ph-lock-key-open text-blue-600 text-sm';
-        txt.innerText = 'Quick Role Select';
-        showToast('Quick Role Selection enabled in Login box.');
+        icon.className = 'ph-fill ph-lock-key-open text-2xl text-zinc-900';
+        btn.className = 'w-12 h-12 rounded-xl border-2 border-zinc-900 bg-white text-zinc-900 flex items-center justify-center transition-all shadow-md';
     } else {
-        icon.className = 'ph-fill ph-lock-key text-slate-500 text-sm';
-        txt.innerText = 'Standard Auth';
-        showToast('Standard Password Auth enabled.');
+        icon.className = 'ph-fill ph-lock-key text-2xl text-zinc-500';
+        btn.className = 'w-12 h-12 rounded-xl border border-zinc-200 bg-white text-zinc-500 flex items-center justify-center transition-all shadow-sm';
     }
 }
 
@@ -180,7 +202,6 @@ function openUserLoginModal() {
     const helper = document.getElementById('viva-login-helper');
     const stdInputs = document.getElementById('standard-login-inputs');
 
-    // When unlocked, hide raw ID/Password boxes so no fake passwords are shown!
     if (vivaBypassUnlocked) {
         helper.classList.remove('hidden');
         stdInputs.classList.add('hidden');
@@ -188,6 +209,7 @@ function openUserLoginModal() {
     } else {
         helper.classList.add('hidden');
         stdInputs.classList.remove('hidden');
+        morphDepartmentIconOnType(document.getElementById('login-emp-id').value);
     }
 }
 
@@ -196,27 +218,56 @@ function onVivaRoleChange() {
     morphDepartmentIconOnType(val);
 }
 
+// DYNAMICALLY UPDATES SIGN-IN TITLE & ICON BEFORE USER PRESSES SIGN IN
 function morphDepartmentIconOnType(rawId) {
     const code = (rawId || '').trim().toUpperCase();
-    const box = document.getElementById('login-dept-icon-box');
     const icon = document.getElementById('login-dept-icon');
     const badge = document.getElementById('login-dept-badge');
+    const title = document.getElementById('login-dynamic-title');
 
-    let cfg = { icon: 'ph-identification-badge', label: 'Enter Staff Employee ID' };
-    if (code.startsWith('DH')) cfg = { icon: 'ph-buildings', label: 'Cutting Department Head • Executive Oversight' };
-    else if (code.startsWith('CSE')) cfg = { icon: 'ph-briefcase', label: 'Cutting Senior Executive • Operations' };
-    else if (code.startsWith('CS-')) cfg = { icon: 'ph-calendar-check', label: 'Cutting Floor Supervisor • Shift Command' };
-    else if (code.startsWith('DDC')) cfg = { icon: 'ph-paint-brush-broad', label: 'Design Department Coordinator' };
-    else if (code.startsWith('CAD')) cfg = { icon: 'ph-compass-tool', label: 'CAD Room • Markers & Tooling' };
-    else if (code.startsWith('PR-')) cfg = { icon: 'ph-barcode', label: 'Pattern Room • Block & Mold Library' };
-    else if (code.startsWith('SDC')) cfg = { icon: 'ph-scissors', label: 'Sewing Department Coordinator' };
-    else if (code.startsWith('RMW')) cfg = { icon: 'ph-warehouse', label: 'Raw Material Warehouse (RMW)' };
-    else if (code.startsWith('CQC') || code.startsWith('QCI')) cfg = { icon: 'ph-warning-octagon', label: 'Quality Control (QC) Inspection' };
-    else if (code.startsWith('CDTE') || code.startsWith('DT-')) cfg = { icon: 'ph-terminal-window', label: 'Digital Team • Root System Admin' };
+    const emp = DB.employees.find(e => e.employee_id.toUpperCase() === code);
+    let cfg = { icon: 'ph-identification-badge', dept: 'Bodyline Staff Authentication', title: 'Staff Portal Sign In' };
 
-    icon.className = `ph-duotone ${cfg.icon} text-3xl`;
-    badge.innerText = cfg.label;
-    box.className = 'w-16 h-16 rounded-2xl bg-blue-50 border-2 border-blue-600 flex items-center justify-center text-blue-600 mb-3 transition-all duration-300';
+    if (code.startsWith('DH')) {
+        cfg = { icon: 'ph-buildings', dept: emp ? emp.full_name : 'CD Operations Office', title: 'Cutting Department Head Sign In' };
+    } else if (code.startsWith('CSE')) {
+        cfg = { icon: 'ph-briefcase', dept: emp ? emp.full_name : 'CD Operations Office', title: 'Cutting Senior Executive Sign In' };
+    } else if (code.startsWith('CS-')) {
+        cfg = { icon: 'ph-calendar-check', dept: emp ? emp.full_name : 'Cutting Floor', title: 'Cutting Supervisor Sign In' };
+    } else if (code.startsWith('DDC')) {
+        cfg = { icon: 'ph-paint-brush-broad', dept: emp ? emp.full_name : 'Design Department', title: 'Design Coordinator Sign In' };
+    } else if (code.startsWith('CAD')) {
+        cfg = { icon: 'ph-compass-tool', dept: emp ? emp.full_name : 'CAD Room', title: 'CAD Room Sign In' };
+    } else if (code.startsWith('PR-')) {
+        cfg = { icon: 'ph-barcode', dept: emp ? emp.full_name : 'Pattern Room', title: 'Pattern Coordinator Sign In' };
+    } else if (code.startsWith('SDC')) {
+        cfg = { icon: 'ph-scissors', dept: emp ? emp.full_name : 'Sewing Department', title: 'Sewing Coordinator Sign In' };
+    } else if (code.startsWith('RMW')) {
+        cfg = { icon: 'ph-warehouse', dept: emp ? emp.full_name : 'Raw Material Warehouse', title: 'RMW Coordinator Sign In' };
+    } else if (code.startsWith('CQC') || code.startsWith('QCI')) {
+        cfg = { icon: 'ph-warning-octagon', dept: emp ? emp.full_name : 'Quality Control', title: 'Quality Control Sign In' };
+    } else if (code.startsWith('DT-C-CST')) {
+        cfg = { icon: 'ph-headset', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Support Team Sign In' };
+    } else if (code.startsWith('CDTE') || code.startsWith('DT-')) {
+        cfg = { icon: 'ph-terminal-window', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Admin Sign In' };
+    }
+
+    icon.className = `ph-bold ${cfg.icon} text-2xl`;
+    badge.innerText = cfg.dept;
+    title.innerText = cfg.title;
+}
+
+function updateProfileUI(emp) {
+    const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+    const av = emp.avatar_url || defaultAvatar;
+    document.getElementById('header-user-name').innerText = emp.full_name;
+    document.getElementById('header-user-role').innerText = emp.role_designation;
+    document.getElementById('header-user-avatar').src = av;
+
+    document.getElementById('popover-user-name').innerText = emp.full_name;
+    document.getElementById('popover-user-role').innerText = emp.role_designation;
+    document.getElementById('popover-user-id').innerText = emp.employee_id;
+    document.getElementById('popover-user-avatar').src = av;
 }
 
 async function executeDepartmentLogin() {
@@ -227,20 +278,18 @@ async function executeDepartmentLogin() {
     const pass = document.getElementById('login-emp-pass').value;
 
     const emp = DB.employees.find(e => e.employee_id.toUpperCase() === empId);
-    if (!emp) return showToast('Employee ID not found in Supabase database.', 'error');
+    if (!emp) return showToast('Employee ID not found.', 'error');
     if (!vivaBypassUnlocked && !pass) return showToast('Please enter your password.', 'error');
 
     currentLoggedInUser = emp;
     currentMode = 'portal';
     closeModal('user-login-modal');
 
-    // Update Header Profile (Full Name + Role below, NO Employee ID shown)
     document.getElementById('view-gateway').classList.add('hidden');
     document.getElementById('main-header').classList.remove('hidden');
+    document.getElementById('header-profile-wrapper').classList.remove('hidden');
     document.getElementById('comm-floating-Dock').classList.remove('hidden');
-    document.getElementById('header-user-name').innerText = emp.full_name;
-    document.getElementById('header-user-role').innerText = emp.role_designation;
-    document.getElementById('header-user-avatar').src = emp.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+    updateProfileUI(emp);
 
     buildRoleIsolatedTabs(emp);
     await writeImmutableAudit('USER_LOGIN', 'Employees', emp.employee_id, { name: emp.full_name, role: emp.role_designation });
@@ -248,85 +297,122 @@ async function executeDepartmentLogin() {
 }
 
 // ============================================================================
-// 4. STRICT ROLE-ISOLATED WORKSPACES (USERS ONLY SEE THEIR OWN TOOLS)
+// 4. PROFILE PICTURE CHANGE REQUEST (PENCIL ICON -> SUPPORT TEAM APPROVAL)
+// ============================================================================
+async function submitAvatarChangeRequest(fileInput) {
+    if (!currentLoggedInUser) return;
+    const imgData = await readAndCompressImage(fileInput, 240);
+    if (!imgData) return;
+
+    const payload = {
+        sender_id: currentLoggedInUser.employee_id,
+        sender_name: currentLoggedInUser.full_name,
+        sender_role: currentLoggedInUser.role_designation,
+        receiver_id: 'DT-C-CST-01',
+        receiver_name: 'Shehani Mel',
+        receiver_role: 'CDMS Support Team',
+        protocol_category: 'Avatar Request',
+        linked_reference_id: currentLoggedInUser.employee_id,
+        subject_line: `Profile Photo Update Request (${currentLoggedInUser.full_name})`,
+        message_body: 'Uploaded new staff profile photo for Support Team verification.',
+        comm_status: 'Pending Approval',
+        resolution_note: imgData
+    };
+
+    const { error } = await supa.from('department_communications').insert([payload]);
+    if (error) return showToast(error.message, 'error');
+    await writeImmutableAudit('REQUEST_AVATAR_UPDATE', 'Employees', currentLoggedInUser.employee_id, { requested_by: currentLoggedInUser.full_name });
+    await syncFromSupabase();
+    closeProfilePopover();
+    showToast('Profile picture request sent to CDMS Support Team for approval.');
+}
+
+async function resolveAvatarRequest(commId, empId, decision) {
+    const req = DB.department_communications.find(c => c.comm_id === commId);
+    if (!req) return;
+
+    if (decision === 'Approved' && req.resolution_note) {
+        await supa.from('employees').update({ avatar_url: req.resolution_note }).eq('employee_id', empId);
+    }
+    await supa.from('department_communications').update({ comm_status: decision }).eq('comm_id', commId);
+    await writeImmutableAudit(`AVATAR_${decision.toUpperCase()}`, 'Employees', empId, { comm_id: commId });
+    await syncFromSupabase();
+    renderAdminPortal();
+    showToast(decision === 'Approved' ? `Accepted new profile photo for ${empId}.` : `Rejected photo request.`);
+}
+
+// ============================================================================
+// 5. ROLE-ISOLATED WORKSPACE NAVIGATION
 // ============================================================================
 function buildRoleIsolatedTabs(emp) {
     const id = emp.employee_id.toUpperCase();
     const nav = document.getElementById('role-workspace-tabs');
-    const pill = document.getElementById('workspace-title-pill');
     let tabs = [];
 
     if (id.startsWith('DH')) {
-        pill.innerText = 'Executive Oversight';
         tabs = [
-            { key: 'dept-head', label: 'Live Department Oversight', icon: 'ph-chart-pie-slice' },
-            { key: 'reports', label: 'System Reports', icon: 'ph-file-text' },
-            { key: 'tracker', label: 'Pattern Catalog (View)', icon: 'ph-package' }
+            { key: 'dept-head', label: 'Overview' },
+            { key: 'reports', label: 'Reports' },
+            { key: 'tracker', label: 'Pattern Room' }
         ];
     } else if (id.startsWith('CSE') || id.startsWith('CS-')) {
-        pill.innerText = 'Supervisor Shift Command';
         tabs = [
-            { key: 'supervisor', label: 'Shift Matrix & Clearances', icon: 'ph-calendar-check' },
-            { key: 'supply', label: 'Cutting Orders & RMW', icon: 'ph-truck' },
-            { key: 'reports', label: 'System Reports', icon: 'ph-file-text' }
+            { key: 'supervisor', label: 'Shift Matrix' },
+            { key: 'supply', label: 'Orders & RMW' },
+            { key: 'reports', label: 'Reports' }
         ];
     } else if (id.startsWith('DDC') || id.startsWith('CAD')) {
-        pill.innerText = 'Design & CAD Workspace';
         tabs = [
-            { key: 'design-cad', label: 'Styles & CAD Markers', icon: 'ph-compass-tool' },
-            { key: 'tracker', label: 'Pattern Catalog', icon: 'ph-package' }
+            { key: 'design-cad', label: 'Styles & CAD' },
+            { key: 'tracker', label: 'Pattern Room' }
         ];
     } else if (id.startsWith('PR-')) {
-        pill.innerText = 'Pattern Room Library';
         tabs = [
-            { key: 'design-cad', label: 'Register Blocks & 3D Molds', icon: 'ph-qr-code' },
-            { key: 'tracker', label: 'Digital Pattern Room', icon: 'ph-package' },
-            { key: 'reports', label: 'Inventory Reports', icon: 'ph-file-text' }
+            { key: 'design-cad', label: 'Register Items' },
+            { key: 'tracker', label: 'Pattern Room' },
+            { key: 'reports', label: 'Reports' }
         ];
     } else if (id.startsWith('SDC') || id.startsWith('RMW')) {
-        pill.innerText = 'Supply & Requisition Hub';
         tabs = [
-            { key: 'supply', label: 'Orders & Material Dispatch', icon: 'ph-warehouse' },
-            { key: 'reports', label: 'Consumption Reports', icon: 'ph-file-text' }
+            { key: 'supply', label: 'Orders & Dispatch' },
+            { key: 'reports', label: 'Reports' }
         ];
     } else if (id.startsWith('CQC') || id.startsWith('QCI')) {
-        pill.innerText = 'Quality Control Center';
         tabs = [
-            { key: 'qc', label: 'Floor Defect Flagging', icon: 'ph-warning-octagon' },
-            { key: 'reports', label: 'QC Defect Reports', icon: 'ph-file-text' }
+            { key: 'qc', label: 'Quality Control' },
+            { key: 'reports', label: 'Reports' }
         ];
     } else {
-        pill.innerText = 'Digital Team Root Admin';
         tabs = [
-            { key: 'admin', label: 'Admin & Immutable Audit', icon: 'ph-terminal-window' },
-            { key: 'reports', label: 'Visual Database & Reports', icon: 'ph-database' }
+            { key: 'admin', label: 'Admin & Support' },
+            { key: 'reports', label: 'Reports & Database' }
         ];
     }
 
     nav.innerHTML = tabs.map(t => `
-        <button onclick="switchPortalView('${t.key}')" id="nav-btn-${t.key}" class="role-tab px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 flex items-center gap-1.5 transition-all">
-            <i class="ph-bold ${t.icon}"></i> <span>${t.label}</span>
+        <button type="button" onclick="switchPortalView('${t.key}')" id="nav-btn-${t.key}" class="role-tab px-3.5 py-1.5 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-all">
+            ${t.label}
         </button>
     `).join('');
 
     switchPortalView(tabs[0].key);
 }
 
+// ENTER DIGITAL PATTERN ROOM (NO PROFILE PICTURE IN HEADER)
 async function enterDigitalPatternRoom() {
     await syncFromSupabase();
     currentMode = 'terminal';
     currentLoggedInUser = null;
     document.getElementById('view-gateway').classList.add('hidden');
     document.getElementById('main-header').classList.remove('hidden');
+    // Hide user profile avatar/card completely inside Pattern Room
+    document.getElementById('header-profile-wrapper').classList.add('hidden');
     document.getElementById('comm-floating-Dock').classList.add('hidden');
     document.getElementById('role-workspace-tabs').innerHTML = '';
-    document.getElementById('workspace-title-pill').innerText = 'General Floor Terminal';
-    document.getElementById('header-user-name').innerText = 'Digital Pattern Room';
-    document.getElementById('header-user-role').innerText = 'Floor Checkout Terminal';
 
     hideAllMainViews();
     document.getElementById('view-tracker').classList.remove('hidden');
-    renderPatternGrid('ALL');
+    renderPatternGrid();
 }
 
 function hideAllMainViews() {
@@ -338,15 +424,15 @@ function hideAllMainViews() {
 async function switchPortalView(viewKey) {
     hideAllMainViews();
     document.querySelectorAll('.role-tab').forEach(b => {
-        b.className = 'role-tab px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 flex items-center gap-1.5 transition-all';
+        b.className = 'role-tab px-3.5 py-1.5 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-all';
     });
     const activeBtn = document.getElementById(`nav-btn-${viewKey}`);
     if (activeBtn) {
-        activeBtn.className = 'role-tab px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white flex items-center gap-1.5 shadow-sm transition-all';
+        activeBtn.className = 'role-tab px-3.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-900 text-white transition-all';
     }
 
     document.getElementById(`view-${viewKey}`).classList.remove('hidden');
-    if (viewKey === 'tracker') renderPatternGrid('ALL');
+    if (viewKey === 'tracker') renderPatternGrid();
     if (viewKey === 'dept-head') renderDeptHeadPortal();
     if (viewKey === 'supervisor') renderSupervisorPortal();
     if (viewKey === 'design-cad') renderDesignCadPortal();
@@ -358,35 +444,30 @@ async function switchPortalView(viewKey) {
 
 function triggerCredentialedLogout() {
     if (currentMode === 'terminal' && !vivaBypassUnlocked) {
-        const pin = prompt('Mid-Shift Terminal Sign-Out: Enter Pattern Coordinator ID (PR-C-PC-01):', 'PR-C-PC-01');
+        const pin = prompt('Enter Pattern Coordinator ID (PR-C-PC-01) to sign out terminal:', 'PR-C-PC-01');
         if (!pin) return;
     }
     returnToWelcomeScreen();
-    showToast('Signed out to Welcome Screen.');
 }
 
 function returnToWelcomeScreen() {
     currentMode = 'gateway';
     currentLoggedInUser = null;
     hideAllMainViews();
+    closeProfilePopover();
+    closeCommDrawer();
     document.getElementById('main-header').classList.add('hidden');
     document.getElementById('comm-floating-Dock').classList.add('hidden');
-    document.getElementById('comm-drawer-window').classList.add('hidden');
     document.getElementById('view-gateway').classList.remove('hidden');
 }
 
 // ============================================================================
-// 5. E-COMMERCE VISUAL PATTERN ROOM & 2-STEP QR CHECKOUT
+// 6. GOOGLE-STYLE PATTERN ROOM (ACTIVE TOP, NON-ACTIVE BELOW)
 // ============================================================================
-function filterPatternGrid(statusFilter) {
-    currentGridFilter = statusFilter;
-    renderPatternGrid(statusFilter);
-}
-
 function handlePatternSearch() {
     const q = document.getElementById('searchInput').value.trim().toLowerCase();
     document.getElementById('clearBtn').classList.toggle('hidden', q.length === 0);
-    renderPatternGrid(currentGridFilter, q);
+    renderPatternGrid(q);
 }
 
 function clearSearch() {
@@ -394,9 +475,44 @@ function clearSearch() {
     handlePatternSearch();
 }
 
-function renderPatternGrid(statusFilter = 'ALL', query = '') {
+function renderPatternCardHtml(p) {
+    const badgeStyle = (st) => {
+        if (st === 'Available in Room') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        if (st === 'Active on Line') return 'bg-blue-50 text-blue-700 border-blue-200';
+        if (st.includes('Locked')) return 'bg-amber-50 text-amber-700 border-amber-200';
+        return 'bg-rose-50 text-rose-700 border-rose-200';
+    };
+
+    return `
+        <div onclick="openScannerForAsset('${p.asset_id}')" class="product-card bg-white rounded-2xl border border-zinc-200 overflow-hidden cursor-pointer flex flex-col justify-between">
+            <div>
+                <div class="h-40 w-full bg-zinc-100 relative overflow-hidden border-b border-zinc-100">
+                    <img src="${p.image_url || 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=400&auto=format&fit=crop&q=80'}" class="w-full h-full object-cover" alt="${p.model_name}">
+                    <span class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white/95 text-zinc-800 border border-zinc-200">${p.tooling_type}</span>
+                    <span class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${badgeStyle(p.operational_status)}">${p.operational_status}</span>
+                </div>
+                <div class="p-4">
+                    <div class="flex justify-between items-center text-[11px] font-medium text-zinc-500 mb-0.5">
+                        <span>${p.brand_buyer}</span>
+                        <span>${p.style_code}</span>
+                    </div>
+                    <h3 class="font-bold text-sm text-zinc-900">${p.model_name}</h3>
+                    <div class="mt-2 flex items-center gap-2 text-xs text-zinc-600">
+                        <span class="px-2 py-0.5 rounded bg-zinc-100 font-mono font-semibold text-zinc-800">${p.asset_id}</span>
+                        <span class="px-2 py-0.5 rounded bg-zinc-100 font-medium">Size ${p.size_category}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="px-4 py-2.5 bg-zinc-50 border-t border-zinc-100 flex justify-between items-center text-xs text-zinc-600">
+                <span>${p.storage_location}</span>
+                <span class="font-semibold text-zinc-900">View</span>
+            </div>
+        </div>
+    `;
+}
+
+function renderPatternGrid(query = '') {
     let list = DB.pattern_assets;
-    if (statusFilter !== 'ALL') list = list.filter(p => p.operational_status === statusFilter);
     if (query) {
         list = list.filter(p =>
             p.asset_id.toLowerCase().includes(query) ||
@@ -407,39 +523,16 @@ function renderPatternGrid(statusFilter = 'ALL', query = '') {
         );
     }
 
-    const badgeStyle = (st) => {
-        if (st === 'Available in Room') return 'bg-emerald-100 text-emerald-800 border-emerald-300';
-        if (st === 'Active on Line') return 'bg-blue-100 text-blue-800 border-blue-300';
-        if (st.includes('Locked')) return 'bg-amber-100 text-amber-800 border-amber-300';
-        return 'bg-rose-100 text-rose-800 border-rose-300';
-    };
+    const activeItems = list.filter(p => p.operational_status === 'Active on Line');
+    const inactiveItems = list.filter(p => p.operational_status !== 'Active on Line');
 
-    document.getElementById('tracker-grid').innerHTML = list.map(p => `
-        <div onclick="openScannerForAsset('${p.asset_id}')" class="product-card bg-white rounded-2xl border border-slate-200 overflow-hidden cursor-pointer flex flex-col justify-between">
-            <div>
-                <div class="h-44 w-full bg-slate-100 relative overflow-hidden border-b border-slate-100">
-                    <img src="${p.image_url || 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=400&auto=format&fit=crop&q=80'}" class="w-full h-full object-cover" alt="${p.model_name}">
-                    <span class="absolute top-3 left-3 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase bg-white/95 text-slate-800 shadow-sm">${p.tooling_type}</span>
-                    <span class="absolute top-3 right-3 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase border ${badgeStyle(p.operational_status)} shadow-sm">${p.operational_status}</span>
-                </div>
-                <div class="p-4">
-                    <div class="flex justify-between items-center text-[11px] font-semibold text-blue-600 mb-1">
-                        <span>${p.brand_buyer}</span>
-                        <span class="text-slate-400">Style ${p.style_code}</span>
-                    </div>
-                    <h3 class="font-bold text-base text-slate-900">${p.model_name}</h3>
-                    <div class="mt-2 flex items-center gap-2 text-xs text-slate-600">
-                        <span class="px-2 py-0.5 rounded bg-slate-100 font-mono font-semibold text-slate-800">${p.asset_id}</span>
-                        <span class="px-2 py-0.5 rounded bg-slate-100 font-semibold">Size: ${p.size_category}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-xs">
-                <span class="font-medium text-slate-600"><i class="ph-fill ph-map-pin text-blue-600"></i> ${p.storage_location}</span>
-                <span class="font-bold text-blue-600">Select &rarr;</span>
-            </div>
-        </div>
-    `).join('');
+    document.getElementById('count-active-patterns').innerText = `${activeItems.length} items`;
+    document.getElementById('count-inactive-patterns').innerText = `${inactiveItems.length} items`;
+
+    document.getElementById('tracker-grid-active').innerHTML = activeItems.map(renderPatternCardHtml).join('') ||
+        '<p class="text-xs text-zinc-400 col-span-full py-4">No matching active items.</p>';
+    document.getElementById('tracker-grid-inactive').innerHTML = inactiveItems.map(renderPatternCardHtml).join('') ||
+        '<p class="text-xs text-zinc-400 col-span-full py-4">No matching inventory items.</p>';
 }
 
 function openScannerForAsset(assetId) {
@@ -448,17 +541,15 @@ function openScannerForAsset(assetId) {
     document.getElementById('verify-modal').classList.remove('hidden');
     const area = document.getElementById('modal-dynamic-area');
 
-    // Read-Only if Department Head
     if (currentLoggedInUser && currentLoggedInUser.employee_id.startsWith('DH')) {
         area.innerHTML = `
             <div class="space-y-4">
-                <img src="${asset.image_url}" class="w-full h-48 object-cover rounded-xl border border-slate-200">
+                <img src="${asset.image_url}" class="w-full h-48 object-cover rounded-xl border border-zinc-200">
                 <div>
-                    <span class="text-xs font-bold text-blue-600 uppercase">${asset.brand_buyer} • ${asset.tooling_type}</span>
-                    <h4 class="text-xl font-bold text-slate-900">${asset.model_name} (${asset.asset_id})</h4>
-                    <p class="text-xs text-slate-500 mt-1">Storage: ${asset.storage_location} • Size: ${asset.size_category} • Status: <strong>${asset.operational_status}</strong></p>
+                    <span class="text-xs font-semibold text-zinc-500 uppercase">${asset.brand_buyer} / ${asset.tooling_type}</span>
+                    <h4 class="text-lg font-bold text-zinc-900">${asset.model_name} (${asset.asset_id})</h4>
+                    <p class="text-xs text-zinc-500 mt-1">Location: ${asset.storage_location} / Size: ${asset.size_category} / Status: <strong>${asset.operational_status}</strong></p>
                 </div>
-                <div class="p-3 rounded-xl bg-slate-100 text-xs text-slate-600">Department Head View is Read-Only. Physical checkouts are performed at the Pattern Room terminal.</div>
             </div>
         `;
         return;
@@ -468,8 +559,8 @@ function openScannerForAsset(assetId) {
         area.innerHTML = `
             <div class="text-center py-6 space-y-3">
                 <img src="${asset.image_url}" class="w-32 h-32 object-cover rounded-xl mx-auto border">
-                <h4 class="text-base font-bold text-rose-600 uppercase">Item Locked (${asset.operational_status})</h4>
-                <p class="text-xs text-slate-600">${asset.asset_id} (${asset.model_name}) is currently restricted from floor checkout.</p>
+                <h4 class="text-base font-bold text-rose-600 uppercase">Item Restricted (${asset.operational_status})</h4>
+                <p class="text-xs text-zinc-600">${asset.asset_id} (${asset.model_name}) cannot be checked out.</p>
             </div>
         `;
         return;
@@ -479,10 +570,10 @@ function openScannerForAsset(assetId) {
         area.innerHTML = `
             <div class="space-y-4 text-center">
                 <img src="${asset.image_url}" class="w-full h-44 object-cover rounded-xl border">
-                <h4 class="text-lg font-bold text-slate-900">${asset.asset_id} • ${asset.model_name}</h4>
-                <p class="text-xs text-slate-600">Currently Active on Line with Operator: <strong>${asset.borrowed_by_id || 'Floor Staff'}</strong></p>
-                <button onclick="executeAssetReturn('${asset.asset_id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider">
-                    Confirm QR Return to ${asset.storage_location}
+                <h4 class="text-lg font-bold text-zinc-900">${asset.asset_id} (${asset.model_name})</h4>
+                <p class="text-xs text-zinc-600">Checked out by: <strong>${asset.borrowed_by_id || 'Floor Staff'}</strong></p>
+                <button type="button" onclick="executeAssetReturn('${asset.asset_id}')" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-3 rounded-xl text-xs uppercase tracking-wider">
+                    Confirm Return to ${asset.storage_location}
                 </button>
             </div>
         `;
@@ -494,34 +585,34 @@ function openScannerForAsset(assetId) {
 
     area.innerHTML = `
         <div class="space-y-4">
-            <div class="flex gap-3 items-center p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="flex gap-3 items-center p-3 rounded-xl bg-zinc-50 border border-zinc-200">
                 <img src="${asset.image_url}" class="w-16 h-16 rounded-lg object-cover border">
                 <div>
-                    <p class="text-xs font-bold text-blue-600">${asset.brand_buyer} • ${asset.style_code}</p>
-                    <h4 class="text-base font-bold text-slate-900">${asset.model_name} (${asset.asset_id})</h4>
-                    <p class="text-xs text-slate-500">Size: ${asset.size_category} • Location: ${asset.storage_location}</p>
+                    <p class="text-xs font-medium text-zinc-500">${asset.brand_buyer} (${asset.style_code})</p>
+                    <h4 class="text-base font-bold text-zinc-900">${asset.model_name} (${asset.asset_id})</h4>
+                    <p class="text-xs text-zinc-500">Size ${asset.size_category} / ${asset.storage_location}</p>
                 </div>
             </div>
             <div>
-                <label class="text-xs font-semibold text-slate-600 block mb-1">1. Select Target Shift</label>
-                <select id="scan-shift-select" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold">
-                    <option value="Morning">Morning Shift [06:00 - 14:00]</option>
-                    <option value="Afternoon">Afternoon Shift [14:00 - 22:00]</option>
-                    <option value="Night">Night Shift [22:00 - 06:00]</option>
+                <label class="text-xs font-semibold text-zinc-600 block mb-1">Shift</label>
+                <select id="scan-shift-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold">
+                    <option value="Morning">Morning (06:00 to 14:00)</option>
+                    <option value="Afternoon">Afternoon (14:00 to 22:00)</option>
+                    <option value="Night">Night (22:00 to 06:00)</option>
                 </select>
             </div>
             <div>
-                <label class="text-xs font-semibold text-slate-600 block mb-1.5">2. Scan or Select Floor Operator Badge</label>
+                <label class="text-xs font-semibold text-zinc-600 block mb-1.5">Operator Badge</label>
                 <div class="space-y-1.5 max-h-56 overflow-y-auto custom-scroll pr-1">
                     ${floorOps.map(op => {
                         const isSched = DB.shift_assignments.some(s => s.borrower_id === op.employee_id && s.assigned_date === todayStr);
                         return `
-                            <button onclick="executeAssetBorrow('${asset.asset_id}', '${op.employee_id}')" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-400 text-xs flex justify-between items-center transition-colors">
+                            <button type="button" onclick="executeAssetBorrow('${asset.asset_id}', '${op.employee_id}')" class="w-full text-left p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-xs flex justify-between items-center transition-colors">
                                 <span class="flex items-center gap-2">
                                     <img src="${op.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}" class="w-7 h-7 rounded-full object-cover">
-                                    <span><strong class="text-slate-900">${op.full_name}</strong> <span class="text-slate-400">(${op.employee_id})</span></span>
+                                    <span><strong class="text-zinc-900">${op.full_name}</strong> <span class="text-zinc-400">(${op.employee_id})</span></span>
                                 </span>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${isSched ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${isSched ? 'Scheduled' : 'Unscheduled (15m Lock)'}</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isSched ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${isSched ? 'Scheduled' : '15m Lock'}</span>
                             </button>
                         `;
                     }).join('')}
@@ -555,9 +646,9 @@ async function executeAssetBorrow(assetId, operatorId) {
         await writeImmutableAudit('15M_MUTEX_LOCK', 'Pattern_Assets', assetId, { operator: operatorId, shift });
         await syncFromSupabase();
         closeVerifyModal();
-        renderPatternGrid(currentGridFilter);
+        handlePatternSearch();
         startMutexBarCountdown(assetId, operatorId, shift);
-        showToast(`Unscheduled worker: ${assetId} locked for 15 mins & sent to Supervisor queue.`, 'error');
+        showToast(`Unscheduled worker: ${assetId} locked for 15 mins.`, 'error');
         return;
     }
 
@@ -572,8 +663,8 @@ async function executeAssetBorrow(assetId, operatorId) {
     await writeImmutableAudit('BORROW_ASSET', 'Pattern_Assets', assetId, { operator: operatorId, shift });
     await syncFromSupabase();
     closeVerifyModal();
-    renderPatternGrid(currentGridFilter);
-    showToast(`Checkout complete: ${assetId} issued to ${operatorId}.`);
+    handlePatternSearch();
+    showToast(`Checked out ${assetId} to ${operatorId}.`);
 }
 
 async function executeAssetReturn(assetId) {
@@ -587,7 +678,7 @@ async function executeAssetReturn(assetId) {
     await writeImmutableAudit('RETURN_ASSET', 'Pattern_Assets', assetId, { status: 'Available in Room' });
     await syncFromSupabase();
     closeVerifyModal();
-    renderPatternGrid(currentGridFilter);
+    handlePatternSearch();
     showToast(`${assetId} returned to Pattern Room.`);
 }
 
@@ -599,7 +690,7 @@ function startMutexBarCountdown(assetId, operatorId, shift) {
 
     bar.classList.remove('hidden');
     btn.classList.add('hidden');
-    msg.innerText = `15-Min Mutex Lock on ${assetId} (${operatorId}) — Awaiting Supervisor Approval...`;
+    msg.innerText = `15-Min Lock on ${assetId} (${operatorId}) : Awaiting Supervisor Approval`;
 
     let secs = 900;
     if (mutexPollInterval) clearInterval(mutexPollInterval);
@@ -615,9 +706,9 @@ function startMutexBarCountdown(assetId, operatorId, shift) {
             if (req && req.request_status === 'Approved') {
                 clearInterval(mutexPollInterval);
                 timer.innerText = 'APPROVED';
-                msg.innerText = `Supervisor Approved ${assetId}! Click Complete Checkout:`;
+                msg.innerText = `Supervisor Approved ${assetId}`;
                 btn.classList.remove('hidden');
-                btn.onclick = () => { bar.classList.add('hidden'); renderPatternGrid(currentGridFilter); };
+                btn.onclick = () => { bar.classList.add('hidden'); handlePatternSearch(); };
             } else if (req && req.request_status === 'Declined') {
                 clearInterval(mutexPollInterval);
                 timer.innerText = 'DENIED';
@@ -628,11 +719,11 @@ function startMutexBarCountdown(assetId, operatorId, shift) {
 }
 
 function dismissMutexBar() {
-    document.getElementById('mutex-bar').classList.add('hidden');
+    closeModal('mutex-bar');
 }
 
 // ============================================================================
-// 6. DEPARTMENT HEAD READ-ONLY OVERSIGHT PORTAL
+// 7. DEPARTMENT HEAD READ-ONLY OVERSIGHT PORTAL
 // ============================================================================
 async function renderDeptHeadPortal() {
     await syncFromSupabase();
@@ -644,54 +735,51 @@ async function renderDeptHeadPortal() {
     const dhReqs = DB.department_communications.filter(c => c.receiver_id === 'DH-01' && c.comm_status === 'Pending Approval');
     document.getElementById('dh-kpi-approvals').innerText = dhReqs.length;
 
-    // Col 1: Approvals addressed to Dept Head
     document.getElementById('dh-approvals-list').innerHTML = dhReqs.map(c => `
-        <div class="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2 text-xs">
+        <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 space-y-2 text-xs">
             <div class="flex justify-between items-start">
-                <span class="px-2 py-0.5 rounded bg-amber-200/80 text-amber-900 font-bold text-[10px] uppercase">${c.protocol_category}</span>
-                <span class="font-mono text-[11px] text-slate-500">Ref: ${c.linked_reference_id}</span>
+                <span class="px-2 py-0.5 rounded bg-zinc-200 text-zinc-800 font-bold text-[10px] uppercase">${c.protocol_category}</span>
+                <span class="font-mono text-[11px] text-zinc-500">Ref: ${c.linked_reference_id}</span>
             </div>
-            <p class="font-bold text-slate-900">${c.subject_line}</p>
-            <p class="text-slate-600 leading-relaxed">${c.message_body}</p>
-            <p class="text-[11px] text-slate-500">From: <strong>${c.sender_name}</strong> (${c.sender_role})</p>
+            <p class="font-bold text-zinc-900">${c.subject_line}</p>
+            <p class="text-zinc-600">${c.message_body}</p>
+            <p class="text-[11px] text-zinc-500">From: <strong>${c.sender_name}</strong> (${c.sender_role})</p>
             <div class="grid grid-cols-2 gap-2 pt-1">
-                <button onclick="resolveCommItem(${c.comm_id}, 'Approved')" class="bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded-lg font-bold">Approve</button>
-                <button onclick="resolveCommItem(${c.comm_id}, 'Rejected')" class="bg-rose-600 hover:bg-rose-700 text-white py-1.5 rounded-lg font-bold">Reject</button>
+                <button type="button" onclick="resolveCommItem(${c.comm_id}, 'Approved')" class="bg-zinc-900 text-white py-1.5 rounded-lg font-semibold">Approve</button>
+                <button type="button" onclick="resolveCommItem(${c.comm_id}, 'Rejected')" class="bg-zinc-200 text-zinc-800 py-1.5 rounded-lg font-semibold">Reject</button>
             </div>
         </div>
-    `).join('') || '<p class="text-xs text-slate-400 py-6 text-center">No pending requests awaiting Department Head sign-off.</p>';
+    `).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No pending requests.</p>';
 
-    // Col 2: Active Production & Staff
     const activeAssets = DB.pattern_assets.filter(p => p.operational_status === 'Active on Line');
     document.getElementById('dh-active-processes').innerHTML = activeAssets.map(a => {
         const worker = DB.employees.find(e => e.employee_id === a.borrowed_by_id);
         return `
-            <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3 text-xs">
-                <img src="${a.image_url}" class="w-11 h-11 rounded-lg object-cover border">
+            <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-3 text-xs">
+                <img src="${a.image_url}" class="w-10 h-10 rounded-lg object-cover border">
                 <div class="flex-1">
-                    <p class="font-bold text-slate-900">${a.model_name} (${a.asset_id})</p>
-                    <p class="text-slate-500">Operator: <strong>${worker ? worker.full_name : (a.borrowed_by_id || 'Assigned')}</strong> • ${a.shift_checkout || 'Morning'} Shift</p>
+                    <p class="font-bold text-zinc-900">${a.model_name} (${a.asset_id})</p>
+                    <p class="text-zinc-500">${worker ? worker.full_name : (a.borrowed_by_id || 'Assigned')} / ${a.shift_checkout || 'Morning'}</p>
                 </div>
-                <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold text-[10px]">Active</span>
+                <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-semibold text-[10px]">Active</span>
             </div>
         `;
     }).join('');
 
-    // Col 3: QC Defect Oversight
     document.getElementById('dh-qc-oversight').innerHTML = DB.qc_inspection_logs.map(l => `
-        <div class="p-3 rounded-xl bg-rose-50/50 border border-rose-200 text-xs space-y-1">
-            <div class="flex justify-between font-bold text-slate-900">
-                <span>${l.qc_log_id} • Defect ${l.defect_code}</span>
-                <span class="text-rose-600">Asset ${l.asset_id}</span>
+        <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-1">
+            <div class="flex justify-between font-bold text-zinc-900">
+                <span>${l.qc_log_id} (${l.defect_code})</span>
+                <span class="text-rose-600">${l.asset_id}</span>
             </div>
-            <p class="text-slate-600">Line: ${l.production_line} • Ruined Plies: ${l.ruined_ply_count} • Resolver: ${l.resolver_id}</p>
-            <span class="inline-block px-2 py-0.5 rounded bg-white border border-rose-200 text-rose-700 text-[10px] font-semibold">${l.resolution_status}</span>
+            <p class="text-zinc-600">${l.production_line} / Plies: ${l.ruined_ply_count} / Resolver: ${l.resolver_id}</p>
+            <span class="inline-block px-2 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 text-[10px] font-semibold">${l.resolution_status}</span>
         </div>
     `).join('');
 }
 
 // ============================================================================
-// 7. SUPERVISOR COMMAND & 7-DAY SHIFT MATRIX
+// 8. SUPERVISOR COMMAND & 7-DAY SHIFT MATRIX
 // ============================================================================
 async function renderSupervisorPortal() {
     await syncFromSupabase();
@@ -701,30 +789,30 @@ async function renderSupervisorPortal() {
     document.getElementById('supervisor-queue-list').innerHTML = pending.map(r => {
         const emp = DB.employees.find(e => e.employee_id === r.borrower_id);
         return `
-            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs space-y-2">
+            <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-2">
                 <div class="flex justify-between">
-                    <strong class="text-slate-900">${emp ? emp.full_name : r.borrower_id}</strong>
-                    <span class="font-bold text-amber-800">${r.pattern_id} (${r.requested_shift})</span>
+                    <strong class="text-zinc-900">${emp ? emp.full_name : r.borrower_id}</strong>
+                    <span class="font-semibold text-zinc-700">${r.pattern_id} (${r.requested_shift})</span>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="resolveMutexTicket(${r.request_id}, 'Approve')" class="bg-emerald-600 text-white py-1.5 rounded-lg font-bold">Grant</button>
-                    <button onclick="resolveMutexTicket(${r.request_id}, 'Decline')" class="bg-slate-200 text-slate-700 py-1.5 rounded-lg font-bold">Deny</button>
+                    <button type="button" onclick="resolveMutexTicket(${r.request_id}, 'Approve')" class="bg-zinc-900 text-white py-1.5 rounded-lg font-semibold">Grant</button>
+                    <button type="button" onclick="resolveMutexTicket(${r.request_id}, 'Decline')" class="bg-zinc-200 text-zinc-700 py-1.5 rounded-lg font-semibold">Deny</button>
                 </div>
             </div>
         `;
-    }).join('') || '<p class="text-xs text-slate-400 text-center py-8">No pending 15-minute lock tickets.</p>';
+    }).join('') || '<p class="text-xs text-zinc-400 text-center py-8">No pending tickets.</p>';
 
     const active = DB.pattern_assets.filter(p => p.operational_status === 'Active on Line');
     document.getElementById('active-deploy-badge').innerText = active.length;
     document.getElementById('supervisor-active-list').innerHTML = active.map(p => {
         const emp = DB.employees.find(e => e.employee_id === p.borrowed_by_id);
         return `
-            <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs flex justify-between items-center">
+            <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs flex justify-between items-center">
                 <div>
-                    <p class="font-bold text-slate-900">${p.asset_id} • ${p.model_name}</p>
-                    <p class="text-[11px] text-slate-500">${emp ? emp.full_name : p.borrowed_by_id} (${p.shift_checkout || 'Morning'})</p>
+                    <p class="font-bold text-zinc-900">${p.asset_id} (${p.model_name})</p>
+                    <p class="text-[11px] text-zinc-500">${emp ? emp.full_name : p.borrowed_by_id} / ${p.shift_checkout || 'Morning'}</p>
                 </div>
-                <span class="px-2 py-1 rounded bg-emerald-100 text-emerald-800 font-mono font-bold text-[11px]">Active</span>
+                <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[10px]">Active</span>
             </div>
         `;
     }).join('');
@@ -733,11 +821,11 @@ async function renderSupervisorPortal() {
     document.getElementById('operator-pool').innerHTML = floorOps.map(op => {
         const locked = selectedOperatorForAssign === op.employee_id;
         return `
-            <div onclick="lockOperatorForCalendar('${op.employee_id}')" class="p-2 rounded-xl border ${locked ? 'border-blue-600 bg-blue-50' : 'border-slate-200 bg-slate-50'} cursor-pointer flex items-center gap-2 text-xs">
+            <div onclick="lockOperatorForCalendar('${op.employee_id}')" class="p-2 rounded-xl border ${locked ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-900'} cursor-pointer flex items-center gap-2 text-xs">
                 <img src="${op.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80'}" class="w-7 h-7 rounded-full object-cover shrink-0">
                 <div class="truncate">
-                    <p class="font-bold text-slate-900 truncate">${op.full_name}</p>
-                    <p class="text-[10px] text-slate-500">${op.work_location_zone}</p>
+                    <p class="font-bold truncate">${op.full_name}</p>
+                    <p class="text-[10px] opacity-70">${op.work_location_zone}</p>
                 </div>
             </div>
         `;
@@ -753,19 +841,19 @@ async function renderSupervisorPortal() {
         const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
         html += `
-            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex flex-col gap-2">
-                <div class="text-center font-bold text-xs text-slate-800 border-b border-slate-200 pb-1.5">${dayLabel}</div>
+            <div class="bg-zinc-50 p-2.5 rounded-xl border border-zinc-200 flex flex-col gap-2">
+                <div class="text-center font-bold text-xs text-zinc-800 border-b border-zinc-200 pb-1.5">${dayLabel}</div>
                 ${shifts.map(sh => {
                     const assigned = DB.shift_assignments.filter(a => a.assigned_date === dateStr && a.shift_type === sh);
                     return `
-                        <div onclick="tapDeployShift('${dateStr}', '${sh}')" class="min-h-[78px] p-2 rounded-lg bg-white border border-dashed border-slate-300 hover:border-blue-500 cursor-pointer flex flex-col gap-1">
-                            <span class="text-[10px] font-semibold text-slate-400 uppercase">${sh}</span>
+                        <div onclick="tapDeployShift('${dateStr}', '${sh}')" class="min-h-[78px] p-2 rounded-lg bg-white border border-dashed border-zinc-300 hover:border-zinc-900 cursor-pointer flex flex-col gap-1">
+                            <span class="text-[10px] font-semibold text-zinc-400 uppercase">${sh}</span>
                             ${assigned.map(a => {
                                 const w = DB.employees.find(e => e.employee_id === a.borrower_id);
                                 return `
-                                    <div class="px-2 py-1 rounded bg-blue-50 border border-blue-200 text-[11px] font-semibold text-blue-900 flex justify-between items-center">
+                                    <div class="px-2 py-1 rounded bg-zinc-100 border border-zinc-200 text-[11px] font-semibold text-zinc-800 flex justify-between items-center">
                                         <span class="truncate">${w ? w.full_name.split(' ')[0] : a.borrower_id}</span>
-                                        <button onclick="removeShiftSlot(${a.assignment_id}); event.stopPropagation();" class="text-slate-400 hover:text-rose-600 ml-1">&times;</button>
+                                        <button type="button" onclick="removeShiftSlot(${a.assignment_id}); event.stopPropagation();" class="text-zinc-400 hover:text-rose-600 ml-1">&times;</button>
                                     </div>
                                 `;
                             }).join('')}
@@ -797,7 +885,6 @@ async function tapDeployShift(dateStr, shiftType) {
     }]);
     await writeImmutableAudit('ASSIGN_SHIFT', 'Shift_Assignments', selectedOperatorForAssign, { date: dateStr, shift: shiftType });
     await renderSupervisorPortal();
-    showToast(`Assigned ${selectedOperatorForAssign} to ${shiftType} (${dateStr}).`);
 }
 
 async function removeShiftSlot(id) {
@@ -822,21 +909,21 @@ async function resolveMutexTicket(reqId, decision) {
             borrowed_by_id: req.borrower_id,
             shift_checkout: req.requested_shift
         }).eq('asset_id', req.pattern_id);
-        showToast(`Approved ${req.pattern_id} for ${req.borrower_id}.`);
+        showToast(`Approved ${req.pattern_id}.`);
     } else {
         await supa.from('pending_requests').update({ request_status: 'Declined' }).eq('request_id', reqId);
         await supa.from('pattern_assets').update({
             operational_status: 'Available in Room',
             borrowed_by_id: null
         }).eq('asset_id', req.pattern_id);
-        showToast(`Denied request for ${req.pattern_id}.`, 'error');
+        showToast(`Denied ${req.pattern_id}.`, 'error');
     }
     await writeImmutableAudit(`MUTEX_${decision.toUpperCase()}`, 'Pending_Requests', reqId, req);
     await renderSupervisorPortal();
 }
 
 // ============================================================================
-// 8. DESIGN, CAD & PATTERN ROOM HUB (WITH PHOTO UPLOADS)
+// 9. DESIGN, CAD & PATTERN ROOM HUB
 // ============================================================================
 async function renderDesignCadPortal() {
     await syncFromSupabase();
@@ -845,25 +932,25 @@ async function renderDesignCadPortal() {
     const fabrics = DB.rmw_materials.filter(m => m.material_category === 'Cutting Floor Fabric');
 
     document.getElementById('cad-brand-select').innerHTML = brands.map(b => `<option value="${b.setting_value}">${b.setting_value}</option>`).join('');
-    document.getElementById('cad-fabric-select').innerHTML = fabrics.map(f => `<option value="${f.material_code}">${f.material_code} • ${f.target_brand_usage}</option>`).join('');
-    document.getElementById('pat-style-select').innerHTML = DB.cad_markers.map(m => `<option value="${m.style_code}">${m.style_code} • ${m.model_name}</option>`).join('');
+    document.getElementById('cad-fabric-select').innerHTML = fabrics.map(f => `<option value="${f.material_code}">${f.material_code} (${f.target_brand_usage})</option>`).join('');
+    document.getElementById('pat-style-select').innerHTML = DB.cad_markers.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name})</option>`).join('');
     document.getElementById('pat-size-select').innerHTML = sizes.map(s => `<option value="${s.setting_value}">${s.setting_value}</option>`).join('');
 
     document.getElementById('cad-markers-mini-list').innerHTML = DB.cad_markers.map(m => `
-        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3 text-xs">
+        <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-3 text-xs">
             <img src="${m.sketch_url || 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=120'}" class="w-12 h-12 rounded-lg object-cover border">
             <div class="flex-1">
-                <p class="font-bold text-slate-900">${m.model_name} <span class="text-purple-600">(${m.style_code})</span></p>
-                <p class="text-[11px] text-slate-500">${m.brand_buyer} • Marker: ${m.cad_marker_id} • Fabric: ${m.cutting_floor_fabric_code}</p>
+                <p class="font-bold text-zinc-900">${m.model_name} (${m.style_code})</p>
+                <p class="text-[11px] text-zinc-500">${m.brand_buyer} / ${m.cad_marker_id} / ${m.cutting_floor_fabric_code}</p>
             </div>
         </div>
     `).join('');
 
     const dormant = DB.pattern_assets.filter(p => ['Pending Removal', 'Decommissioned'].includes(p.operational_status));
     document.getElementById('inactive-patterns-alert-box').innerHTML = dormant.map(p => `
-        <div class="p-2 rounded-lg bg-rose-50 border border-rose-200 flex justify-between items-center">
+        <div class="p-2 rounded-lg bg-zinc-50 border border-zinc-200 flex justify-between items-center">
             <span><strong>${p.asset_id}</strong> (${p.model_name})</span>
-            <span class="text-rose-700 font-bold text-[10px]">${p.operational_status}</span>
+            <span class="text-rose-600 font-bold text-[10px]">${p.operational_status}</span>
         </div>
     `).join('');
 }
@@ -897,7 +984,7 @@ async function createStyleAndMarker() {
     if (error) return showToast(error.message, 'error');
     await writeImmutableAudit('CREATE_STYLE_MARKER', 'CAD_Markers', mkId, newRow);
     await renderDesignCadPortal();
-    showToast(`Saved Style ${style} & Marker ${mkId} to Supabase.`);
+    showToast(`Saved Style ${style} (${mkId}).`);
 }
 
 async function designAddFabricDirect() {
@@ -919,7 +1006,7 @@ async function designAddFabricDirect() {
     if (error) return showToast(error.message, 'error');
     await writeImmutableAudit('ADD_FABRIC_DIRECT', 'RMW_Materials', code, newFab);
     await renderDesignCadPortal();
-    showToast(`Added cloth ${code} to RMW Catalog.`);
+    showToast(`Added ${code} to catalog.`);
 }
 
 async function registerNewPatternAsset() {
@@ -959,34 +1046,34 @@ async function registerNewPatternAsset() {
     document.getElementById('pattern-qr-label-text').innerText = id;
     new QRCode(canvas, { text: id, width: 76, height: 76 });
     await renderDesignCadPortal();
-    showToast(`Registered ${id} with photo in Supabase!`);
+    showToast(`Registered ${id}.`);
 }
 
 // ============================================================================
-// 9. SEWING ORDERS & RMW WAREHOUSE DISPATCH
+// 10. SEWING ORDERS & RMW WAREHOUSE DISPATCH
 // ============================================================================
 async function renderSupplyPortal() {
     await syncFromSupabase();
-    document.getElementById('sew-style-select').innerHTML = DB.cad_markers.map(m => `<option value="${m.style_code}">${m.style_code} • ${m.model_name}</option>`).join('');
+    document.getElementById('sew-style-select').innerHTML = DB.cad_markers.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name})</option>`).join('');
 
     document.getElementById('sewing-orders-list').innerHTML = DB.cutting_orders.map(o => `
-        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex justify-between items-center text-xs">
+        <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex justify-between items-center text-xs">
             <div>
-                <p class="font-bold text-slate-900">${o.order_id} • Style ${o.style_code} (Size ${o.target_size})</p>
-                <p class="text-slate-500 mt-0.5">Bundle Qty: ${o.target_bundle_qty} • Line: ${o.assigned_line}</p>
+                <p class="font-bold text-zinc-900">${o.order_id} / Style ${o.style_code} (Size ${o.target_size})</p>
+                <p class="text-zinc-500 mt-0.5">Qty: ${o.target_bundle_qty} / ${o.assigned_line}</p>
             </div>
-            <span class="px-2.5 py-1 rounded-full font-bold text-[10px] ${o.priority_level === 'Urgent' ? 'bg-rose-100 text-rose-800' : 'bg-blue-100 text-blue-800'}">${o.priority_level} • ${o.order_status}</span>
+            <span class="px-2.5 py-1 rounded font-bold text-[10px] ${o.priority_level === 'Urgent' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-zinc-200 text-zinc-800'}">${o.priority_level} / ${o.order_status}</span>
         </div>
     `).join('');
 
     document.getElementById('rmw-materials-list').innerHTML = DB.rmw_materials.map(m => `
-        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex justify-between items-center gap-3 text-xs">
+        <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex justify-between items-center gap-3 text-xs">
             <div>
-                <p class="font-bold text-slate-900">${m.material_code} • <span class="text-cyan-700">${m.material_category}</span></p>
-                <p class="text-slate-600">${m.material_name_specs}</p>
-                <p class="text-[11px] text-slate-400">Bay: ${m.rmw_storage_bay} • Status: <strong class="text-emerald-700">${m.lot_status}</strong></p>
+                <p class="font-bold text-zinc-900">${m.material_code} (${m.material_category})</p>
+                <p class="text-zinc-600">${m.material_name_specs}</p>
+                <p class="text-[11px] text-zinc-400">Bay: ${m.rmw_storage_bay} / Status: <strong class="text-zinc-800">${m.lot_status}</strong></p>
             </div>
-            <button onclick="dispatchRmwMaterial('${m.material_code}')" class="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1.5 rounded-lg font-bold text-[11px] shrink-0">
+            <button type="button" onclick="dispatchRmwMaterial('${m.material_code}')" class="bg-zinc-900 hover:bg-zinc-800 text-white px-3 py-1.5 rounded-lg font-semibold text-[11px] shrink-0">
                 Dispatch
             </button>
         </div>
@@ -1024,27 +1111,27 @@ async function dispatchRmwMaterial(matCode) {
     await supa.from('rmw_materials').update({ lot_status: newStatus }).eq('material_code', matCode);
     await writeImmutableAudit('DISPATCH_MATERIAL', 'RMW_Materials', matCode, { status: newStatus });
     await renderSupplyPortal();
-    showToast(`Dispatched ${matCode} (${newStatus}).`);
+    showToast(`Dispatched ${matCode}.`);
 }
 
 // ============================================================================
-// 10. FLOOR QUALITY CONTROL (QC) DEFECT FLAGGING
+// 11. FLOOR QUALITY CONTROL (QC)
 // ============================================================================
 async function renderQcPortal() {
     await syncFromSupabase();
-    document.getElementById('qc-asset-select').innerHTML = DB.pattern_assets.map(p => `<option value="${p.asset_id}">${p.asset_id} • ${p.model_name} (${p.operational_status})</option>`).join('');
-    document.getElementById('qc-defect-select').innerHTML = DB.qc_defect_codes.map(d => `<option value="${d.defect_code}">${d.defect_code} • ${d.defect_name_symptom}</option>`).join('');
+    document.getElementById('qc-asset-select').innerHTML = DB.pattern_assets.map(p => `<option value="${p.asset_id}">${p.asset_id} (${p.model_name})</option>`).join('');
+    document.getElementById('qc-defect-select').innerHTML = DB.qc_defect_codes.map(d => `<option value="${d.defect_code}">${d.defect_code} (${d.defect_name_symptom})</option>`).join('');
     previewDefectAction();
 
     document.getElementById('qc-logs-list').innerHTML = DB.qc_inspection_logs.map(l => `
-        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex justify-between items-center gap-3 text-xs">
+        <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex justify-between items-center gap-3 text-xs">
             <div>
-                <p class="font-bold text-slate-900">${l.qc_log_id} • Defect <span class="text-rose-600">${l.defect_code}</span> on Asset <span class="text-blue-600">${l.asset_id}</span> (${l.production_line})</p>
-                <p class="text-slate-500 mt-0.5">Inspector: ${l.inspector_id} &rarr; Resolver: <strong>${l.resolver_id}</strong> • Ruined Plies: ${l.ruined_ply_count}</p>
+                <p class="font-bold text-zinc-900">${l.qc_log_id} / ${l.defect_code} on ${l.asset_id} (${l.production_line})</p>
+                <p class="text-zinc-500 mt-0.5">Inspector: ${l.inspector_id} / Resolver: <strong>${l.resolver_id}</strong> / Plies: ${l.ruined_ply_count}</p>
             </div>
             <div class="flex items-center gap-2">
-                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${l.resolution_status === 'Resolved' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${l.resolution_status}</span>
-                ${l.resolution_status !== 'Resolved' ? `<button onclick="resolveQcLog('${l.qc_log_id}', '${l.asset_id}')" class="bg-emerald-600 text-white px-3 py-1 rounded-lg font-bold text-[11px]">Mark Fixed</button>` : ''}
+                <span class="px-2.5 py-1 rounded text-[10px] font-bold ${l.resolution_status === 'Resolved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}">${l.resolution_status}</span>
+                ${l.resolution_status !== 'Resolved' ? `<button type="button" onclick="resolveQcLog('${l.qc_log_id}', '${l.asset_id}')" class="bg-zinc-900 text-white px-3 py-1 rounded-lg font-semibold text-[11px]">Mark Fixed</button>` : ''}
             </div>
         </div>
     `).join('');
@@ -1056,8 +1143,8 @@ function previewDefectAction() {
     if (!def) return;
     document.getElementById('qc-action-preview').innerHTML = `
         <p><strong>Category:</strong> ${def.fault_category} (${def.severity_level})</p>
-        <p><strong>Target Asset Status:</strong> ${def.target_asset_status} • <strong>Resolver:</strong> ${def.assigned_resolver_role_id}</p>
-        <p class="font-semibold"><strong>Action:</strong> ${def.mandatory_system_action}</p>
+        <p><strong>Status:</strong> ${def.target_asset_status} / <strong>Resolver:</strong> ${def.assigned_resolver_role_id}</p>
+        <p><strong>Action:</strong> ${def.mandatory_system_action}</p>
     `;
 }
 
@@ -1081,7 +1168,7 @@ async function submitQcDefectFlag() {
         resolver_id: def.assigned_resolver_role_id,
         production_line: line,
         ruined_ply_count: plies,
-        resolution_status: `Open - ${def.target_asset_status}`
+        resolution_status: `Open (${def.target_asset_status})`
     };
 
     await supa.from('qc_inspection_logs').insert([newLog]);
@@ -1095,52 +1182,72 @@ async function resolveQcLog(logId, assetId) {
     await supa.from('pattern_assets').update({ operational_status: 'Available in Room' }).eq('asset_id', assetId);
     await writeImmutableAudit('QC_RESOLVED', 'QC_Inspection_Logs', logId, { asset_id: assetId, status: 'Resolved' });
     await renderQcPortal();
-    showToast(`Resolved ${logId} & restored ${assetId}.`);
+    showToast(`Resolved ${logId}.`);
 }
 
 // ============================================================================
-// 11. DIGITAL TEAM ROOT ADMIN, PROFILE PHOTOS & IMMUTABLE AUDIT LOG
+// 12. DIGITAL TEAM ADMIN, SUPPORT PHOTO APPROVALS & DUAL LOGOS
 // ============================================================================
 async function renderAdminPortal() {
     await syncFromSupabase();
     const uniqueRoles = [...new Set(DB.employees.map(e => e.role_designation))];
     document.getElementById('reg-emp-role').innerHTML = uniqueRoles.map(r => `<option value="${r}">${r}</option>`).join('');
 
+    // Render Pending Profile Photo Requests for Support Team
+    const avatarReqs = DB.department_communications.filter(
+        c => c.protocol_category === 'Avatar Request' && c.comm_status === 'Pending Approval'
+    );
+    document.getElementById('support-avatar-requests-list').innerHTML = avatarReqs.map(r => `
+        <div class="p-3 rounded-xl bg-white border border-zinc-200 flex items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-2.5">
+                <img src="${r.resolution_note}" class="w-10 h-10 rounded-full object-cover border border-zinc-300">
+                <div>
+                    <p class="font-bold text-zinc-900">${r.sender_name}</p>
+                    <p class="text-[10px] text-zinc-500">${r.sender_id} / ${r.sender_role}</p>
+                </div>
+            </div>
+            <div class="flex gap-1.5">
+                <button type="button" onclick="resolveAvatarRequest(${r.comm_id}, '${r.sender_id}', 'Approved')" class="bg-zinc-900 text-white px-2.5 py-1 rounded-lg font-semibold text-[11px]">Accept</button>
+                <button type="button" onclick="resolveAvatarRequest(${r.comm_id}, '${r.sender_id}', 'Rejected')" class="bg-zinc-100 text-zinc-700 px-2.5 py-1 rounded-lg font-semibold text-[11px]">Reject</button>
+            </div>
+        </div>
+    `).join('') || '<p class="text-xs text-zinc-400 py-3">No pending profile photo requests.</p>';
+
     document.getElementById('admin-emp-tbody').innerHTML = DB.employees.map(e => `
-        <tr class="hover:bg-slate-50">
+        <tr class="hover:bg-zinc-50">
             <td class="p-2.5 flex items-center gap-2.5">
                 <img src="${e.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80'}" class="w-7 h-7 rounded-full object-cover border">
                 <div>
-                    <p class="font-bold text-slate-900">${e.full_name}</p>
-                    <p class="text-[10px] text-slate-500">${e.role_designation}</p>
+                    <p class="font-bold text-zinc-900">${e.full_name}</p>
+                    <p class="text-[10px] text-zinc-500">${e.role_designation}</p>
                 </div>
             </td>
-            <td class="p-2.5 font-mono text-slate-600">${e.employee_id}</td>
+            <td class="p-2.5 font-mono text-zinc-600">${e.employee_id}</td>
             <td class="p-2.5">${e.department}</td>
             <td class="p-2.5">${e.work_location_zone}</td>
             <td class="p-2.5 text-right">
-                <button onclick="removeEmployeeWithImmutableLog('${e.employee_id}')" class="text-rose-600 hover:underline text-[11px] font-semibold">Remove</button>
+                <button type="button" onclick="removeEmployeeWithImmutableLog('${e.employee_id}')" class="text-zinc-500 hover:text-rose-600 text-[11px] font-semibold">Remove</button>
             </td>
         </tr>
     `).join('');
 
     const params = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER');
     document.getElementById('system-settings-list').innerHTML = params.map(p => `
-        <li class="p-2.5 rounded-xl bg-white border border-slate-200 flex justify-between items-center">
-            <span><strong class="text-blue-600">${p.category}:</strong> ${p.setting_value} ${p.prefix_data ? `(${p.prefix_data})` : ''}</span>
-            <button onclick="deleteSystemParam(${p.record_id})" class="text-slate-400 hover:text-rose-600"><i class="ph-bold ph-trash"></i></button>
+        <li class="p-2.5 rounded-xl bg-white border border-zinc-200 flex justify-between items-center">
+            <span><strong>${p.category}:</strong> ${p.setting_value} ${p.prefix_data ? `(${p.prefix_data})` : ''}</span>
+            <button type="button" onclick="deleteSystemParam(${p.record_id})" class="text-zinc-400 hover:text-rose-600"><i class="ph-bold ph-trash"></i></button>
         </li>
     `).join('');
 
-    document.getElementById('audit-count-pill').innerText = `${DB.immutable_audit_logs.length} Immutable Rows`;
+    document.getElementById('audit-count-pill').innerText = `${DB.immutable_audit_logs.length} Rows`;
     document.getElementById('immutable-audit-tbody').innerHTML = DB.immutable_audit_logs.map(a => `
-        <tr class="hover:bg-slate-50">
-            <td class="p-2.5 font-bold text-slate-900">#${a.audit_id}</td>
-            <td class="p-2.5 text-slate-500">${new Date(a.created_at).toLocaleString()}</td>
-            <td class="p-2.5"><strong>${a.actor_name}</strong> <span class="text-slate-400">(${a.actor_role})</span></td>
-            <td class="p-2.5"><span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">${a.action_verb}</span></td>
+        <tr class="hover:bg-zinc-50">
+            <td class="p-2.5 font-bold text-zinc-900">#${a.audit_id}</td>
+            <td class="p-2.5 text-zinc-500">${new Date(a.created_at).toLocaleString()}</td>
+            <td class="p-2.5"><strong>${a.actor_name}</strong> (${a.actor_role})</td>
+            <td class="p-2.5"><span class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 font-bold">${a.action_verb}</span></td>
             <td class="p-2.5">${a.target_entity} (${a.target_id})</td>
-            <td class="p-2.5 text-slate-500 truncate max-w-xs">${a.immutable_snapshot}</td>
+            <td class="p-2.5 text-zinc-500 truncate max-w-xs">${a.immutable_snapshot}</td>
         </tr>
     `).join('');
 }
@@ -1148,10 +1255,10 @@ async function renderAdminPortal() {
 function switchAdminSubTab(tab) {
     ['emp', 'params', 'records'].forEach(t => {
         document.getElementById(`admin-panel-${t}`).classList.add('hidden');
-        document.getElementById(`adm-sub-${t}`).className = 'px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200';
+        document.getElementById(`adm-sub-${t}`).className = 'px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200';
     });
     document.getElementById(`admin-panel-${tab}`).classList.remove('hidden');
-    document.getElementById(`adm-sub-${tab}`).className = 'px-4 py-2 rounded-xl bg-blue-600 text-white';
+    document.getElementById(`adm-sub-${tab}`).className = 'px-4 py-2 rounded-xl bg-zinc-900 text-white';
 }
 
 async function registerNewEmployee() {
@@ -1163,7 +1270,7 @@ async function registerNewEmployee() {
     const photoInput = document.getElementById('reg-emp-photo');
 
     if (!id || !name) return showToast('Enter Employee ID and Full Name.', 'error');
-    const avatarData = await readAndCompressImage(photoInput, 200);
+    const avatarData = await readAndCompressImage(photoInput, 220);
 
     const newEmp = {
         employee_id: id,
@@ -1180,11 +1287,11 @@ async function registerNewEmployee() {
     await writeImmutableAudit('REGISTER_EMPLOYEE', 'Employees', id, { id, name, dept, role, zone });
 
     const box = document.getElementById('emp-qr-preview-box');
-    box.innerHTML = `<div class="p-3 bg-white rounded-xl border-2 border-emerald-600 inline-block"><div id="emp-qr-canvas"></div><p class="text-xs font-bold mt-1">${name}</p></div>`;
-    new QRCode(document.getElementById('emp-qr-canvas'), { text: id, width: 84, height: 84, colorDark: '#065f46' });
+    box.innerHTML = `<div class="p-3 bg-white rounded-xl border border-zinc-300 inline-block"><div id="emp-qr-canvas"></div><p class="text-xs font-bold mt-1">${name}</p></div>`;
+    new QRCode(document.getElementById('emp-qr-canvas'), { text: id, width: 80, height: 80 });
 
     await renderAdminPortal();
-    showToast(`Registered ${name} in Supabase.`);
+    showToast(`Registered ${name}.`);
 }
 
 async function removeEmployeeWithImmutableLog(empId) {
@@ -1193,7 +1300,7 @@ async function removeEmployeeWithImmutableLog(empId) {
     await writeImmutableAudit('PURGE_EMPLOYEE_BACKUP', 'Employees', empId, target);
     await supa.from('employees').delete().eq('employee_id', empId);
     await renderAdminPortal();
-    showToast(`Removed ${empId}. Full backup snapshot preserved in Immutable Audit Log.`);
+    showToast(`Removed ${empId} and logged backup.`);
 }
 
 async function addSystemSetting() {
@@ -1214,7 +1321,7 @@ async function addSystemSetting() {
     await writeImmutableAudit('ADD_PARAMETER', 'System_Settings_Audit', val, row);
     document.getElementById('sys-val').value = '';
     await renderAdminPortal();
-    showToast(`Added ${cat}: ${val}`);
+    showToast(`Saved ${cat}: ${val}`);
 }
 
 async function deleteSystemParam(recId) {
@@ -1224,42 +1331,66 @@ async function deleteSystemParam(recId) {
     await renderAdminPortal();
 }
 
-async function uploadBrandLogo(inputEl, brandKey) {
-    const dataUrl = await readAndCompressImage(inputEl, 300);
+// UPLOAD MAS & BODYLINE LOGOS INTO UNLIMITED TEXT COLUMN IN SUPABASE
+async function uploadBrandLogo(inputEl, logoRefKey) {
+    const dataUrl = await readAndCompressImage(inputEl, 360);
     if (!dataUrl) return;
-    await supa.from('system_settings_audit').insert([{
-        record_type: 'LOGO_CONFIG',
-        category: brandKey,
-        setting_value: dataUrl,
-        prefix_data: 'LOGO',
-        requested_by_id: 'DT-C-CA-01',
-        request_status: 'Active'
+
+    await supa.from('department_communications').delete().eq('linked_reference_id', logoRefKey);
+    const { error } = await supa.from('department_communications').insert([{
+        sender_id: 'DT-C-CA-01',
+        sender_name: 'Ashan Mendis',
+        sender_role: 'CDMS Admins',
+        receiver_id: 'DT-C-CA-01',
+        receiver_name: 'System Header',
+        receiver_role: 'CDMS Admins',
+        protocol_category: 'System Logo',
+        linked_reference_id: logoRefKey,
+        subject_line: logoRefKey,
+        message_body: 'Brand Logo Asset',
+        comm_status: 'Active',
+        resolution_note: dataUrl
     }]);
+
+    if (error) return showToast(error.message, 'error');
     await syncFromSupabase();
-    showToast(`Updated ${brandKey} logo across headers & reports!`);
+    showToast('Logo updated across top bar and reports.');
 }
 
 function applyCustomLogosFromDB() {
-    const masLogo = DB.system_settings_audit.find(s => s.record_type === 'LOGO_CONFIG' && s.category === 'MAS');
-    const bodyLogo = DB.system_settings_audit.find(s => s.record_type === 'LOGO_CONFIG' && s.category === 'BODYLINE');
-    if (masLogo) {
-        const el = document.getElementById('gw-mas-logo');
-        if (el) { el.src = masLogo.setting_value; el.classList.remove('hidden'); }
+    const masRec = DB.department_communications.find(c => c.linked_reference_id === 'LOGO_MAS' && c.resolution_note);
+    const bodyRec = DB.department_communications.find(c => c.linked_reference_id === 'LOGO_BODYLINE' && c.resolution_note);
+
+    if (masRec) {
+        ['gw-mas-logo', 'hdr-mas-logo'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.src = masRec.resolution_note; el.classList.remove('hidden'); }
+        });
+        ['gw-mas-fallback', 'hdr-mas-fallback'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
     }
-    if (bodyLogo) {
-        const el = document.getElementById('gw-bodyline-logo');
-        if (el) { el.src = bodyLogo.setting_value; el.classList.remove('hidden'); }
+    if (bodyRec) {
+        ['gw-bodyline-logo', 'hdr-bodyline-logo'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.src = bodyRec.resolution_note; el.classList.remove('hidden'); }
+        });
+        ['gw-bodyline-fallback', 'hdr-bodyline-fallback'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
     }
 }
 
 // ============================================================================
-// 12. PROTOCOL COMMUNICATOR & APPROVAL ENGINE (WITH SUPABASE DRAFTS & ANTI-SPAM)
+// 13. PROTOCOL COMMUNICATOR & APPROVAL ENGINE
 // ============================================================================
 function updateCommUnreadBadge() {
     if (!currentLoggedInUser) return;
     const myId = currentLoggedInUser.employee_id;
     const pendingForMe = DB.department_communications.filter(
-        c => c.receiver_id === myId && c.comm_status === 'Pending Approval'
+        c => c.receiver_id === myId && c.comm_status === 'Pending Approval' && c.protocol_category !== 'System Logo'
     ).length;
     document.getElementById('comm-unread-badge').innerText = pendingForMe;
 }
@@ -1267,9 +1398,7 @@ function updateCommUnreadBadge() {
 function toggleCommDrawer() {
     const win = document.getElementById('comm-drawer-window');
     win.classList.toggle('hidden');
-    if (!win.classList.contains('hidden')) {
-        switchCommTab('inbox');
-    }
+    if (!win.classList.contains('hidden')) switchCommTab('inbox');
 }
 
 function openCommDrawer(tab = 'compose', preReceiver = null, preCategory = null) {
@@ -1277,17 +1406,14 @@ function openCommDrawer(tab = 'compose', preReceiver = null, preCategory = null)
     switchCommTab(tab, preReceiver, preCategory);
 }
 
-// HIERARCHY PROTOCOL RULE: WHO CAN MESSAGE WHOM (BLOCKS RANDOM SPAM TO DEPT HEAD)
 function getPermittedRecipientsForUser(user) {
     if (!user) return [];
     const id = user.employee_id.toUpperCase();
-    // Tier-2 Leaders allowed to contact Department Head (DH-01) directly
     const canContactDeptHead = ['CSE-01', 'CQCE-01', 'PR-C-PC-01', 'CADC-C-01', 'CDTE-01', 'DT-C-CA-01'].includes(id);
 
     return DB.employees.filter(e => {
         if (e.employee_id === user.employee_id) return false;
         if (e.employee_id === 'DH-01' && !canContactDeptHead) return false;
-        // Show Department Head, Executives, Coordinators, Supervisors, and Admins
         return !e.employee_id.startsWith('CW-');
     });
 }
@@ -1297,107 +1423,110 @@ function switchCommTab(tab, preReceiver = null, preCategory = null) {
     ['inbox', 'compose', 'drafts', 'history'].forEach(t => {
         const btn = document.getElementById(`comm-tab-${t}`);
         btn.className = t === tab
-            ? 'py-2.5 border-b-2 border-blue-600 text-blue-600 bg-white'
-            : 'py-2.5 border-b-2 border-transparent hover:text-slate-900';
+            ? 'py-2.5 border-b-2 border-zinc-900 text-zinc-900 bg-white'
+            : 'py-2.5 border-b-2 border-transparent hover:text-zinc-900';
     });
 
     const body = document.getElementById('comm-body-content');
     const myId = currentLoggedInUser ? currentLoggedInUser.employee_id : 'DH-01';
 
     if (tab === 'inbox') {
-        const inbox = DB.department_communications.filter(c => c.receiver_id === myId && c.comm_status !== 'Draft');
+        const inbox = DB.department_communications.filter(
+            c => c.receiver_id === myId && c.comm_status !== 'Draft' && c.protocol_category !== 'System Logo'
+        );
         body.innerHTML = inbox.map(c => `
-            <div class="p-3.5 rounded-xl bg-white border border-slate-200 shadow-sm mb-2.5 space-y-2">
+            <div class="p-3.5 rounded-xl bg-white border border-zinc-200 mb-2.5 space-y-2">
                 <div class="flex justify-between items-center">
-                    <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold text-[10px] uppercase">${c.protocol_category}</span>
-                    <span class="font-mono text-[10px] text-slate-400">Ref: ${c.linked_reference_id}</span>
+                    <span class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 font-bold text-[10px] uppercase">${c.protocol_category}</span>
+                    <span class="font-mono text-[10px] text-zinc-400">Ref: ${c.linked_reference_id}</span>
                 </div>
-                <p class="font-bold text-slate-900">${c.subject_line}</p>
-                <p class="text-slate-600">${c.message_body}</p>
-                <p class="text-[10px] text-slate-400">From: <strong>${c.sender_name}</strong> (${c.sender_role})</p>
+                <p class="font-bold text-zinc-900">${c.subject_line}</p>
+                <p class="text-zinc-600">${c.message_body}</p>
+                <p class="text-[10px] text-zinc-400">From: <strong>${c.sender_name}</strong> (${c.sender_role})</p>
                 ${c.comm_status === 'Pending Approval' ? `
                     <div class="grid grid-cols-2 gap-2 pt-1">
-                        <button onclick="resolveCommItem(${c.comm_id}, 'Approved')" class="bg-emerald-600 text-white py-1.5 rounded-lg font-bold">Approve</button>
-                        <button onclick="resolveCommItem(${c.comm_id}, 'Rejected')" class="bg-rose-600 text-white py-1.5 rounded-lg font-bold">Reject</button>
+                        <button type="button" onclick="resolveCommItem(${c.comm_id}, 'Approved')" class="bg-zinc-900 text-white py-1.5 rounded-lg font-semibold">Approve</button>
+                        <button type="button" onclick="resolveCommItem(${c.comm_id}, 'Rejected')" class="bg-zinc-200 text-zinc-800 py-1.5 rounded-lg font-semibold">Reject</button>
                     </div>
-                ` : `<span class="inline-block px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[10px]">Status: ${c.comm_status}</span>`}
+                ` : `<span class="inline-block px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 font-bold text-[10px]">${c.comm_status}</span>`}
             </div>
-        `).join('') || '<p class="text-center text-slate-400 py-10">No incoming protocol requests in your inbox.</p>';
+        `).join('') || '<p class="text-center text-zinc-400 py-10">Inbox is empty.</p>';
     } else if (tab === 'compose') {
         const recipients = getPermittedRecipientsForUser(currentLoggedInUser);
         const refOptions = [
             ...DB.pattern_assets.map(p => `${p.asset_id} (${p.model_name})`),
-            ...DB.cutting_orders.map(o => `${o.order_id} (Style ${o.style_code})`),
+            ...DB.cutting_orders.map(o => `${o.order_id} (${o.style_code})`),
             ...DB.cad_markers.map(m => `${m.style_code} (${m.brand_buyer})`),
-            'Brand Parameter: Add New Brand',
-            'Brand Parameter: Put Brand on Hold'
+            'Brand Parameter Request'
         ];
 
         body.innerHTML = `
-            <div class="space-y-3 bg-white p-3.5 rounded-xl border border-slate-200">
+            <div class="space-y-3 bg-white p-3.5 rounded-xl border border-zinc-200">
                 <div>
-                    <label class="text-[11px] font-bold text-slate-600 block mb-1">1. Target Recipient (Hierarchy Filtered)</label>
-                    <select id="comm-receiver" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg">
-                        ${recipients.map(r => `<option value="${r.employee_id}" ${preReceiver === r.employee_id ? 'selected' : ''}>${r.full_name} — ${r.role_designation}</option>`).join('')}
+                    <label class="text-[11px] font-bold text-zinc-600 block mb-1">Recipient</label>
+                    <select id="comm-receiver" class="w-full p-2 bg-zinc-50 border border-zinc-300 rounded-lg">
+                        ${recipients.map(r => `<option value="${r.employee_id}" ${preReceiver === r.employee_id ? 'selected' : ''}>${r.role_designation} (${r.full_name})</option>`).join('')}
                     </select>
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-600 block mb-1">2. Mandatory Protocol Reason</label>
-                    <select id="comm-category" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg">
-                        <option value="Executive Approval" ${preCategory === 'Executive Approval' ? 'selected' : ''}>Executive Approval Request</option>
-                        <option value="Parameter Request" ${preCategory === 'Parameter Request' ? 'selected' : ''}>System Parameter / Brand Change Request</option>
-                        <option value="QC Escalation">Quality Control Defect Escalation</option>
-                        <option value="Line Directive">Production Line & Shift Directive</option>
+                    <label class="text-[11px] font-bold text-zinc-600 block mb-1">Category</label>
+                    <select id="comm-category" class="w-full p-2 bg-zinc-50 border border-zinc-300 rounded-lg">
+                        <option value="Executive Approval" ${preCategory === 'Executive Approval' ? 'selected' : ''}>Executive Approval</option>
+                        <option value="Parameter Request" ${preCategory === 'Parameter Request' ? 'selected' : ''}>Parameter Request</option>
+                        <option value="QC Escalation">QC Escalation</option>
+                        <option value="Line Directive">Line Directive</option>
                     </select>
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-600 block mb-1">3. Linked System Reference ID (Anti-Spam Lock)</label>
-                    <select id="comm-ref-id" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg">
+                    <label class="text-[11px] font-bold text-zinc-600 block mb-1">Reference ID</label>
+                    <select id="comm-ref-id" class="w-full p-2 bg-zinc-50 border border-zinc-300 rounded-lg">
                         ${refOptions.map(ref => `<option value="${ref.split(' ')[0]}">${ref}</option>`).join('')}
                     </select>
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-600 block mb-1">4. Official Subject Line</label>
-                    <input id="comm-subject" type="text" placeholder="Short actionable title..." class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg">
+                    <label class="text-[11px] font-bold text-zinc-600 block mb-1">Subject</label>
+                    <input id="comm-subject" type="text" placeholder="Subject" class="w-full p-2 bg-zinc-50 border border-zinc-300 rounded-lg">
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-600 block mb-1">5. Request Details & Justification</label>
-                    <textarea id="comm-message" rows="3" placeholder="Provide operational context for approval..." class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg"></textarea>
+                    <label class="text-[11px] font-bold text-zinc-600 block mb-1">Details</label>
+                    <textarea id="comm-message" rows="3" placeholder="Details" class="w-full p-2 bg-zinc-50 border border-zinc-300 rounded-lg"></textarea>
                 </div>
                 <div class="grid grid-cols-2 gap-2 pt-1">
-                    <button onclick="saveOrSendComm('Draft')" class="bg-slate-200 hover:bg-slate-300 text-slate-800 py-2 rounded-lg font-bold">Save as Draft</button>
-                    <button onclick="saveOrSendComm('Pending Approval')" class="bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold">Transmit Request</button>
+                    <button type="button" onclick="saveOrSendComm('Draft')" class="bg-zinc-100 hover:bg-zinc-200 text-zinc-800 py-2 rounded-lg font-semibold">Save Draft</button>
+                    <button type="button" onclick="saveOrSendComm('Pending Approval')" class="bg-zinc-900 hover:bg-zinc-800 text-white py-2 rounded-lg font-semibold">Send</button>
                 </div>
             </div>
         `;
     } else if (tab === 'drafts') {
         const drafts = DB.department_communications.filter(c => c.sender_id === myId && c.comm_status === 'Draft');
         body.innerHTML = drafts.map(d => `
-            <div class="p-3.5 rounded-xl bg-white border border-slate-200 mb-2.5 space-y-2">
+            <div class="p-3.5 rounded-xl bg-white border border-zinc-200 mb-2.5 space-y-2">
                 <div class="flex justify-between">
-                    <span class="font-bold text-amber-700">[DRAFT] To: ${d.receiver_name}</span>
-                    <span class="font-mono text-[10px] text-slate-400">Ref: ${d.linked_reference_id}</span>
+                    <span class="font-bold text-zinc-700">To: ${d.receiver_name}</span>
+                    <span class="font-mono text-[10px] text-zinc-400">${d.linked_reference_id}</span>
                 </div>
-                <p class="font-bold text-slate-900">${d.subject_line}</p>
-                <p class="text-slate-600">${d.message_body}</p>
+                <p class="font-bold text-zinc-900">${d.subject_line}</p>
+                <p class="text-zinc-600">${d.message_body}</p>
                 <div class="grid grid-cols-2 gap-2 pt-1">
-                    <button onclick="transmitSavedDraft(${d.comm_id})" class="bg-blue-600 text-white py-1.5 rounded-lg font-bold">Transmit Now</button>
-                    <button onclick="deleteSavedDraft(${d.comm_id})" class="bg-slate-100 text-rose-600 py-1.5 rounded-lg font-bold">Delete Draft</button>
+                    <button type="button" onclick="transmitSavedDraft(${d.comm_id})" class="bg-zinc-900 text-white py-1.5 rounded-lg font-semibold">Send Now</button>
+                    <button type="button" onclick="deleteSavedDraft(${d.comm_id})" class="bg-zinc-100 text-rose-600 py-1.5 rounded-lg font-semibold">Delete</button>
                 </div>
             </div>
-        `).join('') || '<p class="text-center text-slate-400 py-10">No saved drafts in Supabase.</p>';
+        `).join('') || '<p class="text-center text-zinc-400 py-10">No saved drafts.</p>';
     } else {
-        const hist = DB.department_communications.filter(c => (c.sender_id === myId || c.receiver_id === myId) && c.comm_status !== 'Draft');
+        const hist = DB.department_communications.filter(
+            c => (c.sender_id === myId || c.receiver_id === myId) && c.comm_status !== 'Draft' && c.protocol_category !== 'System Logo'
+        );
         body.innerHTML = hist.map(c => `
-            <div class="p-3 rounded-xl bg-white border border-slate-200 mb-2 space-y-1">
-                <div class="flex justify-between text-[10px] text-slate-400">
-                    <span>${c.sender_name} &rarr; ${c.receiver_name}</span>
-                    <span class="font-bold ${c.comm_status === 'Approved' ? 'text-emerald-600' : c.comm_status === 'Rejected' ? 'text-rose-600' : 'text-amber-600'}">${c.comm_status}</span>
+            <div class="p-3 rounded-xl bg-white border border-zinc-200 mb-2 space-y-1">
+                <div class="flex justify-between text-[10px] text-zinc-400">
+                    <span>${c.sender_name} to ${c.receiver_name}</span>
+                    <span class="font-bold text-zinc-800">${c.comm_status}</span>
                 </div>
-                <p class="font-bold text-slate-900">${c.subject_line} (${c.linked_reference_id})</p>
-                <p class="text-slate-600">${c.message_body}</p>
+                <p class="font-bold text-zinc-900">${c.subject_line} (${c.linked_reference_id})</p>
+                <p class="text-zinc-600">${c.message_body}</p>
             </div>
-        `).join('') || '<p class="text-center text-slate-400 py-10">No transmission history yet.</p>';
+        `).join('') || '<p class="text-center text-zinc-400 py-10">No history.</p>';
     }
 }
 
@@ -1408,16 +1537,13 @@ async function saveOrSendComm(targetStatus) {
     const subj = document.getElementById('comm-subject').value.trim();
     const msg = document.getElementById('comm-message').value.trim();
 
-    if (!subj || !msg) return showToast('Enter both Subject Line and Request Details.', 'error');
+    if (!subj || !msg) return showToast('Enter Subject and Details.', 'error');
 
-    // Anti-Spam Protocol: Block duplicate pending requests for the same Reference ID & Recipient
     if (targetStatus === 'Pending Approval') {
         const duplicate = DB.department_communications.some(
             c => c.receiver_id === recId && c.linked_reference_id === refId && c.comm_status === 'Pending Approval'
         );
-        if (duplicate) {
-            return showToast(`Anti-Spam Protocol: An active request for ${refId} is already Pending with this recipient.`, 'error');
-        }
+        if (duplicate) return showToast(`An active request for ${refId} is already pending.`, 'error');
     }
 
     const recObj = DB.employees.find(e => e.employee_id === recId);
@@ -1436,18 +1562,17 @@ async function saveOrSendComm(targetStatus) {
     };
 
     await supa.from('department_communications').insert([payload]);
-    await writeImmutableAudit(targetStatus === 'Draft' ? 'SAVE_COMM_DRAFT' : 'TRANSMIT_COMM_REQ', 'Department_Communications', refId, payload);
+    await writeImmutableAudit(targetStatus === 'Draft' ? 'SAVE_DRAFT' : 'SEND_REQUEST', 'Department_Communications', refId, payload);
     await syncFromSupabase();
     switchCommTab(targetStatus === 'Draft' ? 'drafts' : 'history');
-    showToast(targetStatus === 'Draft' ? 'Draft saved to Supabase.' : `Official Request transmitted to ${recObj.full_name}.`);
+    showToast(targetStatus === 'Draft' ? 'Draft saved.' : `Sent to ${recObj.full_name}.`);
 }
 
 async function transmitSavedDraft(commId) {
     await supa.from('department_communications').update({ comm_status: 'Pending Approval' }).eq('comm_id', commId);
-    await writeImmutableAudit('TRANSMIT_DRAFT', 'Department_Communications', commId, { status: 'Pending Approval' });
     await syncFromSupabase();
     switchCommTab('history');
-    showToast('Draft transmitted for approval!');
+    showToast('Draft sent.');
 }
 
 async function deleteSavedDraft(commId) {
@@ -1462,17 +1587,17 @@ async function resolveCommItem(commId, decision) {
     await syncFromSupabase();
     if (!document.getElementById('view-dept-head').classList.contains('hidden')) renderDeptHeadPortal();
     switchCommTab('inbox');
-    showToast(`Request marked as ${decision}.`);
+    showToast(`Marked as ${decision}.`);
 }
 
 // ============================================================================
-// 13. SYSTEM-GENERATED FORMAL A4 REPORTS (NO SIGN-OFF LINES) & VISUAL DB
+// 14. SYSTEM-GENERATED FORMAL A4 REPORTS & VISUAL DATABASE
 // ============================================================================
 function switchReportMode(mode) {
     document.getElementById('reports-mgmt-container').classList.toggle('hidden', mode !== 'mgmt');
     document.getElementById('reports-vdb-container').classList.toggle('hidden', mode !== 'vdb');
-    document.getElementById('rep-mode-mgmt').className = mode === 'mgmt' ? 'px-4 py-2 rounded-xl bg-blue-600 text-white' : 'px-4 py-2 rounded-xl bg-slate-100 text-slate-700';
-    document.getElementById('rep-mode-vdb').className = mode === 'vdb' ? 'px-4 py-2 rounded-xl bg-blue-600 text-white' : 'px-4 py-2 rounded-xl bg-slate-100 text-slate-700';
+    document.getElementById('rep-mode-mgmt').className = mode === 'mgmt' ? 'px-4 py-2 rounded-xl bg-zinc-900 text-white' : 'px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700';
+    document.getElementById('rep-mode-vdb').className = mode === 'vdb' ? 'px-4 py-2 rounded-xl bg-zinc-900 text-white' : 'px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700';
     if (mode === 'vdb') renderVisualDatabaseExplorer('employees');
 }
 
@@ -1485,8 +1610,8 @@ function populateReportGroupFilter() {
     else if (repNo === 3) groups = ['Morning', 'Afternoon', 'Night'];
     else groups = ['CAD Tooling Material', 'Cutting Floor Fabric'];
 
-    sel.innerHTML = `<option value="ALL">Show All Groups (${groups.length})</option>` +
-        groups.map(g => `<option value="${g}">Filter: ${g}</option>`).join('');
+    sel.innerHTML = `<option value="ALL">All Groups (${groups.length})</option>` +
+        groups.map(g => `<option value="${g}">${g}</option>`).join('');
 }
 
 function renderGroupedReport() {
@@ -1496,59 +1621,44 @@ function renderGroupedReport() {
     const customNote = document.getElementById('rep-custom-note').value.trim();
     const canvas = document.getElementById('printable-report-canvas');
     const nowStr = new Date().toLocaleString();
-    const roleFor = currentLoggedInUser ? `${currentLoggedInUser.full_name} (${currentLoggedInUser.role_designation})` : 'Cutting Department Operations';
+    const roleFor = currentLoggedInUser ? `${currentLoggedInUser.full_name} (${currentLoggedInUser.role_designation})` : 'Cutting Department';
+
+    const masRec = DB.department_communications.find(c => c.linked_reference_id === 'LOGO_MAS' && c.resolution_note);
+    const bodyRec = DB.department_communications.find(c => c.linked_reference_id === 'LOGO_BODYLINE' && c.resolution_note);
+
+    const leftLogoHtml = masRec
+        ? `<img src="${masRec.resolution_note}" class="h-8 max-w-[140px] object-contain">`
+        : `<span class="font-black text-zinc-900 text-sm tracking-tight uppercase">MAS HOLDINGS</span>`;
+    const rightLogoHtml = bodyRec
+        ? `<img src="${bodyRec.resolution_note}" class="h-8 max-w-[140px] object-contain ml-auto">`
+        : `<span class="font-extrabold text-zinc-900 text-sm tracking-widest uppercase">BODYLINE</span>`;
 
     const defaultTitles = {
-        1: 'PATTERN BLOCKS & 3D MOLDS UTILIZATION TELEMETRY REPORT',
-        2: 'QUALITY CONTROL DEFECT & RE-CUT ROOT CAUSE ANALYSIS REPORT',
-        3: 'DAILY SHIFT SCHEDULE & LINE OPERATOR DEPLOYMENT REPORT',
-        4: 'RAW MATERIAL WAREHOUSE (RMW) SUBSTRATE & FABRIC DISPATCH REPORT'
+        1: 'PATTERN BLOCKS & 3D MOLDS INVENTORY REPORT',
+        2: 'QUALITY CONTROL DEFECT SUMMARY REPORT',
+        3: 'DAILY SHIFT DEPLOYMENT ROSTER REPORT',
+        4: 'RAW MATERIAL WAREHOUSE STATUS REPORT'
     };
 
     let bodyGroupsHtml = '';
-    let summaryStripHtml = '';
 
     if (repNo === 1) {
         let brands = [...new Set(DB.pattern_assets.map(p => p.brand_buyer))];
         if (filterVal !== 'ALL') brands = brands.filter(b => b === filterVal);
-        const total = DB.pattern_assets.length;
-        const active = DB.pattern_assets.filter(p => p.operational_status === 'Active on Line').length;
-        const avail = DB.pattern_assets.filter(p => p.operational_status === 'Available in Room').length;
-        const flagged = total - active - avail;
-
-        summaryStripHtml = `
-            <div class="grid grid-cols-4 gap-3 mb-6 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
-                <div><span class="text-slate-500 block">Total Tooling Assets</span><strong class="text-base text-slate-900">${total} Units</strong></div>
-                <div><span class="text-slate-500 block">Active on Cutting Lines</span><strong class="text-base text-blue-700">${active} Units (${Math.round(active/total*100)}%)</strong></div>
-                <div><span class="text-slate-500 block">Available in Room</span><strong class="text-base text-emerald-700">${avail} Units</strong></div>
-                <div><span class="text-slate-500 block">Flagged / Dormant</span><strong class="text-base text-rose-700">${flagged} Units</strong></div>
-            </div>
-        `;
-
         bodyGroupsHtml = brands.map(brand => {
             const items = DB.pattern_assets.filter(p => p.brand_buyer === brand);
             return `
-                <div class="mb-5 border border-slate-300 rounded-lg overflow-hidden">
-                    <div class="bg-slate-100 px-4 py-2 border-b border-slate-300 flex justify-between items-center text-xs font-bold text-slate-900">
-                        <span>BUYER BRAND GROUP: ${brand.toUpperCase()}</span>
-                        <span>Group Subtotal: ${items.length} Tooling Assets</span>
+                <div class="mb-5 border border-zinc-300 rounded-lg overflow-hidden">
+                    <div class="bg-zinc-100 px-4 py-2 border-b border-zinc-300 flex justify-between items-center text-xs font-bold text-zinc-900">
+                        <span>BRAND GROUP: ${brand.toUpperCase()}</span>
+                        <span>Subtotal: ${items.length}</span>
                     </div>
                     <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-50 text-[10px] uppercase text-slate-600 border-b border-slate-200">
-                            <tr><th class="p-2">Asset ID</th><th class="p-2">Type</th><th class="p-2">Model & Style</th><th class="p-2">Size</th><th class="p-2">Rack / Cabinet</th><th class="p-2">Last Used</th><th class="p-2">Current State</th></tr>
+                        <thead class="bg-zinc-50 text-[10px] uppercase text-zinc-500 border-b border-zinc-200">
+                            <tr><th class="p-2">Asset ID</th><th class="p-2">Type</th><th class="p-2">Model & Style</th><th class="p-2">Size</th><th class="p-2">Location</th><th class="p-2">Status</th></tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-200">
-                            ${items.map(i => `
-                                <tr>
-                                    <td class="p-2 font-mono font-bold">${i.asset_id}</td>
-                                    <td class="p-2">${i.tooling_type}</td>
-                                    <td class="p-2">${i.model_name} (${i.style_code})</td>
-                                    <td class="p-2">${i.size_category}</td>
-                                    <td class="p-2">${i.storage_location}</td>
-                                    <td class="p-2">${i.last_used_date}</td>
-                                    <td class="p-2 font-semibold">${i.operational_status}</td>
-                                </tr>
-                            `).join('')}
+                        <tbody class="divide-y divide-zinc-200">
+                            ${items.map(i => `<tr><td class="p-2 font-mono font-bold">${i.asset_id}</td><td class="p-2">${i.tooling_type}</td><td class="p-2">${i.model_name} (${i.style_code})</td><td class="p-2">${i.size_category}</td><td class="p-2">${i.storage_location}</td><td class="p-2 font-semibold">${i.operational_status}</td></tr>`).join('')}
                         </tbody>
                     </table>
                 </div>
@@ -1557,26 +1667,19 @@ function renderGroupedReport() {
     } else if (repNo === 2) {
         let cats = [...new Set(DB.qc_defect_codes.map(d => d.fault_category))];
         if (filterVal !== 'ALL') cats = cats.filter(c => c === filterVal);
-        summaryStripHtml = `
-            <div class="grid grid-cols-3 gap-3 mb-6 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
-                <div><span class="text-slate-500 block">Standard QC Protocols</span><strong class="text-base text-slate-900">${DB.qc_defect_codes.length} Codes</strong></div>
-                <div><span class="text-slate-500 block">Logged Floor Incidents</span><strong class="text-base text-rose-700">${DB.qc_inspection_logs.length} Incidents</strong></div>
-                <div><span class="text-slate-500 block">Total Ruined Plies</span><strong class="text-base text-slate-900">${DB.qc_inspection_logs.reduce((s, x) => s + (x.ruined_ply_count || 0), 0)} Plies</strong></div>
-            </div>
-        `;
         bodyGroupsHtml = cats.map(cat => {
             const codes = DB.qc_defect_codes.filter(d => d.fault_category === cat);
             return `
-                <div class="mb-5 border border-slate-300 rounded-lg overflow-hidden">
-                    <div class="bg-slate-100 px-4 py-2 border-b border-slate-300 flex justify-between text-xs font-bold">
-                        <span>FAULT CATEGORY GROUP: ${cat.toUpperCase()}</span>
-                        <span>Subtotal: ${codes.length} Protocols</span>
+                <div class="mb-5 border border-zinc-300 rounded-lg overflow-hidden">
+                    <div class="bg-zinc-100 px-4 py-2 border-b border-zinc-300 flex justify-between text-xs font-bold">
+                        <span>FAULT CATEGORY: ${cat.toUpperCase()}</span>
+                        <span>Subtotal: ${codes.length}</span>
                     </div>
                     <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-50 text-[10px] uppercase text-slate-600 border-b border-slate-200">
-                            <tr><th class="p-2">Code</th><th class="p-2">Symptom</th><th class="p-2">Severity</th><th class="p-2">Resolver</th><th class="p-2">Automated System Action</th></tr>
+                        <thead class="bg-zinc-50 text-[10px] uppercase text-zinc-500 border-b border-zinc-200">
+                            <tr><th class="p-2">Code</th><th class="p-2">Symptom</th><th class="p-2">Severity</th><th class="p-2">Resolver</th><th class="p-2">Action</th></tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-200">
+                        <tbody class="divide-y divide-zinc-200">
                             ${codes.map(c => `<tr><td class="p-2 font-mono font-bold">${c.defect_code}</td><td class="p-2">${c.defect_name_symptom}</td><td class="p-2">${c.severity_level}</td><td class="p-2">${c.assigned_resolver_role_id}</td><td class="p-2">${c.mandatory_system_action}</td></tr>`).join('')}
                         </tbody>
                     </table>
@@ -1589,17 +1692,17 @@ function renderGroupedReport() {
         bodyGroupsHtml = shifts.map(sh => {
             const rows = DB.shift_assignments.filter(a => a.shift_type === sh);
             return `
-                <div class="mb-5 border border-slate-300 rounded-lg overflow-hidden">
-                    <div class="bg-slate-100 px-4 py-2 border-b border-slate-300 flex justify-between text-xs font-bold">
-                        <span>SHIFT GROUP: ${sh.toUpperCase()} SHIFT</span>
-                        <span>Subtotal: ${rows.length} Operators Assigned</span>
+                <div class="mb-5 border border-zinc-300 rounded-lg overflow-hidden">
+                    <div class="bg-zinc-100 px-4 py-2 border-b border-zinc-300 flex justify-between text-xs font-bold">
+                        <span>SHIFT: ${sh.toUpperCase()}</span>
+                        <span>Subtotal: ${rows.length}</span>
                     </div>
                     <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-50 text-[10px] uppercase text-slate-600 border-b border-slate-200">
-                            <tr><th class="p-2">Ref ID</th><th class="p-2">Operator</th><th class="p-2">Supervisor</th><th class="p-2">Date</th><th class="p-2">Line</th></tr>
+                        <thead class="bg-zinc-50 text-[10px] uppercase text-zinc-500 border-b border-zinc-200">
+                            <tr><th class="p-2">ID</th><th class="p-2">Operator</th><th class="p-2">Supervisor</th><th class="p-2">Date</th><th class="p-2">Line</th></tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-200">
-                            ${rows.map(r => `<tr><td class="p-2 font-mono">#${r.assignment_id}</td><td class="p-2 font-bold">${r.borrower_id}</td><td class="p-2">${r.supervisor_id}</td><td class="p-2">${r.assigned_date}</td><td class="p-2">${r.production_line}</td></tr>`).join('') || '<tr><td colspan="5" class="p-3 text-slate-400">No assignments recorded.</td></tr>'}
+                        <tbody class="divide-y divide-zinc-200">
+                            ${rows.map(r => `<tr><td class="p-2 font-mono">#${r.assignment_id}</td><td class="p-2 font-bold">${r.borrower_id}</td><td class="p-2">${r.supervisor_id}</td><td class="p-2">${r.assigned_date}</td><td class="p-2">${r.production_line}</td></tr>`).join('') || '<tr><td colspan="5" class="p-3 text-zinc-400">None</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -1611,16 +1714,16 @@ function renderGroupedReport() {
         bodyGroupsHtml = cats.map(cat => {
             const items = DB.rmw_materials.filter(m => m.material_category === cat);
             return `
-                <div class="mb-5 border border-slate-300 rounded-lg overflow-hidden">
-                    <div class="bg-slate-100 px-4 py-2 border-b border-slate-300 flex justify-between text-xs font-bold">
-                        <span>MATERIAL GROUP: ${cat.toUpperCase()}</span>
-                        <span>Subtotal: ${items.length} Stock Lots</span>
+                <div class="mb-5 border border-zinc-300 rounded-lg overflow-hidden">
+                    <div class="bg-zinc-100 px-4 py-2 border-b border-zinc-300 flex justify-between text-xs font-bold">
+                        <span>CATEGORY: ${cat.toUpperCase()}</span>
+                        <span>Subtotal: ${items.length}</span>
                     </div>
                     <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-50 text-[10px] uppercase text-slate-600 border-b border-slate-200">
-                            <tr><th class="p-2">Code</th><th class="p-2">Material Specs</th><th class="p-2">Target Usage</th><th class="p-2">Bay</th><th class="p-2">Status</th></tr>
+                        <thead class="bg-zinc-50 text-[10px] uppercase text-zinc-500 border-b border-zinc-200">
+                            <tr><th class="p-2">Code</th><th class="p-2">Specs</th><th class="p-2">Target</th><th class="p-2">Bay</th><th class="p-2">Status</th></tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-200">
+                        <tbody class="divide-y divide-zinc-200">
                             ${items.map(m => `<tr><td class="p-2 font-mono font-bold">${m.material_code}</td><td class="p-2">${m.material_name_specs}</td><td class="p-2">${m.target_brand_usage}</td><td class="p-2">${m.rmw_storage_bay}</td><td class="p-2 font-semibold">${m.lot_status}</td></tr>`).join('')}
                         </tbody>
                     </table>
@@ -1629,41 +1732,33 @@ function renderGroupedReport() {
         }).join('');
     }
 
-    // RENDER FORMAL A4 LETTERHEAD WITH MAS (LEFT), CDMS+ (CENTER), BODYLINE (RIGHT) & NO SIGN-OFF LINES
     canvas.innerHTML = `
-        <div class="border-b-2 border-slate-900 pb-4 mb-5 flex justify-between items-center">
-            <div class="flex items-center gap-2">
-                <span class="bg-red-700 text-white font-black px-2.5 py-1 rounded text-xs">MAS</span>
-                <span class="text-xs font-bold text-slate-700 uppercase">MAS Intimates</span>
-            </div>
+        <div class="border-b-2 border-zinc-900 pb-4 mb-5 grid grid-cols-3 items-center">
+            <div>${leftLogoHtml}</div>
             <div class="text-center">
-                <p class="text-[10px] font-mono uppercase tracking-widest text-slate-500">CDMS+ Automated System Report • REP-0${repNo}</p>
-                <h2 class="text-lg font-black text-slate-900 uppercase">${customTitle || defaultTitles[repNo]}</h2>
-                <p class="text-[11px] text-slate-600">Bodyline (Pvt) Ltd • Gurugoda, Horana Plant 1</p>
+                <p class="text-[10px] font-mono uppercase tracking-widest text-zinc-500">CDMS+ Report REP-0${repNo}</p>
+                <h2 class="text-base font-black text-zinc-900 uppercase mt-0.5">${customTitle || defaultTitles[repNo]}</h2>
+                <p class="text-[11px] text-zinc-500">Bodyline (Pvt) Ltd, Horana Plant 1</p>
             </div>
-            <div class="text-right">
-                <span class="bg-slate-900 text-white font-extrabold px-2.5 py-1 rounded text-xs uppercase">BODYLINE</span>
-            </div>
+            <div class="text-right">${rightLogoHtml}</div>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5 text-[11px] bg-slate-100 p-3 rounded-lg border border-slate-200">
-            <div><span class="text-slate-500 block">System Timestamp:</span><strong>${nowStr}</strong></div>
-            <div><span class="text-slate-500 block">Generated For:</span><strong>${roleFor}</strong></div>
-            <div><span class="text-slate-500 block">Group Filter:</span><strong>${filterVal}</strong></div>
-            <div><span class="text-slate-500 block">Operational Note:</span><strong>${customNote || 'Live Database Snapshot'}</strong></div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5 text-[11px] bg-zinc-50 p-3 rounded-lg border border-zinc-200">
+            <div><span class="text-zinc-400 block">Generated At</span><strong>${nowStr}</strong></div>
+            <div><span class="text-zinc-400 block">Recipient</span><strong>${roleFor}</strong></div>
+            <div><span class="text-zinc-400 block">Filter</span><strong>${filterVal}</strong></div>
+            <div><span class="text-zinc-400 block">Note</span><strong>${customNote || 'System Telemetry'}</strong></div>
         </div>
 
-        ${summaryStripHtml}
         ${bodyGroupsHtml}
 
-        <div class="mt-6 pt-3 border-t border-slate-300 flex justify-between items-center text-[10px] font-mono text-slate-500">
-            <span>SYSTEM-GENERATED TELEMETRY REPORT • CDMS+ POSTGRESQL ENGINE</span>
-            <span>NO MANUAL SIGN-OFF REQUIRED • VERIFIED BY SYSTEM AUDIT</span>
+        <div class="mt-6 pt-3 border-t border-zinc-200 flex justify-between items-center text-[10px] font-mono text-zinc-400">
+            <span>CDMS+ AUTOMATED SYSTEM REPORT</span>
+            <span>GENERATED FROM POSTGRESQL DATABASE</span>
         </div>
     `;
 }
 
-// VISUAL DATABASE & FILE DESIGN EXPLORER
 const VDB_TABLES = [
     'employees', 'pattern_assets', 'cad_markers', 'rmw_materials', 'qc_defect_codes',
     'shift_assignments', 'pending_requests', 'cutting_orders', 'qc_inspection_logs',
@@ -1672,36 +1767,36 @@ const VDB_TABLES = [
 
 function renderVisualDatabaseExplorer(tableName) {
     document.getElementById('vdb-table-tabs').innerHTML = VDB_TABLES.map((t, idx) => `
-        <button onclick="renderVisualDatabaseExplorer('${t}')" class="px-3 py-1.5 rounded-lg ${t === tableName ? 'bg-blue-600 text-white font-bold' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}">
+        <button type="button" onclick="renderVisualDatabaseExplorer('${t}')" class="px-3 py-1.5 rounded-lg ${t === tableName ? 'bg-zinc-900 text-white font-bold' : 'bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-100'}">
             TBL-${(idx + 1).toString().padStart(2, '0')}: ${t} (${(DB[t] || []).length})
         </button>
     `).join('');
 
     const rows = DB[tableName] || [];
-    document.getElementById('vdb-table-title').innerText = `Live Supabase Table: ${tableName} (${rows.length} Rows)`;
+    document.getElementById('vdb-table-title').innerText = `Table: ${tableName} (${rows.length} Rows)`;
     if (rows.length === 0) {
-        document.getElementById('vdb-table-rows').innerHTML = '<p class="text-slate-400 py-6">No rows in table.</p>';
+        document.getElementById('vdb-table-rows').innerHTML = '<p class="text-zinc-400 py-6">No rows.</p>';
         return;
     }
     const cols = Object.keys(rows[0]);
     document.getElementById('vdb-schema-spec').innerHTML = `
         <table class="w-full text-left">
-            <thead class="bg-slate-100 text-[10px] uppercase text-slate-600 border-b border-slate-200">
-                <tr><th class="p-2">Field Name</th><th class="p-2">Key / Type</th></tr>
+            <thead class="bg-zinc-100 text-[10px] uppercase text-zinc-500 border-b border-zinc-200">
+                <tr><th class="p-2">Field</th><th class="p-2">Key</th></tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
-                ${cols.map((c, i) => `<tr><td class="p-2 font-mono font-bold text-slate-900">${c}</td><td class="p-2 text-blue-600">${i === 0 ? 'PRIMARY KEY' : 'ATTRIBUTE'}</td></tr>`).join('')}
+            <tbody class="divide-y divide-zinc-100">
+                ${cols.map((c, i) => `<tr><td class="p-2 font-mono font-bold text-zinc-900">${c}</td><td class="p-2 text-zinc-500">${i === 0 ? 'PRIMARY KEY' : 'ATTRIBUTE'}</td></tr>`).join('')}
             </tbody>
         </table>
     `;
 
     document.getElementById('vdb-table-rows').innerHTML = `
         <table class="w-full text-left">
-            <thead class="bg-slate-100 text-[10px] uppercase text-slate-600 border-b border-slate-200">
+            <thead class="bg-zinc-100 text-[10px] uppercase text-zinc-500 border-b border-zinc-200">
                 <tr>${cols.map(c => `<th class="p-2">${c}</th>`).join('')}</tr>
             </thead>
-            <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
-                ${rows.map(r => `<tr class="hover:bg-slate-50">${cols.map(c => `<td class="p-2 truncate max-w-[180px]">${r[c] !== null ? String(r[c]) : '-'}</td>`).join('')}</tr>`).join('')}
+            <tbody class="divide-y divide-zinc-100 font-mono text-[11px]">
+                ${rows.map(r => `<tr class="hover:bg-zinc-50">${cols.map(c => `<td class="p-2 truncate max-w-[180px]">${r[c] !== null ? String(r[c]) : '-'}</td>`).join('')}</tr>`).join('')}
             </tbody>
         </table>
     `;

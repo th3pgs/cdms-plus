@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDMS+ | Bodyline Cutting Department Management System</title>
+    <title>CDMS+ | Bodyline</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -11,155 +11,129 @@
     <link rel="stylesheet" href="style.css">
     <script src="app.js" defer></script>
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col font-sans relative">
+<body class="bg-zinc-50 text-zinc-900 antialiased min-h-screen flex flex-col font-sans relative">
 
-    <!-- BOTTOM-LEFT TOAST CONTAINER (NEVER COVERS TOP-RIGHT LOGIN/LOGOUT) -->
-    <div id="toast-container" class="fixed bottom-5 left-5 z-[150] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+    <!-- BOTTOM-LEFT NOTIFICATION CONTAINER -->
+    <div id="toast-container" class="fixed bottom-5 left-5 z-[200] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
 
-    <!-- 15-MINUTE MUTEX LOCK BAR (FIXED BOTTOM BAR FOR FLOOR TERMINAL) -->
-    <div id="mutex-bar" class="hidden fixed bottom-0 left-0 w-full bg-blue-900 border-t-2 border-blue-600 text-white px-4 py-3 text-xs font-mono flex flex-wrap justify-between items-center gap-3 z-[120] shadow-2xl">
+    <!-- 15-MINUTE MUTEX LOCK BAR -->
+    <div id="mutex-bar" class="hidden fixed bottom-0 left-0 w-full bg-zinc-900 border-t border-zinc-700 text-white px-5 py-3 text-xs font-mono flex flex-wrap justify-between items-center gap-3 z-[140] shadow-2xl">
         <div class="flex items-center gap-2.5">
-            <i class="ph-bold ph-spinner animate-spin text-blue-300 text-lg"></i>
-            <span id="mutex-msg" class="uppercase tracking-wider font-semibold">15-Min Mutex Lock Active: Awaiting Supervisor Clearance...</span>
+            <i class="ph-bold ph-spinner animate-spin text-zinc-300 text-base"></i>
+            <span id="mutex-msg" class="uppercase tracking-wider">15-Min Lock Active: Awaiting Supervisor Clearance</span>
         </div>
         <div class="flex items-center gap-3">
-            <span id="mutex-timer" class="font-bold text-white tracking-widest text-sm bg-blue-950 px-3 py-1 rounded border border-blue-700">15:00</span>
-            <button onclick="finalizeMutexCheckout()" id="mutex-action-btn" class="hidden bg-emerald-600 text-white px-4 py-1.5 rounded hover:bg-emerald-500 transition-colors uppercase tracking-wider font-bold text-xs shadow">Complete Checkout</button>
-            <button onclick="dismissMutexBar()" class="text-blue-200 hover:text-white p-1"><i class="ph-bold ph-x"></i></button>
+            <span id="mutex-timer" class="font-bold text-white tracking-widest text-sm bg-black px-3 py-1 rounded border border-zinc-700">15:00</span>
+            <button type="button" onclick="finalizeMutexCheckout()" id="mutex-action-btn" class="hidden bg-emerald-600 text-white px-4 py-1.5 rounded hover:bg-emerald-500 transition-colors uppercase tracking-wider font-bold text-xs">Complete Checkout</button>
+            <button type="button" onclick="dismissMutexBar()" class="text-zinc-400 hover:text-white p-1"><i class="ph-bold ph-x text-base"></i></button>
         </div>
     </div>
 
     <!-- ================================================================= -->
     <!-- WELCOME SCREEN (GATEWAY)                                          -->
     <!-- ================================================================= -->
-    <main id="view-gateway" class="flex-1 flex flex-col justify-between p-4 sm:p-8 bg-slate-50 fade-in">
-        <!-- TOP BRANDING BAR: MAS LOGO (LEFT) • CDMS+ (CENTER) • BODYLINE LOGO (RIGHT) -->
-        <div class="max-w-6xl mx-auto w-full flex justify-between items-center bg-white px-5 py-3.5 rounded-xl border border-slate-200 shadow-sm">
-            <!-- Left: MAS Holdings Logo -->
-            <div class="flex items-center gap-2.5">
-                <img id="gw-mas-logo" src="" class="hidden h-8 object-contain" alt="MAS">
-                <div id="gw-mas-fallback" class="flex items-center gap-2">
-                    <span class="bg-red-700 text-white font-black px-2.5 py-1 rounded text-xs tracking-tighter">MAS</span>
-                    <span class="text-xs font-bold text-slate-600 hidden sm:inline tracking-wide uppercase">Holdings • Intimates</span>
-                </div>
+    <main id="view-gateway" class="flex-1 flex flex-col justify-between p-4 sm:p-8 bg-zinc-50 fade-in">
+        <!-- TOP BAR: MAS LOGO (LEFT) • CDMS+ (CENTER) • BODYLINE LOGO (RIGHT) -->
+        <div class="max-w-6xl mx-auto w-full flex justify-between items-center bg-white px-5 py-3 rounded-xl border border-zinc-200 shadow-sm">
+            <div class="flex items-center h-8 min-w-[100px]">
+                <img id="gw-mas-logo" src="" class="hidden h-8 max-w-[140px] w-auto object-contain" alt="MAS">
+                <span id="gw-mas-fallback" class="font-black text-zinc-900 text-sm tracking-tight uppercase">MAS HOLDINGS</span>
             </div>
-            <!-- Center: Main Tool Badge -->
             <div class="text-center">
-                <span class="font-black text-slate-900 tracking-tight text-base sm:text-lg">CDMS <span class="text-blue-600">+</span></span>
+                <span class="font-black text-zinc-900 tracking-tight text-base">CDMS<span class="font-normal">+</span></span>
             </div>
-            <!-- Right: Bodyline Plant Logo -->
-            <div class="flex items-center gap-2">
-                <img id="gw-bodyline-logo" src="" class="hidden h-8 object-contain" alt="Bodyline">
-                <div id="gw-bodyline-fallback" class="text-right">
-                    <span class="bg-slate-900 text-white font-extrabold px-2.5 py-1 rounded text-xs tracking-widest uppercase">BODYLINE</span>
-                    <span class="block text-[10px] text-slate-500 font-medium hidden sm:block">Horana Plant 1</span>
-                </div>
+            <div class="flex items-center justify-end h-8 min-w-[100px]">
+                <img id="gw-bodyline-logo" src="" class="hidden h-8 max-w-[140px] w-auto object-contain" alt="Bodyline">
+                <span id="gw-bodyline-fallback" class="font-extrabold text-zinc-900 text-sm tracking-widest uppercase">BODYLINE</span>
             </div>
         </div>
 
-        <!-- CENTER HERO & TWO ENTRY CARDS -->
-        <div class="max-w-3xl mx-auto w-full my-auto py-8">
-            <div class="text-center mb-10">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold mb-3">
-                    <span id="db-live-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span id="db-status-label">Connected to Supabase PostgreSQL</span>
-                </span>
-                <h1 class="text-4xl sm:text-6xl font-black tracking-tight text-slate-900 uppercase">
-                    CDMS <span class="text-blue-600">+</span>
-                </h1>
-                <p class="text-slate-500 mt-2 text-xs sm:text-sm font-medium uppercase tracking-widest">
-                    Cutting Department Management System • Bodyline (Pvt) Ltd
-                </p>
-            </div>
+        <!-- CENTER MINIMALIST ENTRY -->
+        <div class="max-w-xl mx-auto w-full my-auto py-12 text-center">
+            <p class="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Bodyline (Pvt) Ltd</p>
+            <h1 class="text-5xl sm:text-6xl font-black tracking-tighter text-zinc-900 mb-10">
+                CDMS<span class="font-light">+</span>
+            </h1>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <!-- Option 1: Login as a User -->
-                <button onclick="openUserLoginModal()" class="group bg-white border border-slate-200 hover:border-blue-600 p-6 sm:p-7 rounded-2xl text-left transition-all hover:shadow-lg flex flex-col justify-between min-h-[180px]">
-                    <div class="flex justify-between items-start w-full mb-4">
-                        <div class="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
-                            <i class="ph-duotone ph-user-Switch text-2xl"></i>
-                        </div>
-                        <span class="text-xs font-semibold text-blue-600 group-hover:translate-x-1 transition-transform flex items-center gap-1">
-                            Sign In <i class="ph-bold ph-arrow-right"></i>
-                        </span>
-                    </div>
-                    <div>
-                        <h2 class="text-lg sm:text-xl font-bold text-slate-900">Login as a User</h2>
-                        <p class="text-slate-500 text-xs mt-1 leading-relaxed">
-                            Role-specific workspaces for Department Head, Executives, Supervisors, Design, CAD, Pattern Room, Sewing, RMW, QC & Admin.
-                        </p>
-                    </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button type="button" onclick="openUserLoginModal()" class="bg-zinc-900 hover:bg-zinc-800 text-white py-5 px-6 rounded-xl font-semibold text-sm tracking-wide transition-all shadow-sm flex items-center justify-center gap-2.5">
+                    <i class="ph-bold ph-user text-lg"></i>
+                    <span>Login as a User</span>
                 </button>
 
-                <!-- Option 2: Digital Pattern Room (Floor Terminal) -->
-                <button onclick="enterDigitalPatternRoom()" class="group bg-white border border-slate-200 hover:border-emerald-600 p-6 sm:p-7 rounded-2xl text-left transition-all hover:shadow-lg flex flex-col justify-between min-h-[180px]">
-                    <div class="flex justify-between items-start w-full mb-4">
-                        <div class="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
-                            <i class="ph-duotone ph-barcode text-2xl"></i>
-                        </div>
-                        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            Floor Catalog & QR
-                        </span>
-                    </div>
-                    <div>
-                        <h2 class="text-lg sm:text-xl font-bold text-slate-900">Digital Pattern Room</h2>
-                        <p class="text-slate-500 text-xs mt-1 leading-relaxed">
-                            General floor terminal with visual item catalog, search bar, and 2-step QR borrowing & return protocol.
-                        </p>
-                    </div>
+                <button type="button" onclick="enterDigitalPatternRoom()" class="bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-300 py-5 px-6 rounded-xl font-semibold text-sm tracking-wide transition-all shadow-sm flex items-center justify-center gap-2.5">
+                    <i class="ph-bold ph-magnifying-glass text-lg"></i>
+                    <span>Pattern Room</span>
                 </button>
             </div>
         </div>
 
-        <!-- BOTTOM BAR WITH SUBTLE VIVA PADLOCK -->
-        <div class="max-w-6xl mx-auto w-full flex flex-wrap justify-between items-center gap-4 text-xs text-slate-400 border-t border-slate-200 pt-4">
-            <button id="viva-padlock-btn" onclick="toggleVivaPadlock()" title="Testing Mode Toggle" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 transition-colors">
-                <i id="viva-padlock-icon" class="ph-fill ph-lock-key text-sm"></i>
-                <span id="viva-padlock-text" class="text-[11px] font-medium">Standard Auth</span>
+        <!-- BOTTOM BAR: BIG ICON-ONLY PADLOCK -->
+        <div class="max-w-6xl mx-auto w-full flex justify-between items-center pt-4">
+            <button type="button" id="viva-padlock-btn" onclick="toggleVivaPadlock()" class="w-12 h-12 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-700 flex items-center justify-center transition-all shadow-sm">
+                <i id="viva-padlock-icon" class="ph-fill ph-lock-key text-2xl"></i>
             </button>
-            <span>Bodyline (Pvt) Ltd • Gurugoda, Horana • Enterprise Intranet Portal</span>
+            <span id="db-status-label" class="text-[11px] text-zinc-400 font-mono">Online</span>
         </div>
     </main>
 
     <!-- ================================================================= -->
-    <!-- TOP GLOBAL APPLICATION HEADER (3 LOGOS + PROFILE AVATAR & ROLE)   -->
+    <!-- TOP GLOBAL APPLICATION HEADER                                     -->
     <!-- ================================================================= -->
-    <header id="main-header" class="hidden bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sticky top-0 z-30 shadow-sm">
+    <header id="main-header" class="hidden bg-white border-b border-zinc-200 px-4 sm:px-6 py-2.5 sticky top-0 z-40">
         <div class="max-w-7xl mx-auto w-full flex flex-wrap justify-between items-center gap-3">
-            <!-- Left: MAS Logo + Back / Brand -->
-            <div class="flex items-center gap-3">
-                <div class="flex items-center gap-2 pr-3 border-r border-slate-200">
-                    <span class="bg-red-700 text-white font-black px-2 py-0.5 rounded text-[11px] tracking-tighter">MAS</span>
-                    <span class="bg-slate-900 text-white font-extrabold px-2 py-0.5 rounded text-[11px] tracking-widest uppercase">BODYLINE</span>
+            <!-- Left: MAS Logo + CDMS+ -->
+            <div class="flex items-center gap-4">
+                <div class="flex items-center h-8">
+                    <img id="hdr-mas-logo" src="" class="hidden h-7 max-w-[130px] w-auto object-contain" alt="MAS">
+                    <span id="hdr-mas-fallback" class="font-black text-zinc-900 text-xs tracking-tight uppercase">MAS</span>
                 </div>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="font-black text-slate-900 text-base tracking-tight">CDMS <span class="text-blue-600">+</span></span>
-                        <span id="workspace-title-pill" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">Workspace</span>
-                    </div>
-                </div>
+                <div class="h-4 w-px bg-zinc-200"></div>
+                <span class="font-black text-zinc-900 text-sm tracking-tight">CDMS<span class="font-normal">+</span></span>
             </div>
 
-            <!-- Center: Contextual Workspace View Tabs (Only shows tabs belonging to this specific user) -->
-            <nav id="role-workspace-tabs" class="flex flex-wrap items-center gap-1.5"></nav>
+            <!-- Center: Contextual Workspace Tabs -->
+            <nav id="role-workspace-tabs" class="flex flex-wrap items-center gap-1"></nav>
 
-            <!-- Right: Idle Timer + User Profile Card (Full Name + Role below, NO Employee ID) + Logout -->
-            <div class="flex items-center gap-3 ml-auto sm:ml-0">
-                <div title="5-Minute Unfinished Procedure Reset Timer" class="hidden md:flex items-center gap-1.5 bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600">
-                    <i class="ph-bold ph-timer text-amber-600"></i>
-                    <span id="idle-countdown-display" class="font-mono font-semibold">05:00</span>
+            <!-- Right: Bodyline Logo + User Profile Trigger (Hidden in Pattern Room) + Sign Out -->
+            <div class="flex items-center gap-3 ml-auto sm:ml-0 relative">
+                <div class="hidden sm:flex items-center h-8 pr-2 border-r border-zinc-200">
+                    <img id="hdr-bodyline-logo" src="" class="hidden h-7 max-w-[130px] w-auto object-contain" alt="Bodyline">
+                    <span id="hdr-bodyline-fallback" class="font-extrabold text-zinc-900 text-xs tracking-widest uppercase">BODYLINE</span>
                 </div>
 
-                <!-- Profile Card -->
-                <div class="flex items-center gap-2.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-                    <img id="header-user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" class="w-8 h-8 rounded-full object-cover border border-slate-300" alt="Profile">
-                    <div class="leading-tight text-left">
-                        <p id="header-user-name" class="text-xs font-bold text-slate-900">Jackson Emmanuel</p>
-                        <p id="header-user-role" class="text-[10px] font-medium text-slate-500">Cutting Department Head</p>
+                <!-- Profile Pill (Hidden when inside Pattern Room Terminal) -->
+                <div id="header-profile-wrapper" class="relative">
+                    <button type="button" onclick="toggleProfilePopover(event)" class="flex items-center gap-2.5 bg-zinc-50 hover:bg-zinc-100 px-3 py-1.5 rounded-xl border border-zinc-200 transition-colors">
+                        <img id="header-user-avatar" src="" class="w-7 h-7 rounded-full object-cover border border-zinc-300" alt="Avatar">
+                        <div class="leading-tight text-left hidden sm:block">
+                            <p id="header-user-name" class="text-xs font-bold text-zinc-900"></p>
+                            <p id="header-user-role" class="text-[10px] text-zinc-500"></p>
+                        </div>
+                    </button>
+
+                    <!-- TINY PROFILE POPOVER WINDOW -->
+                    <div id="profile-popover-menu" class="hidden absolute right-0 mt-2 w-64 bg-white rounded-2xl border border-zinc-200 shadow-xl p-4 z-[160]">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Staff Profile</span>
+                            <button type="button" onclick="closeProfilePopover()" class="text-zinc-400 hover:text-zinc-800"><i class="ph-bold ph-x"></i></button>
+                        </div>
+                        <div class="flex flex-col items-center text-center">
+                            <div class="relative mb-2.5">
+                                <img id="popover-user-avatar" src="" class="w-16 h-16 rounded-full object-cover border border-zinc-300" alt="Profile">
+                                <label for="popover-avatar-input" title="Request New Profile Picture" class="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-zinc-900 hover:bg-zinc-700 text-white flex items-center justify-center cursor-pointer shadow">
+                                    <i class="ph-bold ph-pencil-simple text-xs"></i>
+                                </label>
+                                <input id="popover-avatar-input" type="file" accept="image/*" onchange="submitAvatarChangeRequest(this)" class="hidden">
+                            </div>
+                            <p id="popover-user-name" class="text-sm font-bold text-zinc-900"></p>
+                            <p id="popover-user-role" class="text-xs text-zinc-500 mt-0.5"></p>
+                            <span id="popover-user-id" class="mt-2 px-2.5 py-0.5 rounded bg-zinc-100 border border-zinc-200 font-mono text-[11px] font-semibold text-zinc-700"></span>
+                        </div>
                     </div>
                 </div>
 
-                <button onclick="triggerCredentialedLogout()" class="bg-white hover:bg-red-50 text-red-600 border border-slate-200 hover:border-red-200 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                <button type="button" onclick="triggerCredentialedLogout()" class="bg-white hover:bg-zinc-100 text-zinc-700 border border-zinc-200 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors">
                     <i class="ph-bold ph-sign-out"></i> <span class="hidden sm:inline">Sign Out</span>
                 </button>
             </div>
@@ -167,112 +141,94 @@
     </header>
 
     <!-- ================================================================= -->
-    <!-- WORKSPACE 1: DIGITAL PATTERN ROOM (E-COMMERCE VISUAL CATALOG)     -->
+    <!-- WORKSPACE 1: GOOGLE-STYLE MINIMALIST DIGITAL PATTERN ROOM         -->
     <!-- ================================================================= -->
-    <main id="view-tracker" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full fade-in pb-24">
-        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-                <div>
-                    <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
-                        <i class="ph-duotone ph-package text-emerald-600 text-2xl"></i> Digital Pattern Room Catalog
-                    </h1>
-                    <p class="text-xs text-slate-500 mt-0.5">Select any Pattern Block or 3D Mold card below to view specifications or initiate QR Borrow / Return.</p>
-                </div>
-                <div class="flex flex-wrap gap-1.5 text-xs font-semibold">
-                    <button onclick="filterPatternGrid('ALL')" class="px-3 py-1.5 rounded-lg bg-slate-900 text-white">All Items</button>
-                    <button onclick="filterPatternGrid('Available in Room')" class="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">Available</button>
-                    <button onclick="filterPatternGrid('Active on Line')" class="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100">Active on Line</button>
-                    <button onclick="filterPatternGrid('Inspection Flagged')" class="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100">QC Flagged</button>
-                </div>
-            </div>
+    <main id="view-tracker" class="hidden flex-1 flex-col p-4 sm:p-8 max-w-6xl mx-auto w-full fade-in pb-24">
+        <!-- Minimalist Centered Campaign Header & Search Bar -->
+        <div class="max-w-xl mx-auto w-full text-center mt-4 mb-10">
+            <p class="text-[11px] font-black uppercase tracking-widest text-zinc-400">CDMS+</p>
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 mt-0.5 mb-5">Pattern Room</h1>
 
-            <!-- E-Commerce Style Search Bar -->
-            <div class="relative flex items-center w-full rounded-xl bg-slate-50 border border-slate-300 focus-within:border-blue-600 focus-within:bg-white transition-all">
-                <i class="ph-bold ph-magnifying-glass absolute left-4 text-lg text-slate-400"></i>
-                <input type="text" id="searchInput" oninput="handlePatternSearch()" autocomplete="off" placeholder="Search by Brand (Triumph, Victoria's Secret, Lululemon, Nike), Model Name, Style Code, or Asset ID..." class="w-full py-3 pl-11 pr-10 bg-transparent outline-none text-slate-800 text-sm">
-                <button onclick="clearSearch()" id="clearBtn" class="absolute right-3 text-slate-400 hover:text-slate-700 hidden"><i class="ph-bold ph-x-circle text-lg"></i></button>
+            <div class="relative flex items-center w-full rounded-full bg-white border border-zinc-300 shadow-sm focus-within:border-zinc-900 focus-within:shadow-md transition-all">
+                <i class="ph-bold ph-magnifying-glass absolute left-5 text-lg text-zinc-400"></i>
+                <input type="text" id="searchInput" oninput="handlePatternSearch()" autocomplete="off" placeholder="" class="w-full py-3.5 pl-12 pr-12 bg-transparent outline-none text-zinc-900 text-sm rounded-full">
+                <button type="button" onclick="clearSearch()" id="clearBtn" class="absolute right-4 text-zinc-400 hover:text-zinc-800 hidden"><i class="ph-bold ph-x text-base"></i></button>
             </div>
         </div>
 
-        <!-- E-Commerce Product Grid -->
-        <div id="tracker-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"></div>
+        <!-- Section 1: Active on Line -->
+        <div class="mb-10">
+            <div class="flex items-center justify-between border-b border-zinc-200 pb-2 mb-4">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Active on Line</h2>
+                <span id="count-active-patterns" class="text-xs font-mono text-zinc-400">0</span>
+            </div>
+            <div id="tracker-grid-active" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+        </div>
+
+        <!-- Section 2: Room Inventory (Available & Non-Active) -->
+        <div>
+            <div class="flex items-center justify-between border-b border-zinc-200 pb-2 mb-4">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Room Inventory</h2>
+                <span id="count-inactive-patterns" class="text-xs font-mono text-zinc-400">0</span>
+            </div>
+            <div id="tracker-grid-inactive" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+        </div>
     </main>
 
     <!-- ================================================================= -->
-    <!-- WORKSPACE 2: DEPARTMENT HEAD READ-ONLY EXECUTIVE OVERSIGHT        -->
+    <!-- WORKSPACE 2: DEPARTMENT HEAD READ-ONLY OVERSIGHT                  -->
     <!-- ================================================================= -->
     <main id="view-dept-head" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full fade-in pb-24">
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-wrap justify-between items-center gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-zinc-200 mb-6 flex flex-wrap justify-between items-center gap-4">
             <div>
-                <span class="text-[11px] font-bold uppercase tracking-widest text-blue-600">Executive Command • Read-Only Oversight</span>
-                <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">Cutting Department Live Operational Overview</h2>
-                <p class="text-xs text-slate-500">Live telemetry across Lines 1, 2 & 3, Pattern Room utilization, active QC escalations, and executive approvals.</p>
+                <h2 class="text-lg font-bold text-zinc-900">Department Head Overview</h2>
+                <p class="text-xs text-zinc-500">Live operational telemetry, active floor shifts, defect alerts, and approval requests.</p>
             </div>
             <div class="flex gap-2">
-                <button onclick="openCommDrawer('compose')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm">
-                    <i class="ph-bold ph-paper-plane-tilt"></i> Issue Executive Directive
+                <button type="button" onclick="openCommDrawer('compose')" class="bg-zinc-900 hover:bg-zinc-800 text-white px-4 py-2 rounded-xl text-xs font-semibold">
+                    Send Directive
                 </button>
-                <button onclick="renderDeptHeadPortal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5">
-                    <i class="ph-bold ph-arrows-clockwise"></i> Sync Telemetry
+                <button type="button" onclick="renderDeptHeadPortal()" class="bg-zinc-100 hover:bg-zinc-200 text-zinc-800 px-3.5 py-2 rounded-xl text-xs font-semibold">
+                    Refresh
                 </button>
             </div>
         </div>
 
-        <!-- 5 EXECUTIVE KPI CARDS -->
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                <p class="text-xs font-medium text-slate-500">Total Blocks & Molds</p>
-                <p id="dh-kpi-total" class="text-2xl font-black text-slate-900 mt-1">0</p>
-                <span class="text-[11px] text-slate-400">Pattern Room Inventory</span>
+            <div class="bg-white p-4 rounded-xl border border-zinc-200">
+                <p class="text-xs text-zinc-500">Total Patterns & Molds</p>
+                <p id="dh-kpi-total" class="text-2xl font-bold text-zinc-900 mt-1">0</p>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                <p class="text-xs font-medium text-emerald-600">Available in Room</p>
-                <p id="dh-kpi-avail" class="text-2xl font-black text-emerald-600 mt-1">0</p>
-                <span class="text-[11px] text-slate-400">Ready for Checkout</span>
+            <div class="bg-white p-4 rounded-xl border border-zinc-200">
+                <p class="text-xs text-zinc-500">Available in Room</p>
+                <p id="dh-kpi-avail" class="text-2xl font-bold text-zinc-900 mt-1">0</p>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                <p class="text-xs font-medium text-blue-600">Active on Cutting Lines</p>
-                <p id="dh-kpi-active" class="text-2xl font-black text-blue-600 mt-1">0</p>
-                <span class="text-[11px] text-slate-400">Currently Borrowed</span>
+            <div class="bg-white p-4 rounded-xl border border-zinc-200">
+                <p class="text-xs text-zinc-500">Active on Line</p>
+                <p id="dh-kpi-active" class="text-2xl font-bold text-zinc-900 mt-1">0</p>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                <p class="text-xs font-medium text-rose-600">QC Flagged & Dormant</p>
-                <p id="dh-kpi-flagged" class="text-2xl font-black text-rose-600 mt-1">0</p>
-                <span class="text-[11px] text-slate-400">Requires Attention</span>
+            <div class="bg-white p-4 rounded-xl border border-zinc-200">
+                <p class="text-xs text-zinc-500">Flagged / Dormant</p>
+                <p id="dh-kpi-flagged" class="text-2xl font-bold text-zinc-900 mt-1">0</p>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm col-span-2 lg:col-span-1">
-                <p class="text-xs font-medium text-amber-600">Pending Approvals</p>
-                <p id="dh-kpi-approvals" class="text-2xl font-black text-amber-600 mt-1">0</p>
-                <span class="text-[11px] text-slate-400">Awaiting Dept Head</span>
+            <div class="bg-white p-4 rounded-xl border border-zinc-200 col-span-2 lg:col-span-1">
+                <p class="text-xs text-zinc-500">Pending Approvals</p>
+                <p id="dh-kpi-approvals" class="text-2xl font-bold text-zinc-900 mt-1">0</p>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Col 1: Pending Executive Approvals & Requests Sent to Dept Head -->
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-                <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 mb-3 flex justify-between items-center">
-                    <span><i class="ph-duotone ph-stamp text-amber-600 mr-1"></i> Executive Approval Queue</span>
-                    <span class="text-[11px] font-normal text-slate-400">Direct Action</span>
-                </h3>
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-3 mb-3">Approval Queue</h3>
                 <div id="dh-approvals-list" class="space-y-3 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
             </div>
-
-            <!-- Col 2: Live Floor Operations & Active Cutting Orders -->
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-                <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 mb-3 flex justify-between items-center">
-                    <span><i class="ph-duotone ph-activity text-blue-600 mr-1"></i> Active Production Batches & Floor Staff</span>
-                    <span class="text-[11px] font-normal text-slate-400">Read-Only</span>
-                </h3>
-                <div id="dh-active-processes" class="space-y-3 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-3 mb-3">Active Floor Deployments</h3>
+                <div id="dh-active-processes" class="space-y-2.5 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
             </div>
-
-            <!-- Col 3: Active QC Defects & Locked Tooling -->
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-                <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 mb-3 flex justify-between items-center">
-                    <span><i class="ph-duotone ph-warning-octagon text-rose-600 mr-1"></i> Quality Control Defect Oversight</span>
-                    <span class="text-[11px] font-normal text-slate-400">Read-Only</span>
-                </h3>
-                <div id="dh-qc-oversight" class="space-y-3 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-3 mb-3">Quality Control Logs</h3>
+                <div id="dh-qc-oversight" class="space-y-2.5 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
             </div>
         </div>
     </main>
@@ -282,144 +238,126 @@
     <!-- ================================================================= -->
     <main id="view-supervisor" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full fade-in pb-24">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
-            <!-- Panel 1: 15-Min Lock Clearance Tickets -->
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-80">
-                <h3 class="text-xs font-bold text-amber-700 uppercase tracking-wider border-b border-slate-100 pb-2.5 mb-3 flex justify-between items-center">
-                    <span><i class="ph-bold ph-ticket mr-1"></i> 15-Min Lock Clearance Queue</span>
-                    <span id="ticket-count-badge" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px]">0</span>
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col h-72">
+                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider border-b border-zinc-100 pb-2.5 mb-3 flex justify-between items-center">
+                    <span>15-Min Lock Clearance Tickets</span>
+                    <span id="ticket-count-badge" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 text-[11px]">0</span>
                 </h3>
                 <div id="supervisor-queue-list" class="space-y-2.5 overflow-y-auto flex-1 pr-1 custom-scroll"></div>
             </div>
 
-            <!-- Panel 2: Active Floor Deployments & Shift Timers -->
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-80">
-                <h3 class="text-xs font-bold text-emerald-700 uppercase tracking-wider border-b border-slate-100 pb-2.5 mb-3 flex justify-between items-center">
-                    <span><i class="ph-bold ph-clock-countdown mr-1"></i> Active Borrowed Patterns</span>
-                    <span id="active-deploy-badge" class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px]">0</span>
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col h-72">
+                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider border-b border-zinc-100 pb-2.5 mb-3 flex justify-between items-center">
+                    <span>Active Borrowed Items</span>
+                    <span id="active-deploy-badge" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 text-[11px]">0</span>
                 </h3>
                 <div id="supervisor-active-list" class="space-y-2.5 overflow-y-auto flex-1 pr-1 custom-scroll"></div>
             </div>
 
-            <!-- Panel 3: Operator Pool (Tap to Lock) -->
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-80">
-                <h3 class="text-xs font-bold text-blue-700 uppercase tracking-wider border-b border-slate-100 pb-2.5 mb-3 flex justify-between items-center">
-                    <span><i class="ph-bold ph-users-three mr-1"></i> Floor Operator Pool</span>
-                    <span id="selected-op-indicator" class="text-[11px] font-semibold text-slate-400">Tap Worker to Select</span>
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col h-72">
+                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider border-b border-zinc-100 pb-2.5 mb-3 flex justify-between items-center">
+                    <span>Operator Pool</span>
+                    <span id="selected-op-indicator" class="text-[11px] font-normal text-zinc-400">Tap Worker to Select</span>
                 </h3>
                 <div id="operator-pool" class="grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto flex-1 pr-1 custom-scroll content-start"></div>
             </div>
         </div>
 
-        <!-- RESPONSIVE 7-DAY SHIFT MATRIX (STACKS ON MOBILE, 7 COLS ON DESKTOP) -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div class="flex flex-wrap justify-between items-center gap-3 mb-4 border-b border-slate-100 pb-3">
-                <div>
-                    <h3 class="text-base font-bold text-slate-900">Weekly Shift Assignment Matrix</h3>
-                    <p class="text-xs text-slate-500">Select an operator from the pool above, then tap any Morning, Afternoon, or Night slot below to deploy them.</p>
-                </div>
-                <span class="px-3 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold">Current 7-Day Production Cycle</span>
+        <div class="bg-white p-5 rounded-2xl border border-zinc-200">
+            <div class="flex flex-wrap justify-between items-center gap-3 mb-4 border-b border-zinc-100 pb-3">
+                <h3 class="text-sm font-bold text-zinc-900">Weekly Shift Assignment Matrix</h3>
+                <span class="text-xs text-zinc-400">Select an operator above, then tap any shift slot below</span>
             </div>
             <div id="calendar-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3"></div>
         </div>
     </main>
 
     <!-- ================================================================= -->
-    <!-- WORKSPACE 4: DESIGN, CAD & PATTERN ROOM HUB (WITH PHOTO UPLOADS)  -->
+    <!-- WORKSPACE 4: DESIGN, CAD & PATTERN ROOM HUB                       -->
     <!-- ================================================================= -->
     <main id="view-design-cad" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full fade-in pb-24">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Box 1: Design & CAD Marker Creation (With Sketch Photo Upload) -->
-            <div id="panel-design-box" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3">
-                <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-2">
-                    <i class="ph-duotone ph-compass-tool text-purple-600 text-lg"></i> Style & CAD Marker Registration
-                </h3>
-                <input id="cad-style-code" type="text" placeholder="Style Code (e.g. VS-LUX-99)" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 outline-none focus:border-blue-600">
+            <!-- Box 1: Style & CAD Marker -->
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Style & CAD Marker</h3>
+                <input id="cad-style-code" type="text" placeholder="Style Code (e.g. VS-LUX-99)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                 <div class="grid grid-cols-2 gap-2">
-                    <select id="cad-brand-select" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"></select>
-                    <input id="cad-model-name" type="text" placeholder="Model Name" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900">
+                    <select id="cad-brand-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                    <input id="cad-model-name" type="text" placeholder="Model Name" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                    <select id="cad-tooling-mat" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900">
+                    <select id="cad-tooling-mat" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                         <option value="MAT-CRD-01">MAT-CRD-01 (Cardboard)</option>
                         <option value="MAT-PLS-01">MAT-PLS-01 (3D Plastic)</option>
                     </select>
-                    <select id="cad-fabric-select" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900"></select>
+                    <select id="cad-fabric-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
                 </div>
                 <div>
-                    <label class="text-[11px] font-semibold text-slate-500 block mb-1">Upload CAD / Garment Sketch Picture</label>
-                    <input id="cad-sketch-file" type="file" accept="image/*" class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100">
+                    <label class="text-[11px] font-semibold text-zinc-500 block mb-1">CAD / Style Picture</label>
+                    <input id="cad-sketch-file" type="file" accept="image/*" class="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-800">
                 </div>
-                <button onclick="createStyleAndMarker()" class="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold uppercase tracking-wider py-2.5 rounded-xl transition-colors shadow-sm">
-                    + Save Style & CAD Marker
+                <button type="button" onclick="createStyleAndMarker()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
+                    Save Style & CAD Marker
                 </button>
 
-                <!-- Design Direct Fabric Addition -->
-                <div class="border-t border-slate-100 pt-3 mt-1">
-                    <p class="text-xs font-bold text-slate-700 mb-2">Add New Cloth Fabric Type Directly</p>
+                <div class="border-t border-zinc-100 pt-3 mt-1">
+                    <p class="text-xs font-bold text-zinc-700 mb-2">Add New Cloth Fabric Type</p>
                     <div class="flex gap-2 mb-2">
-                        <input id="new-fabric-code" type="text" placeholder="Code (FAB-VS-05)" class="w-1/3 p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs">
-                        <input id="new-fabric-specs" type="text" placeholder="Fabric Composition" class="flex-1 p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs">
+                        <input id="new-fabric-code" type="text" placeholder="Code (FAB-VS-05)" class="w-1/3 p-2 bg-zinc-50 border border-zinc-300 rounded-lg text-xs">
+                        <input id="new-fabric-specs" type="text" placeholder="Fabric Composition" class="flex-1 p-2 bg-zinc-50 border border-zinc-300 rounded-lg text-xs">
                     </div>
-                    <button onclick="designAddFabricDirect()" class="w-full bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold py-2 rounded-lg">
-                        + Add Fabric to Warehouse Catalog
+                    <button type="button" onclick="designAddFabricDirect()" class="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-300 text-xs font-semibold py-2 rounded-lg">
+                        Add Fabric to Catalog
                     </button>
                 </div>
 
-                <!-- Parameter Request to Admin -->
-                <div class="border-t border-slate-100 pt-3">
-                    <p class="text-xs font-bold text-amber-700 mb-1">Need a New Brand or Parameter Change?</p>
-                    <button onclick="openCommDrawer('compose', 'DT-C-CA-01', 'Parameter Request')" class="w-full bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 py-2 rounded-lg text-xs font-semibold">
-                        Open Protocol Request to Admin
+                <div class="border-t border-zinc-100 pt-3">
+                    <button type="button" onclick="openCommDrawer('compose', 'DT-C-CA-01', 'Parameter Request')" class="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 py-2 rounded-lg text-xs font-semibold">
+                        Request New Brand / Parameter from Admin
                     </button>
                 </div>
             </div>
 
-            <!-- Box 2: Pattern Room Registration (With Item Picture Upload & QR Label) -->
-            <div id="panel-pattern-box" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3">
-                <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-2">
-                    <i class="ph-duotone ph-qr-code text-emerald-600 text-lg"></i> Pattern Room: Block & 3D Mold Registration
-                </h3>
+            <!-- Box 2: Pattern Block & 3D Mold Registration -->
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Register Pattern Block or 3D Mold</h3>
                 <div class="grid grid-cols-2 gap-2">
-                    <input id="pat-asset-id" type="text" placeholder="Asset ID (e.g. TR-PB-09)" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs">
-                    <select id="pat-tooling-type" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs">
+                    <input id="pat-asset-id" type="text" placeholder="Asset ID (e.g. TR-PB-09)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                    <select id="pat-tooling-type" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                         <option value="Pattern Block">Pattern Block (Cardboard)</option>
                         <option value="Pattern Mold">Pattern Mold (3D Plastic)</option>
                     </select>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                    <select id="pat-style-select" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"></select>
-                    <select id="pat-size-select" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"></select>
+                    <select id="pat-style-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                    <select id="pat-size-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
                 </div>
-                <input id="pat-rack-loc" type="text" placeholder="Storage Location (e.g. Rack A-04 / Mold Cabinet 03)" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs">
+                <input id="pat-rack-loc" type="text" placeholder="Storage Location (e.g. Rack A-04)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                 <div>
-                    <label class="text-[11px] font-semibold text-slate-500 block mb-1">Upload Pattern Block / 3D Mold Photo</label>
-                    <input id="pat-photo-file" type="file" accept="image/*" class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
+                    <label class="text-[11px] font-semibold text-zinc-500 block mb-1">Item Photo</label>
+                    <input id="pat-photo-file" type="file" accept="image/*" class="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-800">
                 </div>
-                <button onclick="registerNewPatternAsset()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider py-2.5 rounded-xl transition-colors shadow-sm">
-                    + Register Item & Generate QR Tag
+                <button type="button" onclick="registerNewPatternAsset()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
+                    Register Item & Generate QR
                 </button>
 
-                <!-- Printable QR Output -->
-                <div id="pattern-qr-preview-box" class="hidden p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                <div id="pattern-qr-preview-box" class="hidden p-3 bg-zinc-50 border border-zinc-200 rounded-xl flex items-center justify-between">
                     <div id="pattern-qr-canvas" class="bg-white p-1.5 rounded border"></div>
                     <div class="text-right">
-                        <p class="text-[10px] uppercase text-slate-400 font-semibold">Bodyline Asset QR</p>
-                        <p id="pattern-qr-label-text" class="text-sm font-black text-slate-900"></p>
+                        <p class="text-[10px] uppercase text-zinc-400">Asset QR Tag</p>
+                        <p id="pattern-qr-label-text" class="text-sm font-black text-zinc-900"></p>
                     </div>
                 </div>
 
-                <!-- 6-Month Inactive List -->
-                <div class="border-t border-slate-100 pt-3 mt-auto">
-                    <p class="text-xs font-bold text-rose-600 mb-2">6-Month Inactive / Dormant Molds</p>
+                <div class="border-t border-zinc-100 pt-3 mt-auto">
+                    <p class="text-xs font-bold text-zinc-700 mb-2">6-Month Inactive / Dormant Items</p>
                     <div id="inactive-patterns-alert-box" class="space-y-1.5 max-h-36 overflow-y-auto custom-scroll text-xs"></div>
                 </div>
             </div>
 
-            <!-- Box 3: Active CAD Markers & Tooling Orders -->
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3">
-                <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-2">
-                    <i class="ph-duotone ph-stack text-blue-600 text-lg"></i> Registered Garment Styles & CAD Markers
-                </h3>
+            <!-- Box 3: Active CAD Markers List -->
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Registered Styles & CAD Markers</h3>
                 <div id="cad-markers-mini-list" class="space-y-2.5 overflow-y-auto max-h-[500px] pr-1 custom-scroll"></div>
             </div>
         </div>
@@ -430,69 +368,61 @@
     <!-- ================================================================= -->
     <main id="view-supply" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full fade-in pb-24">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Sewing Requisitions -->
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4">
-                <h3 class="text-base font-bold text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-2">
-                    <i class="ph-duotone ph-scissors text-rose-600 text-xl"></i> Sewing Department: Batch Cutting Requisitions
-                </h3>
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-4">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Sewing Department Cutting Orders</h3>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <select id="sew-style-select" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"></select>
-                    <input id="sew-size" type="text" placeholder="Size (34B / M)" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs">
-                    <input id="sew-qty" type="number" placeholder="Qty (1200)" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs">
-                    <select id="sew-priority" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs">
+                    <select id="sew-style-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                    <input id="sew-size" type="text" placeholder="Size (34B / M)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                    <input id="sew-qty" type="number" placeholder="Qty (1200)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                    <select id="sew-priority" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                         <option value="Normal">Normal</option>
                         <option value="Urgent">Urgent</option>
                     </select>
                 </div>
-                <button onclick="submitSewingOrder()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider py-2.5 rounded-xl">
-                    + Submit Cutting Requisition
+                <button type="button" onclick="submitSewingOrder()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
+                    Submit Cutting Order
                 </button>
                 <div id="sewing-orders-list" class="space-y-2.5 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
             </div>
 
-            <!-- RMW Material Dispatch -->
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4">
-                <h3 class="text-base font-bold text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-2">
-                    <i class="ph-duotone ph-warehouse text-cyan-600 text-xl"></i> Raw Material Warehouse (RMW): Material Dispatch
-                </h3>
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-4">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Raw Material Warehouse (RMW) Dispatch</h3>
                 <div id="rmw-materials-list" class="space-y-2.5 overflow-y-auto max-h-[460px] pr-1 custom-scroll"></div>
             </div>
         </div>
     </main>
 
     <!-- ================================================================= -->
-    <!-- WORKSPACE 6: FLOOR QUALITY CONTROL (QC) DEFECT & RE-CUT CENTER    -->
+    <!-- WORKSPACE 6: FLOOR QUALITY CONTROL (QC)                           -->
     <!-- ================================================================= -->
     <main id="view-qc" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full fade-in pb-24">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3">
-                <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-2">
-                    <i class="ph-duotone ph-warning-octagon text-rose-600 text-lg"></i> Log Floor Defect / Lock Mold
-                </h3>
-                <label class="text-xs font-semibold text-slate-600">1. Target Pattern Block or 3D Mold</label>
-                <select id="qc-asset-select" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"></select>
+            <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Log Floor Defect</h3>
+                <label class="text-xs font-semibold text-zinc-600">1. Target Item</label>
+                <select id="qc-asset-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
 
-                <label class="text-xs font-semibold text-slate-600">2. Standard Defect Protocol Code</label>
-                <select id="qc-defect-select" onchange="previewDefectAction()" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs"></select>
+                <label class="text-xs font-semibold text-zinc-600">2. Defect Code</label>
+                <select id="qc-defect-select" onchange="previewDefectAction()" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
 
-                <div id="qc-action-preview" class="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1"></div>
+                <div id="qc-action-preview" class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-zinc-700 space-y-1"></div>
 
                 <div class="grid grid-cols-2 gap-2">
-                    <select id="qc-line-select" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs">
+                    <select id="qc-line-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                         <option value="Line 1">Cutting Line 1</option>
                         <option value="Line 2">Cutting Line 2</option>
                         <option value="Line 3">Cutting Line 3</option>
                     </select>
-                    <input id="qc-ruined-plies" type="number" placeholder="Ruined Plies (25)" class="p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs">
+                    <input id="qc-ruined-plies" type="number" placeholder="Ruined Plies (25)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                 </div>
-                <button onclick="submitQcDefectFlag()" class="w-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold uppercase tracking-wider py-3 rounded-xl shadow-sm">
-                    Execute Defect Protocol
+                <button type="button" onclick="submitQcDefectFlag()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-3 rounded-xl">
+                    Submit Defect Log
                 </button>
             </div>
 
-            <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-                <h3 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5 mb-3">
-                    Active QC Inspection Flags & Re-Cut Tickets
+            <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5 mb-3">
+                    Active QC Inspection Logs
                 </h3>
                 <div id="qc-logs-list" class="space-y-2.5 overflow-y-auto max-h-[480px] pr-1 custom-scroll"></div>
             </div>
@@ -500,109 +430,121 @@
     </main>
 
     <!-- ================================================================= -->
-    <!-- WORKSPACE 7: DIGITAL TEAM ROOT ADMIN & IMMUTABLE AUDIT LOG        -->
+    <!-- WORKSPACE 7: DIGITAL TEAM ADMIN & SUPPORT CONSOLE                 -->
     <!-- ================================================================= -->
     <main id="view-admin" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full fade-in pb-24">
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
-            <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3 mb-5 text-xs font-semibold">
-                <button onclick="switchAdminSubTab('emp')" id="adm-sub-emp" class="px-4 py-2 rounded-xl bg-blue-600 text-white">1. Employee Registration & Profile Photos</button>
-                <button onclick="switchAdminSubTab('params')" id="adm-sub-params" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">2. Parameters, Brands & Plant Logos</button>
-                <button onclick="switchAdminSubTab('records')" id="adm-sub-records" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">3. Immutable System Audit Log (Un-erasable)</button>
+        <div class="bg-white p-5 rounded-2xl border border-zinc-200 mb-6">
+            <div class="flex flex-wrap gap-2 border-b border-zinc-200 pb-3 mb-5 text-xs font-semibold">
+                <button type="button" onclick="switchAdminSubTab('emp')" id="adm-sub-emp" class="px-4 py-2 rounded-xl bg-zinc-900 text-white">1. Staff Directory & Photo Approvals</button>
+                <button type="button" onclick="switchAdminSubTab('params')" id="adm-sub-params" class="px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">2. System Parameters & Brand Logos</button>
+                <button type="button" onclick="switchAdminSubTab('records')" id="adm-sub-records" class="px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">3. Immutable System Audit Log</button>
             </div>
 
-            <!-- Admin Tab 1: Register Employee with Profile Picture -->
+            <!-- Admin Tab 1: Staff Registration + Support Team Profile Photo Approvals -->
             <div id="admin-panel-emp" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
-                    <h4 class="text-sm font-bold text-slate-900">Register New Employee Profile</h4>
-                    <div class="grid grid-cols-2 gap-2">
-                        <input id="reg-emp-id" type="text" placeholder="ID (e.g. CW-L1-CMO-06)" class="p-2.5 bg-white border border-slate-300 rounded-xl text-xs">
-                        <input id="reg-emp-name" type="text" placeholder="Full Name" class="p-2.5 bg-white border border-slate-300 rounded-xl text-xs">
+                <div class="space-y-5">
+                    <!-- Pending Profile Picture Requests (For Support Team) -->
+                    <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-3">Pending Profile Photo Requests</h4>
+                        <div id="support-avatar-requests-list" class="space-y-2.5 max-h-48 overflow-y-auto custom-scroll"></div>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <select id="reg-emp-dept" class="p-2.5 bg-white border border-slate-300 rounded-xl text-xs">
-                            <option value="Cutting">Cutting</option>
-                            <option value="Cutting - CAD">Cutting - CAD</option>
-                            <option value="Cutting - Pattern">Cutting - Pattern</option>
-                            <option value="QC - Cutting">QC - Cutting</option>
-                            <option value="Sewing - Cutting">Sewing - Cutting</option>
-                            <option value="RMW - Cutting">RMW - Cutting</option>
-                            <option value="Design - Cutting">Design - Cutting</option>
-                            <option value="Digital - Cutting">Digital - Cutting</option>
-                        </select>
-                        <select id="reg-emp-role" class="p-2.5 bg-white border border-slate-300 rounded-xl text-xs"></select>
+
+                    <!-- Register New Employee -->
+                    <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-2.5">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Register New Employee</h4>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input id="reg-emp-id" type="text" placeholder="ID (e.g. CW-L1-CMO-06)" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                            <input id="reg-emp-name" type="text" placeholder="Full Name" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <select id="reg-emp-dept" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                                <option value="Cutting">Cutting</option>
+                                <option value="Cutting - CAD">Cutting - CAD</option>
+                                <option value="Cutting - Pattern">Cutting - Pattern</option>
+                                <option value="QC - Cutting">QC - Cutting</option>
+                                <option value="Sewing - Cutting">Sewing - Cutting</option>
+                                <option value="RMW - Cutting">RMW - Cutting</option>
+                                <option value="Design - Cutting">Design - Cutting</option>
+                                <option value="Digital - Cutting">Digital - Cutting</option>
+                            </select>
+                            <select id="reg-emp-role" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs"></select>
+                        </div>
+                        <input id="reg-emp-zone" type="text" placeholder="Work Location / Zone" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                        <div>
+                            <label class="text-[11px] font-semibold text-zinc-500 block mb-1">Profile Picture</label>
+                            <input id="reg-emp-photo" type="file" accept="image/*" class="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-200 file:text-zinc-800">
+                        </div>
+                        <button type="button" onclick="registerNewEmployee()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
+                            Register Employee
+                        </button>
+                        <div id="emp-qr-preview-box" class="text-center pt-1"></div>
                     </div>
-                    <input id="reg-emp-zone" type="text" placeholder="Work Location / Zone (e.g. Cutting Floor - Line 1)" class="p-2.5 bg-white border border-slate-300 rounded-xl text-xs">
-                    <div>
-                        <label class="text-[11px] font-semibold text-slate-600 block mb-1">Upload Employee Profile Photo</label>
-                        <input id="reg-emp-photo" type="file" accept="image/*" class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700">
-                    </div>
-                    <button onclick="registerNewEmployee()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase py-2.5 rounded-xl">
-                        + Register Staff & Generate Green QR Badge
-                    </button>
-                    <div id="emp-qr-preview-box" class="text-center pt-2"></div>
                 </div>
 
-                <div class="lg:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col h-[460px]">
-                    <h4 class="text-sm font-bold text-slate-900 mb-3">Employee Directory (85 Staff Profiles)</h4>
-                    <div class="flex-1 overflow-auto custom-scroll bg-white rounded-xl border border-slate-200">
+                <div class="lg:col-span-2 bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col h-[540px]">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-3">Employee Directory</h4>
+                    <div class="flex-1 overflow-auto custom-scroll bg-white rounded-xl border border-zinc-200">
                         <table class="w-full text-left text-xs">
-                            <thead class="bg-slate-100 sticky top-0 text-[11px] uppercase text-slate-600 border-b border-slate-200">
+                            <thead class="bg-zinc-100 sticky top-0 text-[11px] uppercase text-zinc-500 border-b border-zinc-200">
                                 <tr><th class="p-2.5">Staff Member</th><th class="p-2.5">ID</th><th class="p-2.5">Department</th><th class="p-2.5">Zone</th><th class="p-2.5 text-right">Action</th></tr>
                             </thead>
-                            <tbody id="admin-emp-tbody" class="divide-y divide-slate-100"></tbody>
+                            <tbody id="admin-emp-tbody" class="divide-y divide-zinc-100"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
-            <!-- Admin Tab 2: System Parameters & Custom Logo Uploader -->
+            <!-- Admin Tab 2: System Parameters & Dual Logo Uploader (MAS + Bodyline) -->
             <div id="admin-panel-params" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
-                    <h4 class="text-sm font-bold text-slate-900">Add System Parameter (Brand, Size, Rack, Role)</h4>
-                    <select id="sys-cat" class="p-2.5 bg-white border border-slate-300 rounded-xl text-xs">
+                <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-3">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Add System Parameter</h4>
+                    <select id="sys-cat" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
                         <option value="Brand">Buyer Brand</option>
                         <option value="Size">Cup / Garment Size</option>
                         <option value="Rack">Pattern Storage Rack</option>
                         <option value="Role">Employee Role</option>
                     </select>
-                    <input id="sys-val" type="text" placeholder="Parameter Value (e.g. Lindex, 34D)" class="p-2.5 bg-white border border-slate-300 rounded-xl text-xs">
-                    <input id="sys-prefix" type="text" placeholder="Brand Prefix (e.g. LDX)" class="p-2.5 bg-white border border-slate-300 rounded-xl text-xs">
-                    <button onclick="addSystemSetting()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase py-2.5 rounded-xl">
-                        + Add Parameter
+                    <input id="sys-val" type="text" placeholder="Value (e.g. Lindex, 34D)" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                    <input id="sys-prefix" type="text" placeholder="Brand Prefix (e.g. LDX)" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                    <button type="button" onclick="addSystemSetting()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
+                        Save Parameter
                     </button>
                 </div>
 
-                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col h-80">
-                    <h4 class="text-sm font-bold text-slate-900 mb-2">Active System Parameters</h4>
+                <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col h-80">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2">Active Parameters</h4>
                     <ul id="system-settings-list" class="space-y-1.5 overflow-y-auto flex-1 custom-scroll text-xs"></ul>
                 </div>
 
-                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
-                    <h4 class="text-sm font-bold text-slate-900">Customize Plant & Report Logos</h4>
-                    <p class="text-xs text-slate-500">Upload custom logo images for MAS Holdings (Left) and Bodyline (Right) used on headers and formal reports.</p>
-                    <div>
-                        <label class="text-[11px] font-semibold text-slate-600 block mb-1">MAS Holdings Logo Image</label>
-                        <input type="file" accept="image/*" onchange="uploadBrandLogo(this, 'MAS')" class="w-full text-xs">
+                <!-- DUAL LOGO UPLOADER WITH RECOMMENDED DIMENSIONS -->
+                <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-3">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Enterprise & Plant Logos</h4>
+                    <p class="text-[11px] text-zinc-500 leading-relaxed">
+                        Recommended Size: <strong>320 &times; 80 px</strong> (4:1 horizontal transparent PNG or SVG). Rendered at 32px height on the top bar and reports.
+                    </p>
+                    <div class="p-3 bg-white rounded-xl border border-zinc-200">
+                        <label class="text-xs font-bold text-zinc-800 block mb-1">1. MAS Holdings Logo (Top-Left)</label>
+                        <input type="file" accept="image/*" onchange="uploadBrandLogo(this, 'LOGO_MAS')" class="w-full text-xs text-zinc-600 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:bg-zinc-100 file:text-zinc-800 file:font-semibold">
                     </div>
-                    <div>
-                        <label class="text-[11px] font-semibold text-slate-600 block mb-1">Bodyline Plant Logo Image</label>
-                        <input type="file" accept="image/*" onchange="uploadBrandLogo(this, 'BODYLINE')" class="w-full text-xs">
+                    <div class="p-3 bg-white rounded-xl border border-zinc-200">
+                        <label class="text-xs font-bold text-zinc-800 block mb-1">2. Bodyline Logo (Top-Right)</label>
+                        <input type="file" accept="image/*" onchange="uploadBrandLogo(this, 'LOGO_BODYLINE')" class="w-full text-xs text-zinc-600 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:bg-zinc-100 file:text-zinc-800 file:font-semibold">
                     </div>
                 </div>
             </div>
 
             <!-- Admin Tab 3: Immutable System Audit Log -->
             <div id="admin-panel-records" class="hidden flex flex-col gap-4">
-                <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex justify-between items-center text-xs text-amber-900">
-                    <span><i class="ph-bold ph-shield-check mr-1"></i> <strong>Immutable Audit Policy:</strong> Every system registration, approval, status change, and deletion is permanently logged in PostgreSQL. No user or admin can erase audit rows.</span>
-                    <span id="audit-count-pill" class="font-mono font-bold px-2.5 py-0.5 rounded bg-amber-200/70">0 Rows</span>
+                <div class="flex justify-between items-center text-xs text-zinc-500">
+                    <span>Permanent append-only audit log stored in PostgreSQL. Records cannot be modified or deleted.</span>
+                    <span id="audit-count-pill" class="font-mono font-bold px-2.5 py-0.5 rounded bg-zinc-100 text-zinc-800">0 Rows</span>
                 </div>
-                <div class="overflow-auto max-h-[450px] custom-scroll border border-slate-200 rounded-xl bg-white">
+                <div class="overflow-auto max-h-[450px] custom-scroll border border-zinc-200 rounded-xl bg-white">
                     <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-100 sticky top-0 text-[11px] uppercase text-slate-600 border-b border-slate-200">
-                            <tr><th class="p-3">Audit ID</th><th class="p-3">Timestamp</th><th class="p-3">Actor</th><th class="p-3">Action Verb</th><th class="p-3">Target</th><th class="p-3">Immutable Snapshot Payload</th></tr>
+                        <thead class="bg-zinc-100 sticky top-0 text-[11px] uppercase text-zinc-500 border-b border-zinc-200">
+                            <tr><th class="p-3">ID</th><th class="p-3">Timestamp</th><th class="p-3">Actor</th><th class="p-3">Action</th><th class="p-3">Target</th><th class="p-3">Snapshot</th></tr>
                         </thead>
-                        <tbody id="immutable-audit-tbody" class="divide-y divide-slate-100 font-mono text-[11px]"></tbody>
+                        <tbody id="immutable-audit-tbody" class="divide-y divide-zinc-100 font-mono text-[11px]"></tbody>
                     </table>
                 </div>
             </div>
@@ -613,61 +555,58 @@
     <!-- WORKSPACE 8: SYSTEM-GENERATED FORMAL REPORTS & VISUAL DATABASE    -->
     <!-- ================================================================= -->
     <main id="view-reports" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full fade-in pb-24">
-        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-5 flex flex-wrap justify-between items-center gap-3 no-print">
+        <div class="bg-white p-4 rounded-2xl border border-zinc-200 mb-5 flex flex-wrap justify-between items-center gap-3 no-print">
             <div class="flex flex-wrap gap-2 text-xs font-semibold">
-                <button onclick="switchReportMode('mgmt')" id="rep-mode-mgmt" class="px-4 py-2 rounded-xl bg-blue-600 text-white">Formal System Reports (4)</button>
-                <button onclick="switchReportMode('vdb')" id="rep-mode-vdb" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">Visual Database & File Design (12 Tables)</button>
+                <button type="button" onclick="switchReportMode('mgmt')" id="rep-mode-mgmt" class="px-4 py-2 rounded-xl bg-zinc-900 text-white">System Reports</button>
+                <button type="button" onclick="switchReportMode('vdb')" id="rep-mode-vdb" class="px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">Database Tables</button>
             </div>
-            <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                <i class="ph-bold ph-printer"></i> Print Formal A4 Report
+            <button type="button" onclick="window.print()" class="bg-zinc-900 hover:bg-zinc-800 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5">
+                <i class="ph-bold ph-printer"></i> Print Report
             </button>
         </div>
 
-        <!-- REPORT CUSTOMIZER BAR & A4 PAPER DOCUMENT -->
         <div id="reports-mgmt-container" class="flex flex-col gap-5">
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-3 text-xs no-print">
+            <div class="bg-white p-4 rounded-2xl border border-zinc-200 grid grid-cols-1 md:grid-cols-4 gap-3 text-xs no-print">
                 <div>
-                    <label class="text-[11px] font-bold text-slate-500 block mb-1">1. Select Report Type</label>
-                    <select id="rep-type-select" onchange="renderGroupedReport()" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
-                        <option value="1">REP-01: Pattern & Mold Inventory (Grouped by Brand)</option>
-                        <option value="2">REP-02: Quality Control Defect & Re-Cut Analysis</option>
-                        <option value="3">REP-03: Daily Shift & Line Deployment Roster</option>
-                        <option value="4">REP-04: RMW Warehouse Material Consumption</option>
+                    <label class="text-[11px] font-bold text-zinc-500 block mb-1">Report Type</label>
+                    <select id="rep-type-select" onchange="populateReportGroupFilter(); renderGroupedReport();" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl font-semibold">
+                        <option value="1">REP-01: Pattern & Mold Inventory</option>
+                        <option value="2">REP-02: Quality Control Defect Summary</option>
+                        <option value="3">REP-03: Shift Deployment Roster</option>
+                        <option value="4">REP-04: Warehouse Material Status</option>
                     </select>
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-500 block mb-1">2. Filter Group</label>
-                    <select id="rep-group-filter" onchange="renderGroupedReport()" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl">
-                        <option value="ALL">Show All Groups</option>
+                    <label class="text-[11px] font-bold text-zinc-500 block mb-1">Filter Group</label>
+                    <select id="rep-group-filter" onchange="renderGroupedReport()" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl">
+                        <option value="ALL">All Groups</option>
                     </select>
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-500 block mb-1">3. Customize Report Heading</label>
-                    <input id="rep-custom-title" type="text" oninput="renderGroupedReport()" placeholder="Optional Custom Report Heading..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl">
+                    <label class="text-[11px] font-bold text-zinc-500 block mb-1">Custom Heading</label>
+                    <input id="rep-custom-title" type="text" oninput="renderGroupedReport()" placeholder="Optional Heading" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl">
                 </div>
                 <div>
-                    <label class="text-[11px] font-bold text-slate-500 block mb-1">4. Operational Context Note</label>
-                    <input id="rep-custom-note" type="text" oninput="renderGroupedReport()" placeholder="e.g. Shift Handover Telemetry" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl">
+                    <label class="text-[11px] font-bold text-zinc-500 block mb-1">Reference Note</label>
+                    <input id="rep-custom-note" type="text" oninput="renderGroupedReport()" placeholder="Optional Note" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl">
                 </div>
             </div>
 
-            <!-- FORMAL A4 WHITE REPORT SHEET -->
-            <div id="printable-report-canvas" class="bg-white p-6 sm:p-10 rounded-2xl border border-slate-300 shadow-md max-w-5xl mx-auto w-full print-active"></div>
+            <div id="printable-report-canvas" class="bg-white p-6 sm:p-10 rounded-2xl border border-zinc-300 shadow-sm max-w-5xl mx-auto w-full print-active"></div>
         </div>
 
-        <!-- VISUAL DATABASE & FILE DESIGN EXPLORER -->
         <div id="reports-vdb-container" class="hidden flex flex-col gap-4">
             <div class="flex flex-wrap gap-1.5 text-xs font-semibold" id="vdb-table-tabs"></div>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2 mb-3">
-                        File Design Specification (Chapter 4.3)
+                <div class="bg-white p-4 rounded-2xl border border-zinc-200">
+                    <h3 class="text-xs font-bold text-zinc-900 uppercase tracking-wider border-b border-zinc-100 pb-2 mb-3">
+                        File Design Specification
                     </h3>
                     <div id="vdb-schema-spec" class="overflow-x-auto text-xs"></div>
                 </div>
-                <div class="lg:col-span-2 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-                    <h3 id="vdb-table-title" class="text-xs font-bold text-blue-600 uppercase tracking-wider border-b border-slate-100 pb-2 mb-3">
-                        Live PostgreSQL Table Rows
+                <div class="lg:col-span-2 bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col">
+                    <h3 id="vdb-table-title" class="text-xs font-bold text-zinc-900 uppercase tracking-wider border-b border-zinc-100 pb-2 mb-3">
+                        Table Data
                     </h3>
                     <div id="vdb-table-rows" class="overflow-x-auto flex-1 text-xs"></div>
                 </div>
@@ -678,100 +617,92 @@
     <!-- ================================================================= -->
     <!-- FLOATING PROTOCOL COMMUNICATOR & APPROVAL DRAWER (BOTTOM-RIGHT)   -->
     <!-- ================================================================= -->
-    <div id="comm-floating-Dock" class="hidden fixed bottom-5 right-5 z-[110]">
-        <!-- Collapsed Pill Button -->
-        <button onclick="toggleCommDrawer()" id="comm-launcher-btn" class="bg-slate-900 hover:bg-blue-700 text-white px-4 py-3 rounded-full shadow-xl flex items-center gap-2.5 text-xs font-bold transition-all">
-            <i class="ph-fill ph-chat-teardrop-text text-lg text-blue-400"></i>
-            <span>Protocol Communicator</span>
-            <span id="comm-unread-badge" class="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px]">0</span>
+    <div id="comm-floating-Dock" class="hidden fixed bottom-5 right-5 z-[120]">
+        <button type="button" onclick="toggleCommDrawer()" id="comm-launcher-btn" class="bg-zinc-900 hover:bg-zinc-800 text-white px-4 py-3 rounded-full shadow-xl flex items-center gap-2.5 text-xs font-semibold transition-all">
+            <i class="ph-bold ph-chat-teardrop-text text-base"></i>
+            <span>Requests & Approvals</span>
+            <span id="comm-unread-badge" class="px-2 py-0.5 rounded-full bg-zinc-700 text-white text-[10px]">0</span>
         </button>
 
-        <!-- Expanded Communicator Window -->
-        <div id="comm-drawer-window" class="hidden fixed inset-0 sm:inset-auto sm:bottom-5 sm:right-5 sm:w-[430px] sm:h-[560px] bg-white sm:rounded-2xl border border-slate-300 shadow-2xl flex flex-col overflow-hidden z-[130]">
-            <!-- Header -->
-            <div class="bg-slate-900 text-white px-4 py-3.5 flex justify-between items-center">
-                <div>
-                    <h4 class="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
-                        <i class="ph-fill ph-shield-check text-blue-400"></i> Directed Task & Approval Protocol
-                    </h4>
-                    <p id="comm-hierarchy-rule-text" class="text-[10px] text-slate-400 mt-0.5">Hierarchy Routing Active</p>
-                </div>
-                <button onclick="toggleCommDrawer()" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-lg"></i></button>
+        <div id="comm-drawer-window" class="hidden fixed inset-0 sm:inset-auto sm:bottom-5 sm:right-5 sm:w-[420px] sm:h-[540px] bg-white sm:rounded-2xl border border-zinc-300 shadow-2xl flex flex-col overflow-hidden z-[150]">
+            <div class="bg-zinc-900 text-white px-4 py-3.5 flex justify-between items-center">
+                <h4 class="text-xs font-bold uppercase tracking-wider">Task & Approval Communicator</h4>
+                <button type="button" onclick="closeCommDrawer()" class="text-zinc-400 hover:text-white p-1"><i class="ph-bold ph-x text-lg"></i></button>
             </div>
 
-            <!-- Tabs: Inbox | Compose / Draft | Saved Drafts | History -->
-            <div class="grid grid-cols-4 bg-slate-100 border-b border-slate-200 text-[11px] font-bold text-slate-600">
-                <button onclick="switchCommTab('inbox')" id="comm-tab-inbox" class="py-2.5 border-b-2 border-blue-600 text-blue-600 bg-white">Inbox</button>
-                <button onclick="switchCommTab('compose')" id="comm-tab-compose" class="py-2.5 border-b-2 border-transparent hover:text-slate-900">+ Compose</button>
-                <button onclick="switchCommTab('drafts')" id="comm-tab-drafts" class="py-2.5 border-b-2 border-transparent hover:text-slate-900">Drafts</button>
-                <button onclick="switchCommTab('history')" id="comm-tab-history" class="py-2.5 border-b-2 border-transparent hover:text-slate-900">History</button>
+            <div class="grid grid-cols-4 bg-zinc-100 border-b border-zinc-200 text-[11px] font-bold text-zinc-600">
+                <button type="button" onclick="switchCommTab('inbox')" id="comm-tab-inbox" class="py-2.5 border-b-2 border-zinc-900 text-zinc-900 bg-white">Inbox</button>
+                <button type="button" onclick="switchCommTab('compose')" id="comm-tab-compose" class="py-2.5 border-b-2 border-transparent hover:text-zinc-900">New</button>
+                <button type="button" onclick="switchCommTab('drafts')" id="comm-tab-drafts" class="py-2.5 border-b-2 border-transparent hover:text-zinc-900">Drafts</button>
+                <button type="button" onclick="switchCommTab('history')" id="comm-tab-history" class="py-2.5 border-b-2 border-transparent hover:text-zinc-900">History</button>
             </div>
 
-            <!-- Body Area -->
-            <div id="comm-body-content" class="flex-1 overflow-y-auto p-4 custom-scroll bg-slate-50 text-xs"></div>
+            <div id="comm-body-content" class="flex-1 overflow-y-auto p-4 custom-scroll bg-zinc-50 text-xs"></div>
         </div>
     </div>
 
     <!-- ================================================================= -->
-    <!-- MODAL 1: LOGIN MODAL (DYNAMIC ICON + STEALTH VIVA SELECTOR)       -->
+    <!-- MODAL 1: LOGIN MODAL (DYNAMIC TITLE + ROLE-FIRST DROPDOWN)        -->
     <!-- ================================================================= -->
-    <div id="user-login-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white w-full max-w-md rounded-2xl border border-slate-200 p-6 sm:p-7 shadow-2xl relative">
-            <button onclick="closeModal('user-login-modal')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700"><i class="ph-bold ph-x text-lg"></i></button>
+    <div id="user-login-modal" onclick="if(event.target===this) closeModal('user-login-modal')" class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-[170] flex items-center justify-center hidden p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl border border-zinc-200 p-6 sm:p-7 shadow-2xl relative">
+            <button type="button" onclick="closeModal('user-login-modal')" class="absolute top-5 right-5 text-zinc-400 hover:text-zinc-900 p-1"><i class="ph-bold ph-x text-lg"></i></button>
 
             <div class="flex flex-col items-center text-center mb-6">
-                <div id="login-dept-icon-box" class="w-16 h-16 rounded-2xl bg-blue-50 border-2 border-blue-500 flex items-center justify-center text-blue-600 mb-3 transition-all duration-300">
-                    <i id="login-dept-icon" class="ph-duotone ph-identification-badge text-3xl"></i>
+                <div id="login-dept-icon-box" class="w-14 h-14 rounded-2xl bg-zinc-100 border border-zinc-300 flex items-center justify-center text-zinc-900 mb-3">
+                    <i id="login-dept-icon" class="ph-bold ph-identification-badge text-2xl"></i>
                 </div>
-                <span id="login-dept-badge" class="px-3 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                    Enter Employee ID
+                <span id="login-dept-badge" class="text-[11px] font-medium text-zinc-500">
+                    Bodyline Staff Authentication
                 </span>
-                <h3 class="font-bold text-xl text-slate-900 mt-2">Staff Portal Sign In</h3>
+                <!-- DYNAMIC SIGN IN HEADING -->
+                <h3 id="login-dynamic-title" class="font-bold text-xl text-zinc-900 mt-1">Staff Portal Sign In</h3>
             </div>
 
-            <!-- STEALTH VIVA SELECTOR (NO FAKE CREDENTIAL AUTO-TYPING) -->
-            <div id="viva-login-helper" class="hidden mb-4 p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <label class="text-[11px] font-bold text-slate-600 block mb-1.5">Quick Workspace Selector:</label>
-                <select id="viva-role-dropdown" onchange="onVivaRoleChange()" class="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800">
-                    <option value="DH-01">Jackson Emmanuel — Cutting Department Head</option>
-                    <option value="CSE-01">Aaron Emmanuel — Cutting Senior Executive</option>
-                    <option value="CS-L1-01">Nathaniel Perera — Cutting Supervisor (Line 1)</option>
-                    <option value="PR-C-PC-01">Kavya Tharmalingam — Pattern Room Coordinator</option>
-                    <option value="DDC-C-01">Kavindi Perera — Design Dept Coordinator</option>
-                    <option value="CADC-C-01">Sachith Perera — CAD Room Coordinator</option>
-                    <option value="SDC-C-01">Tharindu Perera — Sewing Dept Coordinator</option>
-                    <option value="RMWC-C-01">Ahamed Niyas — RMW Warehouse Coordinator</option>
-                    <option value="CQCE-01">Imesha Fernando — Quality Control Executive</option>
-                    <option value="DT-C-CA-01">Ashan Mendis — Digital Team CDMS Admin</option>
+            <!-- QUICK ROLE SELECTOR (POSITION FIRST, THEN NAME - NO EM-DASH) -->
+            <div id="viva-login-helper" class="hidden mb-4">
+                <label class="text-xs font-semibold text-zinc-600 block mb-1.5">Select Position</label>
+                <select id="viva-role-dropdown" onchange="onVivaRoleChange()" class="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold text-zinc-900 outline-none focus:border-zinc-900">
+                    <option value="DH-01">Cutting Department Head (Jackson Emmanuel)</option>
+                    <option value="CSE-01">Cutting Senior Executive (Aaron Emmanuel)</option>
+                    <option value="CS-L1-01">Cutting Supervisor Line 1 (Nathaniel Perera)</option>
+                    <option value="PR-C-PC-01">Pattern Coordinator (Kavya Tharmalingam)</option>
+                    <option value="DDC-C-01">Design Dept Coordinator (Kavindi Perera)</option>
+                    <option value="CADC-C-01">CAD Coordinator (Sachith Perera)</option>
+                    <option value="SDC-C-01">Sewing Dept Coordinator (Tharindu Perera)</option>
+                    <option value="RMWC-C-01">RMW Warehouse Coordinator (Ahamed Niyas)</option>
+                    <option value="CQCE-01">Quality Control Executive (Imesha Fernando)</option>
+                    <option value="DT-C-CST-01">CDMS Support Team (Shehani Mel)</option>
+                    <option value="DT-C-CA-01">CDMS Admin (Ashan Mendis)</option>
                 </select>
             </div>
 
-            <!-- Standard Inputs -->
+            <!-- Standard Credential Inputs -->
             <div id="standard-login-inputs" class="space-y-3">
                 <div>
-                    <label class="text-xs font-semibold text-slate-600 block mb-1">Employee ID</label>
-                    <input id="login-emp-id" type="text" oninput="morphDepartmentIconOnType(this.value)" placeholder="e.g. DH-01, CSE-01, CS-L1-01, DDC-C-01" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 outline-none focus:border-blue-600 focus:bg-white">
+                    <label class="text-xs font-semibold text-zinc-600 block mb-1">Employee ID</label>
+                    <input id="login-emp-id" type="text" oninput="morphDepartmentIconOnType(this.value)" placeholder="Enter Employee ID" class="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white">
                 </div>
-                <div id="password-input-wrapper">
-                    <label class="text-xs font-semibold text-slate-600 block mb-1">Password</label>
-                    <input id="login-emp-pass" type="password" placeholder="••••••••••••" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 outline-none focus:border-blue-600 focus:bg-white">
+                <div>
+                    <label class="text-xs font-semibold text-zinc-600 block mb-1">Password</label>
+                    <input id="login-emp-pass" type="password" placeholder="Enter Password" class="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white">
                 </div>
             </div>
 
-            <button onclick="executeDepartmentLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-wider transition-colors mt-5 shadow-sm">
-                Continue to Workspace
+            <button type="button" onclick="executeDepartmentLogin()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-3 rounded-xl text-xs uppercase tracking-wider transition-colors mt-5">
+                Sign In
             </button>
         </div>
     </div>
 
     <!-- ================================================================= -->
-    <!-- MODAL 2: ITEM DETAIL & 2-STEP QR BORROW / RETURN MODAL            -->
+    <!-- MODAL 2: ITEM DETAIL & QR VERIFICATION MODAL                      -->
     <!-- ================================================================= -->
-    <div id="verify-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-white border border-slate-200 w-full max-w-lg rounded-2xl flex flex-col overflow-hidden max-h-[90vh] shadow-2xl">
-            <div class="bg-slate-50 px-5 py-3.5 border-b border-slate-200 flex justify-between items-center">
-                <h3 id="modal-title" class="font-bold text-sm text-slate-900">Pattern Room Item Details & QR Verification</h3>
-                <button onclick="closeVerifyModal()" class="text-slate-400 hover:text-slate-700"><i class="ph-bold ph-x text-lg"></i></button>
+    <div id="verify-modal" onclick="if(event.target===this) closeVerifyModal()" class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-[170] flex items-center justify-center hidden p-4">
+        <div class="bg-white border border-zinc-200 w-full max-w-lg rounded-2xl flex flex-col overflow-hidden max-h-[90vh] shadow-2xl">
+            <div class="bg-zinc-50 px-5 py-3.5 border-b border-zinc-200 flex justify-between items-center">
+                <h3 id="modal-title" class="font-bold text-sm text-zinc-900">Item Details</h3>
+                <button type="button" onclick="closeVerifyModal()" class="text-zinc-400 hover:text-zinc-900 p-1"><i class="ph-bold ph-x text-lg"></i></button>
             </div>
             <div id="modal-dynamic-area" class="p-5 overflow-y-auto custom-scroll flex-1"></div>
         </div>
