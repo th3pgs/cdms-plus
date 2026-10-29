@@ -1,5 +1,5 @@
 // ============================================================================
-// CDMS+ ENTERPRISE ENGINE (MONOCHROME MINIMALIST EDITION + LIVE SUPABASE)
+// CDMS+ ENTERPRISE ENGINE (ANIMATED TOP BAR + RED PLUS EDITION)
 // ============================================================================
 const SUPABASE_URL = 'https://uvfmircbplfqkgkmzssb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_NZNswR7y9y-oSJIC-unRvw_wioNx760';
@@ -29,7 +29,63 @@ let activeCommTab = 'inbox';
 let mutexPollInterval = null;
 
 // ============================================================================
-// 1. SUPABASE LIVE SYNC & IMMUTABLE AUDIT
+// 1. TOP BAR ANIMATION CONTROLLER (COMPACT VS EXPANDED CORNERS)
+// ============================================================================
+function setTopBarState(state) {
+    const inner = document.getElementById('top-bar-inner');
+    const divider = document.getElementById('top-bar-compact-divider');
+    const centerLogo = document.getElementById('top-bar-center-logo');
+    const sessionCtrls = document.getElementById('top-bar-session-controls');
+    const profileWrap = document.getElementById('header-profile-wrapper');
+    const subnav = document.getElementById('portal-subnav-bar');
+
+    if (state === 'compact') {
+        // Welcome Page State: Small bar, MAS & Bodyline close together, no center CDMS+
+        inner.classList.remove('expanded-bar');
+        inner.classList.add('compact-bar');
+        divider.classList.remove('hidden');
+        centerLogo.classList.remove('center-logo-expanded');
+        centerLogo.classList.add('center-logo-collapsed');
+        sessionCtrls.classList.add('hidden');
+        sessionCtrls.classList.remove('flex');
+        subnav.classList.add('hidden');
+    } else if (state === 'expanded-auth') {
+        // Login Modal State: Logos animate to corners, CDMS+ glides into center
+        inner.classList.remove('compact-bar');
+        inner.classList.add('expanded-bar');
+        divider.classList.add('hidden');
+        centerLogo.classList.remove('center-logo-collapsed');
+        centerLogo.classList.add('center-logo-expanded');
+        sessionCtrls.classList.add('hidden');
+        sessionCtrls.classList.remove('flex');
+        subnav.classList.add('hidden');
+    } else if (state === 'expanded-terminal') {
+        // Pattern Room State: Logos in corners, CDMS+ in center, Sign Out button (No profile picture)
+        inner.classList.remove('compact-bar');
+        inner.classList.add('expanded-bar');
+        divider.classList.add('hidden');
+        centerLogo.classList.remove('center-logo-collapsed');
+        centerLogo.classList.add('center-logo-expanded');
+        sessionCtrls.classList.remove('hidden');
+        sessionCtrls.classList.add('flex');
+        profileWrap.classList.add('hidden');
+        subnav.classList.add('hidden');
+    } else if (state === 'expanded-portal') {
+        // Logged-In User State: Logos in corners, CDMS+ in center, Profile + Sign Out + Subnav visible
+        inner.classList.remove('compact-bar');
+        inner.classList.add('expanded-bar');
+        divider.classList.add('hidden');
+        centerLogo.classList.remove('center-logo-collapsed');
+        centerLogo.classList.add('center-logo-expanded');
+        sessionCtrls.classList.remove('hidden');
+        sessionCtrls.classList.add('flex');
+        profileWrap.classList.remove('hidden');
+        subnav.classList.remove('hidden');
+    }
+}
+
+// ============================================================================
+// 2. SUPABASE LIVE SYNC & IMMUTABLE AUDIT
 // ============================================================================
 async function syncFromSupabase() {
     try {
@@ -94,16 +150,16 @@ async function writeImmutableAudit(actionVerb, targetEntity, targetId, snapshotO
 }
 
 // ============================================================================
-// 2. BOOT, MODALS & 5-MINUTE IDLE PROCEDURE RESET
+// 3. BOOT, MODALS & 5-MINUTE IDLE PROCEDURE RESET
 // ============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
+    setTopBarState('compact');
     await syncFromSupabase();
 
     ['click', 'keydown', 'touchstart'].forEach(evt => {
         document.addEventListener(evt, () => { idleSecondsRemaining = 300; });
     });
 
-    // Close profile popover when clicking outside
     document.addEventListener('click', (e) => {
         const wrapper = document.getElementById('header-profile-wrapper');
         const pop = document.getElementById('profile-popover-menu');
@@ -141,6 +197,13 @@ function closeModal(id) {
     if (el) el.classList.add('hidden');
 }
 
+function closeLoginModal() {
+    closeModal('user-login-modal');
+    if (currentMode === 'gateway') {
+        setTopBarState('compact');
+    }
+}
+
 function closeVerifyModal() {
     closeModal('verify-modal');
 }
@@ -159,7 +222,7 @@ function closeProfilePopover() {
     closeModal('profile-popover-menu');
 }
 
-function readAndCompressImage(fileInput, maxWidth = 360) {
+function readAndCompressImage(fileInput, maxWidth = 400) {
     return new Promise((resolve) => {
         if (!fileInput || !fileInput.files || !fileInput.files[0]) return resolve(null);
         const reader = new FileReader();
@@ -172,7 +235,7 @@ function readAndCompressImage(fileInput, maxWidth = 360) {
                 canvas.height = img.height * scale;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                resolve(canvas.toDataURL('image/png', 0.85));
+                resolve(canvas.toDataURL('image/png', 0.9));
             };
             img.src = e.target.result;
         };
@@ -181,7 +244,7 @@ function readAndCompressImage(fileInput, maxWidth = 360) {
 }
 
 // ============================================================================
-// 3. BIG ICON-ONLY PADLOCK & DYNAMIC SIGN-IN MODAL
+// 4. BIG ICON-ONLY PADLOCK & DYNAMIC SIGN-IN MODAL
 // ============================================================================
 function toggleVivaPadlock() {
     vivaBypassUnlocked = !vivaBypassUnlocked;
@@ -198,6 +261,8 @@ function toggleVivaPadlock() {
 }
 
 function openUserLoginModal() {
+    // Animate Top Bar to corners and reveal CDMS+ in center
+    setTopBarState('expanded-auth');
     document.getElementById('user-login-modal').classList.remove('hidden');
     const helper = document.getElementById('viva-login-helper');
     const stdInputs = document.getElementById('standard-login-inputs');
@@ -218,7 +283,6 @@ function onVivaRoleChange() {
     morphDepartmentIconOnType(val);
 }
 
-// DYNAMICALLY UPDATES SIGN-IN TITLE & ICON BEFORE USER PRESSES SIGN IN
 function morphDepartmentIconOnType(rawId) {
     const code = (rawId || '').trim().toUpperCase();
     const icon = document.getElementById('login-dept-icon');
@@ -286,8 +350,7 @@ async function executeDepartmentLogin() {
     closeModal('user-login-modal');
 
     document.getElementById('view-gateway').classList.add('hidden');
-    document.getElementById('main-header').classList.remove('hidden');
-    document.getElementById('header-profile-wrapper').classList.remove('hidden');
+    setTopBarState('expanded-portal');
     document.getElementById('comm-floating-Dock').classList.remove('hidden');
     updateProfileUI(emp);
 
@@ -297,7 +360,7 @@ async function executeDepartmentLogin() {
 }
 
 // ============================================================================
-// 4. PROFILE PICTURE CHANGE REQUEST (PENCIL ICON -> SUPPORT TEAM APPROVAL)
+// 5. PROFILE PICTURE CHANGE REQUEST (PENCIL ICON -> SUPPORT TEAM APPROVAL)
 // ============================================================================
 async function submitAvatarChangeRequest(fileInput) {
     if (!currentLoggedInUser) return;
@@ -324,7 +387,7 @@ async function submitAvatarChangeRequest(fileInput) {
     await writeImmutableAudit('REQUEST_AVATAR_UPDATE', 'Employees', currentLoggedInUser.employee_id, { requested_by: currentLoggedInUser.full_name });
     await syncFromSupabase();
     closeProfilePopover();
-    showToast('Profile picture request sent to CDMS Support Team for approval.');
+    showToast('Profile picture request sent to CDMS Support Team.');
 }
 
 async function resolveAvatarRequest(commId, empId, decision) {
@@ -342,7 +405,7 @@ async function resolveAvatarRequest(commId, empId, decision) {
 }
 
 // ============================================================================
-// 5. ROLE-ISOLATED WORKSPACE NAVIGATION
+// 6. ROLE-ISOLATED WORKSPACE NAVIGATION
 // ============================================================================
 function buildRoleIsolatedTabs(emp) {
     const id = emp.employee_id.toUpperCase();
@@ -390,7 +453,7 @@ function buildRoleIsolatedTabs(emp) {
     }
 
     nav.innerHTML = tabs.map(t => `
-        <button type="button" onclick="switchPortalView('${t.key}')" id="nav-btn-${t.key}" class="role-tab px-3.5 py-1.5 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-all">
+        <button type="button" onclick="switchPortalView('${t.key}')" id="nav-btn-${t.key}" class="role-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-all">
             ${t.label}
         </button>
     `).join('');
@@ -398,15 +461,13 @@ function buildRoleIsolatedTabs(emp) {
     switchPortalView(tabs[0].key);
 }
 
-// ENTER DIGITAL PATTERN ROOM (NO PROFILE PICTURE IN HEADER)
+// ENTER DIGITAL PATTERN ROOM (TRIGGERS TOP BAR CORNER ANIMATION, NO PROFILE PICTURE)
 async function enterDigitalPatternRoom() {
     await syncFromSupabase();
     currentMode = 'terminal';
     currentLoggedInUser = null;
     document.getElementById('view-gateway').classList.add('hidden');
-    document.getElementById('main-header').classList.remove('hidden');
-    // Hide user profile avatar/card completely inside Pattern Room
-    document.getElementById('header-profile-wrapper').classList.add('hidden');
+    setTopBarState('expanded-terminal');
     document.getElementById('comm-floating-Dock').classList.add('hidden');
     document.getElementById('role-workspace-tabs').innerHTML = '';
 
@@ -424,11 +485,11 @@ function hideAllMainViews() {
 async function switchPortalView(viewKey) {
     hideAllMainViews();
     document.querySelectorAll('.role-tab').forEach(b => {
-        b.className = 'role-tab px-3.5 py-1.5 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-all';
+        b.className = 'role-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-all';
     });
     const activeBtn = document.getElementById(`nav-btn-${viewKey}`);
     if (activeBtn) {
-        activeBtn.className = 'role-tab px-3.5 py-1.5 rounded-xl text-xs font-bold bg-zinc-900 text-white transition-all';
+        activeBtn.className = 'role-tab px-3.5 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 text-white transition-all';
     }
 
     document.getElementById(`view-${viewKey}`).classList.remove('hidden');
@@ -456,13 +517,13 @@ function returnToWelcomeScreen() {
     hideAllMainViews();
     closeProfilePopover();
     closeCommDrawer();
-    document.getElementById('main-header').classList.add('hidden');
+    setTopBarState('compact');
     document.getElementById('comm-floating-Dock').classList.add('hidden');
     document.getElementById('view-gateway').classList.remove('hidden');
 }
 
 // ============================================================================
-// 6. GOOGLE-STYLE PATTERN ROOM (ACTIVE TOP, NON-ACTIVE BELOW)
+// 7. GOOGLE-STYLE PATTERN ROOM (ACTIVE TOP, NON-ACTIVE BELOW)
 // ============================================================================
 function handlePatternSearch() {
     const q = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -723,7 +784,7 @@ function dismissMutexBar() {
 }
 
 // ============================================================================
-// 7. DEPARTMENT HEAD READ-ONLY OVERSIGHT PORTAL
+// 8. DEPARTMENT HEAD READ-ONLY OVERSIGHT PORTAL
 // ============================================================================
 async function renderDeptHeadPortal() {
     await syncFromSupabase();
@@ -779,7 +840,7 @@ async function renderDeptHeadPortal() {
 }
 
 // ============================================================================
-// 8. SUPERVISOR COMMAND & 7-DAY SHIFT MATRIX
+// 9. SUPERVISOR COMMAND & 7-DAY SHIFT MATRIX
 // ============================================================================
 async function renderSupervisorPortal() {
     await syncFromSupabase();
@@ -923,7 +984,7 @@ async function resolveMutexTicket(reqId, decision) {
 }
 
 // ============================================================================
-// 9. DESIGN, CAD & PATTERN ROOM HUB
+// 10. DESIGN, CAD & PATTERN ROOM HUB
 // ============================================================================
 async function renderDesignCadPortal() {
     await syncFromSupabase();
@@ -1050,7 +1111,7 @@ async function registerNewPatternAsset() {
 }
 
 // ============================================================================
-// 10. SEWING ORDERS & RMW WAREHOUSE DISPATCH
+// 11. SEWING ORDERS & RMW WAREHOUSE DISPATCH
 // ============================================================================
 async function renderSupplyPortal() {
     await syncFromSupabase();
@@ -1115,7 +1176,7 @@ async function dispatchRmwMaterial(matCode) {
 }
 
 // ============================================================================
-// 11. FLOOR QUALITY CONTROL (QC)
+// 12. FLOOR QUALITY CONTROL (QC)
 // ============================================================================
 async function renderQcPortal() {
     await syncFromSupabase();
@@ -1186,14 +1247,13 @@ async function resolveQcLog(logId, assetId) {
 }
 
 // ============================================================================
-// 12. DIGITAL TEAM ADMIN, SUPPORT PHOTO APPROVALS & DUAL LOGOS
+// 13. DIGITAL TEAM ADMIN, SUPPORT PHOTO APPROVALS & 400x100 LOGOS
 // ============================================================================
 async function renderAdminPortal() {
     await syncFromSupabase();
     const uniqueRoles = [...new Set(DB.employees.map(e => e.role_designation))];
     document.getElementById('reg-emp-role').innerHTML = uniqueRoles.map(r => `<option value="${r}">${r}</option>`).join('');
 
-    // Render Pending Profile Photo Requests for Support Team
     const avatarReqs = DB.department_communications.filter(
         c => c.protocol_category === 'Avatar Request' && c.comm_status === 'Pending Approval'
     );
@@ -1331,9 +1391,8 @@ async function deleteSystemParam(recId) {
     await renderAdminPortal();
 }
 
-// UPLOAD MAS & BODYLINE LOGOS INTO UNLIMITED TEXT COLUMN IN SUPABASE
 async function uploadBrandLogo(inputEl, logoRefKey) {
-    const dataUrl = await readAndCompressImage(inputEl, 360);
+    const dataUrl = await readAndCompressImage(inputEl, 400);
     if (!dataUrl) return;
 
     await supa.from('department_communications').delete().eq('linked_reference_id', logoRefKey);
@@ -1347,14 +1406,14 @@ async function uploadBrandLogo(inputEl, logoRefKey) {
         protocol_category: 'System Logo',
         linked_reference_id: logoRefKey,
         subject_line: logoRefKey,
-        message_body: 'Brand Logo Asset',
+        message_body: 'Brand Logo Asset (400x100)',
         comm_status: 'Active',
         resolution_note: dataUrl
     }]);
 
     if (error) return showToast(error.message, 'error');
     await syncFromSupabase();
-    showToast('Logo updated across top bar and reports.');
+    showToast('Logo updated on top bar and reports.');
 }
 
 function applyCustomLogosFromDB() {
@@ -1362,29 +1421,21 @@ function applyCustomLogosFromDB() {
     const bodyRec = DB.department_communications.find(c => c.linked_reference_id === 'LOGO_BODYLINE' && c.resolution_note);
 
     if (masRec) {
-        ['gw-mas-logo', 'hdr-mas-logo'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) { el.src = masRec.resolution_note; el.classList.remove('hidden'); }
-        });
-        ['gw-mas-fallback', 'hdr-mas-fallback'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.classList.add('hidden');
-        });
+        const img = document.getElementById('top-mas-logo');
+        const fb = document.getElementById('top-mas-fallback');
+        if (img) { img.src = masRec.resolution_note; img.classList.remove('hidden'); }
+        if (fb) fb.classList.add('hidden');
     }
     if (bodyRec) {
-        ['gw-bodyline-logo', 'hdr-bodyline-logo'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) { el.src = bodyRec.resolution_note; el.classList.remove('hidden'); }
-        });
-        ['gw-bodyline-fallback', 'hdr-bodyline-fallback'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.classList.add('hidden');
-        });
+        const img = document.getElementById('top-bodyline-logo');
+        const fb = document.getElementById('top-bodyline-fallback');
+        if (img) { img.src = bodyRec.resolution_note; img.classList.remove('hidden'); }
+        if (fb) fb.classList.add('hidden');
     }
 }
 
 // ============================================================================
-// 13. PROTOCOL COMMUNICATOR & APPROVAL ENGINE
+// 14. PROTOCOL COMMUNICATOR & APPROVAL ENGINE
 // ============================================================================
 function updateCommUnreadBadge() {
     if (!currentLoggedInUser) return;
@@ -1591,7 +1642,7 @@ async function resolveCommItem(commId, decision) {
 }
 
 // ============================================================================
-// 14. SYSTEM-GENERATED FORMAL A4 REPORTS & VISUAL DATABASE
+// 15. SYSTEM-GENERATED FORMAL A4 REPORTS & VISUAL DATABASE
 // ============================================================================
 function switchReportMode(mode) {
     document.getElementById('reports-mgmt-container').classList.toggle('hidden', mode !== 'mgmt');
@@ -1627,10 +1678,10 @@ function renderGroupedReport() {
     const bodyRec = DB.department_communications.find(c => c.linked_reference_id === 'LOGO_BODYLINE' && c.resolution_note);
 
     const leftLogoHtml = masRec
-        ? `<img src="${masRec.resolution_note}" class="h-8 max-w-[140px] object-contain">`
+        ? `<img src="${masRec.resolution_note}" class="h-9 max-w-[144px] object-contain">`
         : `<span class="font-black text-zinc-900 text-sm tracking-tight uppercase">MAS HOLDINGS</span>`;
     const rightLogoHtml = bodyRec
-        ? `<img src="${bodyRec.resolution_note}" class="h-8 max-w-[140px] object-contain ml-auto">`
+        ? `<img src="${bodyRec.resolution_note}" class="h-9 max-w-[144px] object-contain ml-auto">`
         : `<span class="font-extrabold text-zinc-900 text-sm tracking-widest uppercase">BODYLINE</span>`;
 
     const defaultTitles = {
@@ -1736,7 +1787,7 @@ function renderGroupedReport() {
         <div class="border-b-2 border-zinc-900 pb-4 mb-5 grid grid-cols-3 items-center">
             <div>${leftLogoHtml}</div>
             <div class="text-center">
-                <p class="text-[10px] font-mono uppercase tracking-widest text-zinc-500">CDMS+ Report REP-0${repNo}</p>
+                <p class="text-[11px] font-black uppercase tracking-widest text-zinc-900">CDMS<span class="text-red-600">+</span> Report REP-0${repNo}</p>
                 <h2 class="text-base font-black text-zinc-900 uppercase mt-0.5">${customTitle || defaultTitles[repNo]}</h2>
                 <p class="text-[11px] text-zinc-500">Bodyline (Pvt) Ltd, Horana Plant 1</p>
             </div>
