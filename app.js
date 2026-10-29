@@ -1,11 +1,11 @@
-// ============================================================================
-// CDMS+ ENTERPRISE ENGINE (NO-DATA PLACEHOLDERS + EMPTY HEAD + DIRECT TRANSITION)
-// ============================================================================
+// V7 Update
+// CDMS+ ENTERPRISE ENGINE DAY with0MS UNLOCK + BULK PHOTO & AUTO-ID
+
 const SUPABASE_URL = 'https://uvfmircbplfqkgkmzssb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_NZNswR7y9y-oSJIC-unRvw_wioNx760';
 const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// CLEAN SVG PLACEHOLDERS (EMPTY HEAD AVATAR & "NO DATA" ITEM PLACEHOLDER)
+// EMPTY HEAD AVATAR & "NO DATA" ITEM PLACEHOLDER SVGS
 const DEFAULT_AVATAR_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
   <rect width="120" height="120" fill="#E4E4E7"/>
@@ -22,14 +22,14 @@ const NO_DATA_IMAGE_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
 </svg>`);
 
 function getAvatarUrl(url) {
-    if (!url || url.includes('unsplash.com') || url.includes('placehold.co')) {
+    if (!url || url.trim() === '' || url.includes('unsplash.com') || url.includes('placehold.co')) {
         return DEFAULT_AVATAR_SVG;
     }
     return url;
 }
 
 function getItemImageUrl(url) {
-    if (!url || url.includes('unsplash.com') || url.includes('placehold.co')) {
+    if (!url || url.trim() === '' || url.includes('unsplash.com') || url.includes('placehold.co')) {
         return NO_DATA_IMAGE_SVG;
     }
     return url;
@@ -52,15 +52,19 @@ let DB = {
 
 let vivaBypassUnlocked = false;
 let currentLoggedInUser = null;
-let currentMode = 'gateway'; // 'gateway', 'terminal', 'portal'
-let kioskAuthMode = 'unlock'; // 'unlock' or 'logout'
+let currentMode = 'gateway';
+let kioskAuthMode = 'unlock';
 let idleSecondsRemaining = 300;
 let selectedOperatorForAssign = null;
+let supervisorPoolLineFilter = 'ALL';
 let activeCommTab = 'inbox';
 let mutexPollInterval = null;
+let isAuthBusy = false; // Prevents double-click spam on Unlock / Sign In
+let lastToastMessage = '';
+let lastToastTime = 0;
 
 // ============================================================================
-// 1. TOP BAR & DIRECT MODAL-TO-VIEW TRANSITION CONTROLLERS
+// 1. TOP BAR STATE CONTROLLER (ZERO-LAG)
 // ============================================================================
 function setTopBarState(state) {
     const inner = document.getElementById('top-bar-inner');
@@ -100,47 +104,6 @@ function setTopBarState(state) {
         profileWrap.classList.remove('hidden');
         subnav.classList.remove('hidden');
     }
-}
-
-// Swaps the underlying view FIRST, then smoothly dissolves the modal over the new screen
-function dissolveModalIntoView(modalId, setupNewViewFn) {
-    const modal = document.getElementById(modalId);
-    const stage = document.getElementById('stage-wrapper');
-
-    // 1. Prepare and display the new destination view behind the modal immediately
-    if (stage) {
-        stage.classList.remove('view-stage-ready');
-        stage.classList.add('view-stage-switching');
-    }
-    setupNewViewFn();
-
-    // 2. Dissolve the modal out while bringing the new view into focus
-    if (modal && !modal.classList.contains('hidden')) {
-        modal.classList.add('modal-fade-out');
-        setTimeout(() => {
-            modal.classList.add('hidden');
-            modal.classList.remove('modal-fade-out');
-        }, 140);
-    }
-
-    requestAnimationFrame(() => {
-        if (stage) {
-            stage.classList.remove('view-stage-switching');
-            stage.classList.add('view-stage-ready');
-        }
-    });
-}
-
-function animateStageTransition(callback) {
-    const stage = document.getElementById('stage-wrapper');
-    if (!stage) { callback(); return; }
-    stage.classList.remove('view-stage-ready');
-    stage.classList.add('view-stage-switching');
-    setTimeout(() => {
-        callback();
-        stage.classList.remove('view-stage-switching');
-        stage.classList.add('view-stage-ready');
-    }, 140);
 }
 
 // ============================================================================
@@ -185,7 +148,6 @@ async function syncFromSupabase() {
                 updateProfileUI(refreshed);
             }
         }
-        applyCustomLogosFromDB();
         updateCommUnreadBadge();
     } catch (err) {
         console.error('Supabase Sync Error:', err);
@@ -209,7 +171,7 @@ async function writeImmutableAudit(actionVerb, targetEntity, targetId, snapshotO
 }
 
 // ============================================================================
-// 3. BOOT & IDLE TIMEOUT RULES (KIOSK NEVER LOGS OUT ON IDLE)
+// 3. BOOT, DEDUPLICATED TOAST NOTIFICATIONS & IDLE TIMEOUT
 // ============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     setTopBarState('compact');
@@ -245,23 +207,33 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             } else if (currentMode === 'portal') {
                 closeVerifyModal();
-                returnToWelcomeScreen();
+                returnToWelcomeScreenImmediate();
                 showToast('Session signed out due to 5 minutes of inactivity.', 'error');
             }
         }
     }, 1000);
 });
 
+// ANTI-SPAM DEDUPLICATED NOTIFICATION (NEVER STACKS DUPLICATE MESSAGES)
 function showToast(msg, type = 'success') {
+    const now = Date.now();
+    if (msg === lastToastMessage && (now - lastToastTime) < 2500) {
+        return; // Block duplicate notification spam
+    }
+    lastToastMessage = msg;
+    lastToastTime = now;
+
     const container = document.getElementById('toast-container');
     if (!container) return;
+    container.innerHTML = ''; // Keep only 1 clean notification visible at a time
+
     const t = document.createElement('div');
     const border = type === 'error' ? 'border-rose-600' : 'border-zinc-700';
     const dot = type === 'error' ? 'bg-rose-500' : 'bg-emerald-500';
-    t.className = `bg-zinc-900 ${border} border text-white px-4 py-3 rounded-xl shadow-lg text-xs font-medium flex items-center gap-2.5 fade-in pointer-events-auto`;
+    t.className = `bg-zinc-900 ${border} border text-white px-4 py-3 rounded-xl shadow-lg text-xs font-medium flex items-center gap-2.5 pointer-events-auto`;
     t.innerHTML = `<span class="w-2 h-2 rounded-full ${dot} shrink-0"></span> <span>${msg}</span>`;
     container.appendChild(t);
-    setTimeout(() => t.remove(), 3500);
+    setTimeout(() => { if (t.parentNode) t.remove(); }, 3000);
 }
 
 function closeModal(id) {
@@ -297,9 +269,9 @@ function closeProfilePopover() {
     closeModal('profile-popover-menu');
 }
 
-function readAndCompressImage(fileInput, maxWidth = 400) {
+function readAndCompressImageFile(file, maxWidth = 360) {
     return new Promise((resolve) => {
-        if (!fileInput || !fileInput.files || !fileInput.files[0]) return resolve(null);
+        if (!file) return resolve(null);
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
@@ -310,16 +282,112 @@ function readAndCompressImage(fileInput, maxWidth = 400) {
                 canvas.height = img.height * scale;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                resolve(canvas.toDataURL('image/png', 0.9));
+                resolve(canvas.toDataURL('image/jpeg', 0.84));
             };
             img.src = e.target.result;
         };
-        reader.readAsDataURL(fileInput.files[0]);
+        reader.readAsDataURL(file);
     });
 }
 
+function readAndCompressImage(fileInput, maxWidth = 360) {
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) return Promise.resolve(null);
+    return readAndCompressImageFile(fileInput.files[0], maxWidth);
+}
+
 // ============================================================================
-// 4. BIG ICON-ONLY PADLOCK, STAFF LOGIN & PATTERN ROOM KIOSK PASSWORD MODAL
+// 4. SMART AUTO-ID GENERATORS (MATCHING EXCEL SPREADSHEET LOGIC)
+// ============================================================================
+function getBrandPrefix(brandName) {
+    const b = (brandName || '').toLowerCase();
+    if (b.includes('triumph')) return 'TR';
+    if (b.includes('victoria')) return 'VS';
+    if (b.includes('lululemon')) return 'LL';
+    if (b.includes('nike')) return 'NK';
+    const param = DB.system_settings_audit.find(s => s.category === 'Brand' && s.setting_value === brandName);
+    if (param && param.prefix_data) return param.prefix_data.toUpperCase();
+    return brandName.substring(0, 2).toUpperCase() || 'CD';
+}
+
+function autoGeneratePatternAssetId() {
+    const styleEl = document.getElementById('pat-style-select');
+    const typeEl = document.getElementById('pat-tooling-type');
+    const outEl = document.getElementById('pat-asset-id');
+    if (!styleEl || !typeEl || !outEl) return;
+
+    const styleObj = DB.cad_markers.find(m => m.style_code === styleEl.value);
+    const brandPrefix = getBrandPrefix(styleObj ? styleObj.brand_buyer : 'Triumph');
+    const typeCode = typeEl.value === 'Pattern Mold' ? 'PM' : 'PB';
+    const prefix = `${brandPrefix}-${typeCode}-`;
+
+    const existingNums = DB.pattern_assets
+        .filter(p => p.asset_id.startsWith(prefix))
+        .map(p => parseInt(p.asset_id.replace(prefix, ''), 10))
+        .filter(n => !isNaN(n));
+
+    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
+    outEl.value = `${prefix}${String(nextNum).padStart(2, '0')}`;
+}
+
+function autoSuggestStyleCode() {
+    const brandEl = document.getElementById('cad-brand-select');
+    const styleInput = document.getElementById('cad-style-code');
+    if (!brandEl || !styleInput) return;
+    const prefix = getBrandPrefix(brandEl.value);
+    const count = DB.cad_markers.filter(m => m.brand_buyer === brandEl.value).length + 1;
+    styleInput.placeholder = `e.g. ${prefix}-NEW-${String(count).padStart(2, '0')}`;
+}
+
+function autoGenerateEmployeeId() {
+    const dept = document.getElementById('reg-emp-dept')?.value || 'Cutting';
+    const role = document.getElementById('reg-emp-role')?.value || '';
+    const zone = document.getElementById('reg-emp-zone')?.value || '';
+    const idInput = document.getElementById('reg-emp-id');
+    if (!idInput) return;
+
+    const lineMatch = zone.match(/Line\s*(\d)/i);
+    const lineCode = lineMatch ? `L${lineMatch[1]}` : 'L1';
+
+    let prefix = 'EMP-';
+    if (role.includes('Dpt. Head')) prefix = 'DH-';
+    else if (role.includes('Senior Executive')) prefix = 'CSE-';
+    else if (role.includes('Cutting Supervisors')) prefix = `CS-${lineCode}-`;
+    else if (role.includes('Fabric Spreaders')) prefix = `CW-${lineCode}-FS-`;
+    else if (role.includes('Cutting Machine Operators')) prefix = `CW-${lineCode}-CMO-`;
+    else if (role.includes('Bundling Unit')) prefix = `CW-${lineCode}-BU-`;
+    else if (role.includes('Sewing')) prefix = 'SDC-C-';
+    else if (role.includes('Quality Control Executive')) prefix = 'CQCE-';
+    else if (role.includes('Quality Control Inspectors')) prefix = 'QCI-C-';
+    else if (role.includes('RMW')) prefix = 'RMWC-C-';
+    else if (role.includes('Design')) prefix = 'DDC-C-';
+    else if (role.includes('CAD Coordinators')) prefix = 'CADC-C-';
+    else if (role.includes('Marker Makers')) prefix = 'CAD-C-MM-';
+    else if (role.includes('CAD Pattern') || role.includes('CAD Patern')) prefix = 'CAD-C-CPH-';
+    else if (role.includes('Pattern Coordinators')) prefix = 'PR-C-PC-';
+    else if (role.includes('Pattern Handlers') || role.includes('Pattern Hanlders')) prefix = 'PR-C-PH-';
+    else if (role.includes('Digital Team Executive')) prefix = 'CDTE-';
+    else if (role.includes('Support Team')) prefix = 'DT-C-CST-';
+    else if (role.includes('Admins')) prefix = 'DT-C-CA-';
+
+    const existingNums = DB.employees
+        .filter(e => e.employee_id.startsWith(prefix))
+        .map(e => parseInt(e.employee_id.replace(prefix, ''), 10))
+        .filter(n => !isNaN(n));
+
+    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
+    idInput.value = `${prefix}${String(nextNum).padStart(2, '0')}`;
+}
+
+function getNextSequentialId(list, keyField, prefix) {
+    const nums = list
+        .map(item => parseInt(String(item[keyField] || '').replace(prefix, ''), 10))
+        .filter(n => !isNaN(n));
+    const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+    return `${prefix}${String(next).padStart(3, '0')}`;
+}
+
+// ============================================================================
+// 5. INSTANT 0MS LOGIN & KIOSK UNLOCK (NO DOUBLE-CLICK SPAM)
 // ============================================================================
 function toggleVivaPadlock() {
     vivaBypassUnlocked = !vivaBypassUnlocked;
@@ -328,10 +396,10 @@ function toggleVivaPadlock() {
 
     if (vivaBypassUnlocked) {
         icon.className = 'ph-fill ph-lock-key-open text-2xl text-zinc-900';
-        btn.className = 'w-12 h-12 rounded-xl border-2 border-zinc-900 bg-white text-zinc-900 flex items-center justify-center transition-all shadow-md';
+        btn.className = 'w-12 h-12 rounded-xl border-2 border-zinc-900 bg-white text-zinc-900 flex items-center justify-center transition-colors shadow-md';
     } else {
         icon.className = 'ph-fill ph-lock-key text-2xl text-zinc-500';
-        btn.className = 'w-12 h-12 rounded-xl border border-zinc-200 bg-white text-zinc-500 flex items-center justify-center transition-all shadow-sm';
+        btn.className = 'w-12 h-12 rounded-xl border border-zinc-200 bg-white text-zinc-500 flex items-center justify-center transition-colors shadow-sm';
     }
 }
 
@@ -366,29 +434,17 @@ function morphDepartmentIconOnType(rawId) {
     const emp = DB.employees.find(e => e.employee_id.toUpperCase() === code);
     let cfg = { icon: 'ph-identification-badge', dept: 'Bodyline Staff Authentication', title: 'Staff Portal Sign In' };
 
-    if (code.startsWith('DH')) {
-        cfg = { icon: 'ph-buildings', dept: emp ? emp.full_name : 'CD Operations Office', title: 'Cutting Department Head Sign In' };
-    } else if (code.startsWith('CSE')) {
-        cfg = { icon: 'ph-briefcase', dept: emp ? emp.full_name : 'CD Operations Office', title: 'Cutting Senior Executive Sign In' };
-    } else if (code.startsWith('CS-')) {
-        cfg = { icon: 'ph-calendar-check', dept: emp ? emp.full_name : 'Cutting Floor', title: 'Cutting Supervisor Sign In' };
-    } else if (code.startsWith('DDC')) {
-        cfg = { icon: 'ph-paint-brush-broad', dept: emp ? emp.full_name : 'Design Department', title: 'Design Coordinator Sign In' };
-    } else if (code.startsWith('CAD')) {
-        cfg = { icon: 'ph-compass-tool', dept: emp ? emp.full_name : 'CAD Room', title: 'CAD Room Sign In' };
-    } else if (code.startsWith('PR-')) {
-        cfg = { icon: 'ph-barcode', dept: emp ? emp.full_name : 'Pattern Room', title: 'Pattern Coordinator Sign In' };
-    } else if (code.startsWith('SDC')) {
-        cfg = { icon: 'ph-scissors', dept: emp ? emp.full_name : 'Sewing Department', title: 'Sewing Coordinator Sign In' };
-    } else if (code.startsWith('RMW')) {
-        cfg = { icon: 'ph-warehouse', dept: emp ? emp.full_name : 'Raw Material Warehouse', title: 'RMW Coordinator Sign In' };
-    } else if (code.startsWith('CQC') || code.startsWith('QCI')) {
-        cfg = { icon: 'ph-warning-octagon', dept: emp ? emp.full_name : 'Quality Control', title: 'Quality Control Sign In' };
-    } else if (code.startsWith('DT-C-CST')) {
-        cfg = { icon: 'ph-headset', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Support Team Sign In' };
-    } else if (code.startsWith('CDTE') || code.startsWith('DT-')) {
-        cfg = { icon: 'ph-terminal-window', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Admin Sign In' };
-    }
+    if (code.startsWith('DH')) cfg = { icon: 'ph-buildings', dept: emp ? emp.full_name : 'CD Operations Office', title: 'Cutting Department Head Sign In' };
+    else if (code.startsWith('CSE')) cfg = { icon: 'ph-briefcase', dept: emp ? emp.full_name : 'CD Operations Office', title: 'Cutting Senior Executive Sign In' };
+    else if (code.startsWith('CS-')) cfg = { icon: 'ph-calendar-check', dept: emp ? emp.full_name : 'Cutting Floor', title: 'Cutting Supervisor Sign In' };
+    else if (code.startsWith('DDC')) cfg = { icon: 'ph-paint-brush-broad', dept: emp ? emp.full_name : 'Design Department', title: 'Design Coordinator Sign In' };
+    else if (code.startsWith('CAD')) cfg = { icon: 'ph-compass-tool', dept: emp ? emp.full_name : 'CAD Room', title: 'CAD Room Sign In' };
+    else if (code.startsWith('PR-')) cfg = { icon: 'ph-barcode', dept: emp ? emp.full_name : 'Pattern Room', title: 'Pattern Coordinator Sign In' };
+    else if (code.startsWith('SDC')) cfg = { icon: 'ph-scissors', dept: emp ? emp.full_name : 'Sewing Department', title: 'Sewing Coordinator Sign In' };
+    else if (code.startsWith('RMW')) cfg = { icon: 'ph-warehouse', dept: emp ? emp.full_name : 'Raw Material Warehouse', title: 'RMW Coordinator Sign In' };
+    else if (code.startsWith('CQC') || code.startsWith('QCI')) cfg = { icon: 'ph-warning-octagon', dept: emp ? emp.full_name : 'Quality Control', title: 'Quality Control Sign In' };
+    else if (code.startsWith('DT-C-CST')) cfg = { icon: 'ph-headset', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Support Team Sign In' };
+    else if (code.startsWith('CDTE') || code.startsWith('DT-')) cfg = { icon: 'ph-terminal-window', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Admin Sign In' };
 
     icon.className = `ph-bold ${cfg.icon} text-2xl`;
     badge.innerText = cfg.dept;
@@ -408,7 +464,7 @@ function updateProfileUI(emp) {
 }
 
 async function executeDepartmentLogin() {
-    await syncFromSupabase();
+    if (isAuthBusy) return;
     let empId = vivaBypassUnlocked
         ? document.getElementById('viva-role-dropdown').value
         : document.getElementById('login-emp-id').value.trim().toUpperCase();
@@ -418,24 +474,23 @@ async function executeDepartmentLogin() {
     if (!emp) return showToast('Employee ID not found.', 'error');
     if (!vivaBypassUnlocked && !pass) return showToast('Please enter your password.', 'error');
 
-    // Swap view behind the modal FIRST, then dissolve modal directly into workspace
-    dissolveModalIntoView('user-login-modal', () => {
-        currentLoggedInUser = emp;
-        currentMode = 'portal';
-        document.getElementById('view-gateway').classList.add('hidden');
-        setTopBarState('expanded-portal');
-        document.getElementById('comm-floating-Dock').classList.remove('hidden');
-        updateProfileUI(emp);
-        buildRoleIsolatedTabs(emp);
-    });
-
-    await writeImmutableAudit('USER_LOGIN', 'Employees', emp.employee_id, { name: emp.full_name, role: emp.role_designation });
+    isAuthBusy = true;
+    // Instant 0ms screen transition (no waiting on network before opening workspace)
+    closeModal('user-login-modal');
+    currentLoggedInUser = emp;
+    currentMode = 'portal';
+    document.getElementById('view-gateway').classList.add('hidden');
+    setTopBarState('expanded-portal');
+    document.getElementById('comm-floating-Dock').classList.remove('hidden');
+    updateProfileUI(emp);
+    buildRoleIsolatedTabs(emp);
     showToast(`Signed in as ${emp.full_name}`);
+
+    setTimeout(() => { isAuthBusy = false; }, 400);
+    await writeImmutableAudit('USER_LOGIN', 'Employees', emp.employee_id, { name: emp.full_name, role: emp.role_designation });
+    await syncFromSupabase();
 }
 
-// ============================================================================
-// 5. PATTERN ROOM KIOSK PASSWORD LOCK / UNLOCK (DIRECT TRANSITION)
-// ============================================================================
 function promptPatternRoomAccess() {
     setTopBarState('expanded-auth');
     kioskAuthMode = 'unlock';
@@ -447,32 +502,37 @@ function promptPatternRoomAccess() {
 }
 
 async function executeKioskAuthAction() {
+    if (isAuthBusy) return;
     const pass = document.getElementById('kiosk-auth-password').value.trim();
     if (!vivaBypassUnlocked && !pass) {
         return showToast('Please enter the Pattern Room password.', 'error');
     }
 
+    isAuthBusy = true;
+    closeModal('kiosk-auth-modal');
+
     if (kioskAuthMode === 'unlock') {
-        await syncFromSupabase();
-        dissolveModalIntoView('kiosk-auth-modal', () => {
-            currentMode = 'terminal';
-            currentLoggedInUser = null;
-            document.getElementById('view-gateway').classList.add('hidden');
-            setTopBarState('expanded-terminal');
-            document.getElementById('comm-floating-Dock').classList.add('hidden');
-            document.getElementById('role-workspace-tabs').innerHTML = '';
-            hideAllMainViews();
-            document.getElementById('view-tracker').classList.remove('hidden');
-            renderPatternGrid();
-        });
-        await writeImmutableAudit('KIOSK_UNLOCKED', 'Pattern_Room', 'TERMINAL', { status: 'Unlocked for Shift' });
+        // Instant 0ms switch to Pattern Room Kiosk
+        currentMode = 'terminal';
+        currentLoggedInUser = null;
+        document.getElementById('view-gateway').classList.add('hidden');
+        setTopBarState('expanded-terminal');
+        document.getElementById('comm-floating-Dock').classList.add('hidden');
+        document.getElementById('role-workspace-tabs').innerHTML = '';
+        hideAllMainViews();
+        document.getElementById('view-tracker').classList.remove('hidden');
+        renderPatternGrid();
         showToast('Pattern Room Kiosk unlocked.');
+
+        setTimeout(() => { isAuthBusy = false; }, 400);
+        await writeImmutableAudit('KIOSK_UNLOCKED', 'Pattern_Room', 'TERMINAL', { status: 'Unlocked for Shift' });
+        await syncFromSupabase();
+        renderPatternGrid();
     } else {
-        dissolveModalIntoView('kiosk-auth-modal', () => {
-            returnToWelcomeScreenImmediate();
-        });
-        await writeImmutableAudit('KIOSK_SIGNED_OUT', 'Pattern_Room', 'TERMINAL', { status: 'Signed Out' });
+        returnToWelcomeScreenImmediate();
         showToast('Pattern Room Kiosk signed out.');
+        setTimeout(() => { isAuthBusy = false; }, 400);
+        await writeImmutableAudit('KIOSK_SIGNED_OUT', 'Pattern_Room', 'TERMINAL', { status: 'Signed Out' });
     }
 }
 
@@ -487,16 +547,8 @@ function triggerCredentialedLogout() {
         return;
     }
 
-    animateStageTransition(() => {
-        returnToWelcomeScreenImmediate();
-        showToast('Signed out.');
-    });
-}
-
-function returnToWelcomeScreen() {
-    animateStageTransition(() => {
-        returnToWelcomeScreenImmediate();
-    });
+    returnToWelcomeScreenImmediate();
+    showToast('Signed out.');
 }
 
 function returnToWelcomeScreenImmediate() {
@@ -511,8 +563,58 @@ function returnToWelcomeScreenImmediate() {
 }
 
 // ============================================================================
-// 6. PROFILE PICTURE CHANGE REQUEST (PENCIL ICON -> SUPPORT TEAM APPROVAL)
+// 6. BULK & 1-CLICK PHOTO UPLOADERS (EMPLOYEES & PATTERN ITEMS)
 // ============================================================================
+function triggerSingleRowPhotoUpload(targetType, targetId) {
+    const fileInput = document.getElementById('single-row-photo-input');
+    fileInput.value = '';
+    fileInput.onchange = async () => {
+        const dataUrl = await readAndCompressImage(fileInput, 360);
+        if (!dataUrl) return;
+
+        if (targetType === 'employee') {
+            await supa.from('employees').update({ avatar_url: dataUrl }).eq('employee_id', targetId);
+            await writeImmutableAudit('UPDATE_STAFF_PHOTO', 'Employees', targetId, { updated_by: 'Admin' });
+            await syncFromSupabase();
+            renderAdminEmployeeList();
+            showToast(`Updated profile photo for ${targetId}.`);
+        } else if (targetType === 'pattern') {
+            await supa.from('pattern_assets').update({ image_url: dataUrl }).eq('asset_id', targetId);
+            await writeImmutableAudit('UPDATE_ASSET_PHOTO', 'Pattern_Assets', targetId, { asset_id: targetId });
+            await syncFromSupabase();
+            renderDesignCadPortal();
+            showToast(`Updated item photo for ${targetId}.`);
+        }
+    };
+    fileInput.click();
+}
+
+async function handleBulkEmployeePhotos(inputEl) {
+    if (!inputEl.files || inputEl.files.length === 0) return;
+    let matchedCount = 0;
+
+    for (const file of inputEl.files) {
+        const baseName = file.name.replace(/\.[^/.]+$/, '').trim().toUpperCase();
+        const emp = DB.employees.find(e => e.employee_id.toUpperCase() === baseName || e.full_name.toUpperCase() === baseName);
+        if (emp) {
+            const dataUrl = await readAndCompressImageFile(file, 260);
+            if (dataUrl) {
+                await supa.from('employees').update({ avatar_url: dataUrl }).eq('employee_id', emp.employee_id);
+                matchedCount++;
+            }
+        }
+    }
+
+    inputEl.value = '';
+    await syncFromSupabase();
+    renderAdminEmployeeList();
+    if (matchedCount > 0) {
+        showToast(`Bulk updated ${matchedCount} employee profile photos.`);
+    } else {
+        showToast('Name files by Employee ID (e.g. DH-01.jpg) for bulk match, or click Photo on any row.', 'error');
+    }
+}
+
 async function submitAvatarChangeRequest(fileInput) {
     if (!currentLoggedInUser) return;
     const imgData = await readAndCompressImage(fileInput, 240);
@@ -602,7 +704,7 @@ function buildRoleIsolatedTabs(emp) {
     }
 
     nav.innerHTML = tabs.map(t => `
-        <button type="button" onclick="switchPortalView('${t.key}')" id="nav-btn-${t.key}" class="role-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-all">
+        <button type="button" onclick="switchPortalView('${t.key}')" id="nav-btn-${t.key}" class="role-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-colors">
             ${t.label}
         </button>
     `).join('');
@@ -616,19 +718,17 @@ function hideAllMainViews() {
     });
 }
 
-async function switchPortalView(viewKey) {
+function switchPortalView(viewKey) {
     hideAllMainViews();
     document.querySelectorAll('.role-tab').forEach(b => {
-        b.className = 'role-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-all';
+        b.className = 'role-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-colors';
     });
     const activeBtn = document.getElementById(`nav-btn-${viewKey}`);
     if (activeBtn) {
-        activeBtn.className = 'role-tab px-3.5 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 text-white transition-all';
+        activeBtn.className = 'role-tab px-3.5 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 text-white transition-colors';
     }
 
-    const targetEl = document.getElementById(`view-${viewKey}`);
-    targetEl.classList.remove('hidden');
-    targetEl.classList.add('fade-in');
+    document.getElementById(`view-${viewKey}`).classList.remove('hidden');
 
     if (viewKey === 'tracker') renderPatternGrid();
     if (viewKey === 'dept-head') renderDeptHeadPortal();
@@ -641,7 +741,7 @@ async function switchPortalView(viewKey) {
 }
 
 // ============================================================================
-// 8. GOOGLE-STYLE PATTERN ROOM (NO-DATA PLACEHOLDERS UNLESS UPLOADED)
+// 8. GOOGLE-STYLE PATTERN ROOM
 // ============================================================================
 function handlePatternSearch() {
     const q = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -709,7 +809,7 @@ function renderPatternGrid(query = '') {
     document.getElementById('count-inactive-patterns').innerText = `${inactiveItems.length} items`;
 
     document.getElementById('tracker-grid-active').innerHTML = activeItems.map(renderPatternCardHtml).join('') ||
-        '<p class="text-xs text-zinc-400 col-span-full py-4">No matching active items.</p>';
+        '<p class="text-xs text-zinc-400 col-span-full py-4">No items currently checked out to cutting lines.</p>';
     document.getElementById('tracker-grid-inactive').innerHTML = inactiveItems.map(renderPatternCardHtml).join('') ||
         '<p class="text-xs text-zinc-400 col-span-full py-4">No matching inventory items.</p>';
 }
@@ -930,7 +1030,7 @@ async function renderDeptHeadPortal() {
                 <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-semibold text-[10px]">Active</span>
             </div>
         `;
-    }).join('');
+    }).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No active floor deployments yet.</p>';
 
     document.getElementById('dh-qc-oversight').innerHTML = DB.qc_inspection_logs.map(l => `
         <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-1">
@@ -941,12 +1041,17 @@ async function renderDeptHeadPortal() {
             <p class="text-zinc-600">${l.production_line} / Plies: ${l.ruined_ply_count} / Resolver: ${l.resolver_id}</p>
             <span class="inline-block px-2 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 text-[10px] font-semibold">${l.resolution_status}</span>
         </div>
-    `).join('');
+    `).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No quality control logs recorded yet.</p>';
 }
 
 // ============================================================================
 // 10. SUPERVISOR COMMAND & 7-DAY SHIFT MATRIX
 // ============================================================================
+function filterSupervisorPool(lineFilter) {
+    supervisorPoolLineFilter = lineFilter;
+    renderSupervisorPortal();
+}
+
 async function renderSupervisorPortal() {
     await syncFromSupabase();
     const pending = DB.pending_requests.filter(r => r.request_status === 'Pending');
@@ -981,9 +1086,13 @@ async function renderSupervisorPortal() {
                 <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[10px]">Active</span>
             </div>
         `;
-    }).join('');
+    }).join('') || '<p class="text-xs text-zinc-400 text-center py-8">No active floor deployments.</p>';
 
-    const floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-'));
+    let floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-'));
+    if (supervisorPoolLineFilter !== 'ALL') {
+        floorOps = floorOps.filter(e => e.work_location_zone.includes(supervisorPoolLineFilter));
+    }
+
     document.getElementById('operator-pool').innerHTML = floorOps.map(op => {
         const locked = selectedOperatorForAssign === op.employee_id;
         return `
@@ -991,7 +1100,7 @@ async function renderSupervisorPortal() {
                 <img src="${getAvatarUrl(op.avatar_url)}" class="w-7 h-7 rounded-full object-cover shrink-0 border border-zinc-300">
                 <div class="truncate">
                     <p class="font-bold truncate">${op.full_name}</p>
-                    <p class="text-[10px] opacity-70">${op.work_location_zone}</p>
+                    <p class="text-[10px] opacity-70">${op.employee_id}</p>
                 </div>
             </div>
         `;
@@ -1035,22 +1144,29 @@ async function renderSupervisorPortal() {
 function lockOperatorForCalendar(empId) {
     selectedOperatorForAssign = selectedOperatorForAssign === empId ? null : empId;
     const emp = DB.employees.find(e => e.employee_id === selectedOperatorForAssign);
-    document.getElementById('selected-op-indicator').innerText = emp ? `Selected: ${emp.full_name}` : 'Tap Worker to Select';
+    document.getElementById('selected-op-indicator').innerText = emp ? `Selected: ${emp.full_name} (${emp.employee_id})` : 'Tap Worker to Select';
     renderSupervisorPortal();
 }
 
 async function tapDeployShift(dateStr, shiftType) {
     if (!selectedOperatorForAssign) return showToast('Select an Operator from the Pool first.', 'error');
+    const exists = DB.shift_assignments.some(a => a.borrower_id === selectedOperatorForAssign && a.assigned_date === dateStr && a.shift_type === shiftType);
+    if (exists) return showToast('Operator is already assigned to this shift slot.', 'error');
+
     const supId = currentLoggedInUser ? currentLoggedInUser.employee_id : 'CS-L1-01';
+    const opObj = DB.employees.find(e => e.employee_id === selectedOperatorForAssign);
+    const lineMatch = opObj?.work_location_zone.match(/Line\s*\d/i);
+
     await supa.from('shift_assignments').insert([{
         borrower_id: selectedOperatorForAssign,
         supervisor_id: supId,
         assigned_date: dateStr,
         shift_type: shiftType,
-        production_line: 'Line 1'
+        production_line: lineMatch ? lineMatch[0] : 'Line 1'
     }]);
     await writeImmutableAudit('ASSIGN_SHIFT', 'Shift_Assignments', selectedOperatorForAssign, { date: dateStr, shift: shiftType });
     await renderSupervisorPortal();
+    showToast(`Assigned ${selectedOperatorForAssign} to ${shiftType} (${dateStr}).`);
 }
 
 async function removeShiftSlot(id) {
@@ -1089,34 +1205,40 @@ async function resolveMutexTicket(reqId, decision) {
 }
 
 // ============================================================================
-// 11. DESIGN, CAD & PATTERN ROOM HUB (NO-DATA PLACEHOLDERS UNLESS UPLOADED)
+// 11. DESIGN, CAD & PATTERN ROOM HUB (WITH AUTO-ID & 1-CLICK PHOTO UPLOAD)
 // ============================================================================
 async function renderDesignCadPortal() {
     await syncFromSupabase();
     const brands = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Brand');
     const sizes = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Size');
+    const racks = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Rack');
     const fabrics = DB.rmw_materials.filter(m => m.material_category === 'Cutting Floor Fabric');
 
     document.getElementById('cad-brand-select').innerHTML = brands.map(b => `<option value="${b.setting_value}">${b.setting_value}</option>`).join('');
     document.getElementById('cad-fabric-select').innerHTML = fabrics.map(f => `<option value="${f.material_code}">${f.material_code} (${f.target_brand_usage})</option>`).join('');
     document.getElementById('pat-style-select').innerHTML = DB.cad_markers.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name})</option>`).join('');
     document.getElementById('pat-size-select').innerHTML = sizes.map(s => `<option value="${s.setting_value}">${s.setting_value}</option>`).join('');
+    document.getElementById('pat-rack-loc').innerHTML = racks.map(r => `<option value="${r.setting_value}">${r.setting_value}</option>`).join('');
 
-    document.getElementById('cad-markers-mini-list').innerHTML = DB.cad_markers.map(m => `
-        <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-3 text-xs">
-            <img src="${getItemImageUrl(m.sketch_url)}" class="w-14 h-10 rounded-lg object-cover border">
-            <div class="flex-1">
-                <p class="font-bold text-zinc-900">${m.model_name} (${m.style_code})</p>
-                <p class="text-[11px] text-zinc-500">${m.brand_buyer} / ${m.cad_marker_id} / ${m.cutting_floor_fabric_code}</p>
+    const nextCadId = `CAD-MK-${String(DB.cad_markers.length + 1).padStart(2, '0')}`;
+    const badgeEl = document.getElementById('next-cad-id-badge');
+    if (badgeEl) badgeEl.innerText = nextCadId;
+
+    autoSuggestStyleCode();
+    autoGeneratePatternAssetId();
+
+    document.getElementById('cad-markers-mini-list').innerHTML = DB.pattern_assets.map(p => `
+        <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-2.5">
+                <img src="${getItemImageUrl(p.image_url)}" class="w-12 h-9 rounded-lg object-cover border">
+                <div>
+                    <p class="font-bold text-zinc-900">${p.asset_id} / ${p.model_name}</p>
+                    <p class="text-[11px] text-zinc-500">${p.brand_buyer} (${p.style_code}) / ${p.storage_location}</p>
+                </div>
             </div>
-        </div>
-    `).join('');
-
-    const dormant = DB.pattern_assets.filter(p => ['Pending Removal', 'Decommissioned'].includes(p.operational_status));
-    document.getElementById('inactive-patterns-alert-box').innerHTML = dormant.map(p => `
-        <div class="p-2 rounded-lg bg-zinc-50 border border-zinc-200 flex justify-between items-center">
-            <span><strong>${p.asset_id}</strong> (${p.model_name})</span>
-            <span class="text-rose-600 font-bold text-[10px]">${p.operational_status}</span>
+            <button type="button" onclick="triggerSingleRowPhotoUpload('pattern', '${p.asset_id}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-100 border border-zinc-300 text-zinc-800 font-semibold text-[11px] shrink-0">
+                Photo
+            </button>
         </div>
     `).join('');
 }
@@ -1131,7 +1253,7 @@ async function createStyleAndMarker() {
 
     if (!style || !model) return showToast('Enter Style Code and Model Name.', 'error');
     const uploadedImg = await readAndCompressImage(sketchFile);
-    const mkId = `CAD-MK-${(DB.cad_markers.length + 1).toString().padStart(2, '0')}`;
+    const mkId = `CAD-MK-${String(DB.cad_markers.length + 1).padStart(2, '0')}`;
 
     const newRow = {
         cad_marker_id: mkId,
@@ -1180,10 +1302,10 @@ async function registerNewPatternAsset() {
     const type = document.getElementById('pat-tooling-type').value;
     const styleCode = document.getElementById('pat-style-select').value;
     const size = document.getElementById('pat-size-select').value;
-    const loc = document.getElementById('pat-rack-loc').value.trim() || 'Rack A-05';
+    const loc = document.getElementById('pat-rack-loc').value;
     const photoInput = document.getElementById('pat-photo-file');
 
-    if (!id) return showToast('Enter Asset ID.', 'error');
+    if (!id) return showToast('Asset ID is required.', 'error');
     const uploadedImg = await readAndCompressImage(photoInput);
     const styleObj = DB.cad_markers.find(m => m.style_code === styleCode) || { model_name: 'Custom Style', brand_buyer: 'Triumph' };
 
@@ -1218,7 +1340,13 @@ async function registerNewPatternAsset() {
 // ============================================================================
 async function renderSupplyPortal() {
     await syncFromSupabase();
+    const sizes = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Size');
     document.getElementById('sew-style-select').innerHTML = DB.cad_markers.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name})</option>`).join('');
+    document.getElementById('sew-size').innerHTML = sizes.map(s => `<option value="${s.setting_value}">${s.setting_value}</option>`).join('');
+
+    const nextOrdId = getNextSequentialId(DB.cutting_orders, 'order_id', 'ORD-');
+    const ordBadge = document.getElementById('next-order-id-badge');
+    if (ordBadge) ordBadge.innerText = `Next: ${nextOrdId}`;
 
     document.getElementById('sewing-orders-list').innerHTML = DB.cutting_orders.map(o => `
         <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex justify-between items-center text-xs">
@@ -1228,7 +1356,7 @@ async function renderSupplyPortal() {
             </div>
             <span class="px-2.5 py-1 rounded font-bold text-[10px] ${o.priority_level === 'Urgent' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-zinc-200 text-zinc-800'}">${o.priority_level} / ${o.order_status}</span>
         </div>
-    `).join('');
+    `).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No cutting orders submitted yet.</p>';
 
     document.getElementById('rmw-materials-list').innerHTML = DB.rmw_materials.map(m => `
         <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex justify-between items-center gap-3 text-xs">
@@ -1246,15 +1374,15 @@ async function renderSupplyPortal() {
 
 async function submitSewingOrder() {
     const style = document.getElementById('sew-style-select').value;
-    const size = document.getElementById('sew-size').value.trim() || '34B';
+    const size = document.getElementById('sew-size').value || '34B';
     const qty = parseInt(document.getElementById('sew-qty').value) || 1200;
     const prio = document.getElementById('sew-priority').value;
-    const ordId = `ORD-${100 + DB.cutting_orders.length + 1}`;
+    const ordId = getNextSequentialId(DB.cutting_orders, 'order_id', 'ORD-');
 
     const newOrd = {
         order_id: ordId,
         style_code: style,
-        sewing_coordinator_id: 'SDC-C-01',
+        sewing_coordinator_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'SDC-C-01',
         approved_by_exec_id: 'CSE-01',
         target_size: size,
         target_bundle_qty: qty,
@@ -1283,8 +1411,13 @@ async function dispatchRmwMaterial(matCode) {
 // ============================================================================
 async function renderQcPortal() {
     await syncFromSupabase();
-    document.getElementById('qc-asset-select').innerHTML = DB.pattern_assets.map(p => `<option value="${p.asset_id}">${p.asset_id} (${p.model_name})</option>`).join('');
+    document.getElementById('qc-asset-select').innerHTML = DB.pattern_assets.map(p => `<option value="${p.asset_id}">${p.asset_id} (${p.model_name} / ${p.operational_status})</option>`).join('');
     document.getElementById('qc-defect-select').innerHTML = DB.qc_defect_codes.map(d => `<option value="${d.defect_code}">${d.defect_code} (${d.defect_name_symptom})</option>`).join('');
+
+    const nextQcId = getNextSequentialId(DB.qc_inspection_logs, 'qc_log_id', 'QCL-');
+    const qcBadge = document.getElementById('next-qc-id-badge');
+    if (qcBadge) qcBadge.innerText = `Next: ${nextQcId}`;
+
     previewDefectAction();
 
     document.getElementById('qc-logs-list').innerHTML = DB.qc_inspection_logs.map(l => `
@@ -1298,7 +1431,7 @@ async function renderQcPortal() {
                 ${l.resolution_status !== 'Resolved' ? `<button type="button" onclick="resolveQcLog('${l.qc_log_id}', '${l.asset_id}')" class="bg-zinc-900 text-white px-3 py-1 rounded-lg font-semibold text-[11px]">Mark Fixed</button>` : ''}
             </div>
         </div>
-    `).join('');
+    `).join('') || '<p class="text-xs text-zinc-400 py-8 text-center">No floor defects logged yet.</p>';
 }
 
 function previewDefectAction() {
@@ -1307,7 +1440,7 @@ function previewDefectAction() {
     if (!def) return;
     document.getElementById('qc-action-preview').innerHTML = `
         <p><strong>Category:</strong> ${def.fault_category} (${def.severity_level})</p>
-        <p><strong>Status:</strong> ${def.target_asset_status} / <strong>Resolver:</strong> ${def.assigned_resolver_role_id}</p>
+        <p><strong>Status Triggered:</strong> ${def.target_asset_status} / <strong>Resolver:</strong> ${def.assigned_resolver_role_id}</p>
         <p><strong>Action:</strong> ${def.mandatory_system_action}</p>
     `;
 }
@@ -1323,12 +1456,12 @@ async function submitQcDefectFlag() {
         await supa.from('pattern_assets').update({ operational_status: def.target_asset_status }).eq('asset_id', assetId);
     }
 
-    const logId = `QCL-${500 + DB.qc_inspection_logs.length + 1}`;
+    const logId = getNextSequentialId(DB.qc_inspection_logs, 'qc_log_id', 'QCL-');
     const newLog = {
         qc_log_id: logId,
         asset_id: assetId,
         defect_code: defCode,
-        inspector_id: def.reported_by_role_id,
+        inspector_id: currentLoggedInUser ? currentLoggedInUser.employee_id : def.reported_by_role_id,
         resolver_id: def.assigned_resolver_role_id,
         production_line: line,
         ruined_ply_count: plies,
@@ -1338,7 +1471,7 @@ async function submitQcDefectFlag() {
     await supa.from('qc_inspection_logs').insert([newLog]);
     await writeImmutableAudit('QC_DEFECT_FLAG', 'QC_Inspection_Logs', logId, newLog);
     await renderQcPortal();
-    showToast(`Logged ${defCode} on ${assetId}.`, 'error');
+    showToast(`Logged ${logId} (${defCode}) on ${assetId}.`, 'error');
 }
 
 async function resolveQcLog(logId, assetId) {
@@ -1350,12 +1483,13 @@ async function resolveQcLog(logId, assetId) {
 }
 
 // ============================================================================
-// 14. DIGITAL TEAM ADMIN, SUPPORT PHOTO APPROVALS & 400x100 LOGOS
+// 14. DIGITAL TEAM ADMIN, BULK PHOTOS & AUTO-ID REGISTRATION
 // ============================================================================
 async function renderAdminPortal() {
     await syncFromSupabase();
     const uniqueRoles = [...new Set(DB.employees.map(e => e.role_designation))];
     document.getElementById('reg-emp-role').innerHTML = uniqueRoles.map(r => `<option value="${r}">${r}</option>`).join('');
+    autoGenerateEmployeeId();
 
     const avatarReqs = DB.department_communications.filter(
         c => c.protocol_category === 'Avatar Request' && c.comm_status === 'Pending Approval'
@@ -1374,25 +1508,9 @@ async function renderAdminPortal() {
                 <button type="button" onclick="resolveAvatarRequest(${r.comm_id}, '${r.sender_id}', 'Rejected')" class="bg-zinc-100 text-zinc-700 px-2.5 py-1 rounded-lg font-semibold text-[11px]">Reject</button>
             </div>
         </div>
-    `).join('') || '<p class="text-xs text-zinc-400 py-3">No pending profile photo requests.</p>';
+    `).join('') || '<p class="text-xs text-zinc-400 py-2">No pending photo requests.</p>';
 
-    document.getElementById('admin-emp-tbody').innerHTML = DB.employees.map(e => `
-        <tr class="hover:bg-zinc-50">
-            <td class="p-2.5 flex items-center gap-2.5">
-                <img src="${getAvatarUrl(e.avatar_url)}" class="w-7 h-7 rounded-full object-cover border border-zinc-300">
-                <div>
-                    <p class="font-bold text-zinc-900">${e.full_name}</p>
-                    <p class="text-[10px] text-zinc-500">${e.role_designation}</p>
-                </div>
-            </td>
-            <td class="p-2.5 font-mono text-zinc-600">${e.employee_id}</td>
-            <td class="p-2.5">${e.department}</td>
-            <td class="p-2.5">${e.work_location_zone}</td>
-            <td class="p-2.5 text-right">
-                <button type="button" onclick="removeEmployeeWithImmutableLog('${e.employee_id}')" class="text-zinc-500 hover:text-rose-600 text-[11px] font-semibold">Remove</button>
-            </td>
-        </tr>
-    `).join('');
+    renderAdminEmployeeList();
 
     const params = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER');
     document.getElementById('system-settings-list').innerHTML = params.map(p => `
@@ -1412,6 +1530,37 @@ async function renderAdminPortal() {
             <td class="p-2.5">${a.target_entity} (${a.target_id})</td>
             <td class="p-2.5 text-zinc-500 truncate max-w-xs">${a.immutable_snapshot}</td>
         </tr>
+    `).join('') || '<tr><td colspan="6" class="p-4 text-center text-zinc-400">No system activity logged yet.</td></tr>';
+}
+
+function renderAdminEmployeeList() {
+    const q = (document.getElementById('admin-emp-search')?.value || '').trim().toLowerCase();
+    let list = DB.employees;
+    if (q) {
+        list = list.filter(e =>
+            e.full_name.toLowerCase().includes(q) ||
+            e.employee_id.toLowerCase().includes(q) ||
+            e.role_designation.toLowerCase().includes(q)
+        );
+    }
+
+    document.getElementById('admin-emp-tbody').innerHTML = list.map(e => `
+        <tr class="hover:bg-zinc-50">
+            <td class="p-2.5 flex items-center gap-2.5">
+                <img src="${getAvatarUrl(e.avatar_url)}" class="w-8 h-8 rounded-full object-cover border border-zinc-300">
+                <div>
+                    <p class="font-bold text-zinc-900">${e.full_name}</p>
+                    <p class="text-[10px] text-zinc-500">${e.role_designation}</p>
+                </div>
+            </td>
+            <td class="p-2.5 font-mono text-zinc-600">${e.employee_id}</td>
+            <td class="p-2.5">${e.department}</td>
+            <td class="p-2.5">${e.work_location_zone}</td>
+            <td class="p-2.5 text-right space-x-2">
+                <button type="button" onclick="triggerSingleRowPhotoUpload('employee', '${e.employee_id}')" class="px-2.5 py-1 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[11px] font-semibold">Photo</button>
+                <button type="button" onclick="removeEmployeeWithImmutableLog('${e.employee_id}')" class="text-zinc-400 hover:text-rose-600 text-[11px] font-semibold">Remove</button>
+            </td>
+        </tr>
     `).join('');
 }
 
@@ -1429,7 +1578,7 @@ async function registerNewEmployee() {
     const name = document.getElementById('reg-emp-name').value.trim();
     const dept = document.getElementById('reg-emp-dept').value;
     const role = document.getElementById('reg-emp-role').value;
-    const zone = document.getElementById('reg-emp-zone').value.trim() || 'Cutting Floor';
+    const zone = document.getElementById('reg-emp-zone').value;
     const photoInput = document.getElementById('reg-emp-photo');
 
     if (!id || !name) return showToast('Enter Employee ID and Full Name.', 'error');
@@ -1453,8 +1602,9 @@ async function registerNewEmployee() {
     box.innerHTML = `<div class="p-3 bg-white rounded-xl border border-zinc-300 inline-block"><div id="emp-qr-canvas"></div><p class="text-xs font-bold mt-1">${name}</p></div>`;
     new QRCode(document.getElementById('emp-qr-canvas'), { text: id, width: 80, height: 80 });
 
+    document.getElementById('reg-emp-name').value = '';
     await renderAdminPortal();
-    showToast(`Registered ${name}.`);
+    showToast(`Registered ${name} (${id}).`);
 }
 
 async function removeEmployeeWithImmutableLog(empId) {
@@ -1494,49 +1644,6 @@ async function deleteSystemParam(recId) {
     await renderAdminPortal();
 }
 
-async function uploadBrandLogo(inputEl, logoRefKey) {
-    const dataUrl = await readAndCompressImage(inputEl, 400);
-    if (!dataUrl) return;
-
-    await supa.from('department_communications').delete().eq('linked_reference_id', logoRefKey);
-    const { error } = await supa.from('department_communications').insert([{
-        sender_id: 'DT-C-CA-01',
-        sender_name: 'Ashan Mendis',
-        sender_role: 'CDMS Admins',
-        receiver_id: 'DT-C-CA-01',
-        receiver_name: 'System Header',
-        receiver_role: 'CDMS Admins',
-        protocol_category: 'System Logo',
-        linked_reference_id: logoRefKey,
-        subject_line: logoRefKey,
-        message_body: 'Brand Logo Asset (400x100)',
-        comm_status: 'Active',
-        resolution_note: dataUrl
-    }]);
-
-    if (error) return showToast(error.message, 'error');
-    await syncFromSupabase();
-    showToast('Logo updated on top bar and reports.');
-}
-
-function applyCustomLogosFromDB() {
-    const masRec = DB.department_communications.find(c => c.linked_reference_id === 'LOGO_MAS' && c.resolution_note);
-    const bodyRec = DB.department_communications.find(c => c.linked_reference_id === 'LOGO_BODYLINE' && c.resolution_note);
-
-    if (masRec) {
-        const img = document.getElementById('top-mas-logo');
-        const fb = document.getElementById('top-mas-fallback');
-        if (img) { img.src = masRec.resolution_note; img.classList.remove('hidden'); }
-        if (fb) fb.classList.add('hidden');
-    }
-    if (bodyRec) {
-        const img = document.getElementById('top-bodyline-logo');
-        const fb = document.getElementById('top-bodyline-fallback');
-        if (img) { img.src = bodyRec.resolution_note; img.classList.remove('hidden'); }
-        if (fb) fb.classList.add('hidden');
-    }
-}
-
 // ============================================================================
 // 15. PROTOCOL COMMUNICATOR & APPROVAL ENGINE
 // ============================================================================
@@ -1544,7 +1651,7 @@ function updateCommUnreadBadge() {
     if (!currentLoggedInUser) return;
     const myId = currentLoggedInUser.employee_id;
     const pendingForMe = DB.department_communications.filter(
-        c => c.receiver_id === myId && c.comm_status === 'Pending Approval' && c.protocol_category !== 'System Logo'
+        c => c.receiver_id === myId && c.comm_status === 'Pending Approval'
     ).length;
     document.getElementById('comm-unread-badge').innerText = pendingForMe;
 }
@@ -1586,7 +1693,7 @@ function switchCommTab(tab, preReceiver = null, preCategory = null) {
 
     if (tab === 'inbox') {
         const inbox = DB.department_communications.filter(
-            c => c.receiver_id === myId && c.comm_status !== 'Draft' && c.protocol_category !== 'System Logo'
+            c => c.receiver_id === myId && c.comm_status !== 'Draft' && c.protocol_category !== 'Avatar Request'
         );
         body.innerHTML = inbox.map(c => `
             <div class="p-3.5 rounded-xl bg-white border border-zinc-200 mb-2.5 space-y-2">
@@ -1609,9 +1716,9 @@ function switchCommTab(tab, preReceiver = null, preCategory = null) {
         const recipients = getPermittedRecipientsForUser(currentLoggedInUser);
         const refOptions = [
             ...DB.pattern_assets.map(p => `${p.asset_id} (${p.model_name})`),
-            ...DB.cutting_orders.map(o => `${o.order_id} (${o.style_code})`),
             ...DB.cad_markers.map(m => `${m.style_code} (${m.brand_buyer})`),
-            'Brand Parameter Request'
+            ...DB.rmw_materials.map(m => `${m.material_code} (${m.material_category})`),
+            'PARAM-REQ (System Parameter Change)'
         ];
 
         body.innerHTML = `
@@ -1633,7 +1740,7 @@ function switchCommTab(tab, preReceiver = null, preCategory = null) {
                 </div>
                 <div>
                     <label class="text-[11px] font-bold text-zinc-600 block mb-1">Reference ID</label>
-                    <select id="comm-ref-id" class="w-full p-2 bg-zinc-50 border border-zinc-300 rounded-lg">
+                    <select id="comm-ref-id" class="w-full p-2 bg-zinc-50 border border-zinc-300 rounded-lg font-mono">
                         ${refOptions.map(ref => `<option value="${ref.split(' ')[0]}">${ref}</option>`).join('')}
                     </select>
                 </div>
@@ -1669,7 +1776,7 @@ function switchCommTab(tab, preReceiver = null, preCategory = null) {
         `).join('') || '<p class="text-center text-zinc-400 py-10">No saved drafts.</p>';
     } else {
         const hist = DB.department_communications.filter(
-            c => (c.sender_id === myId || c.receiver_id === myId) && c.comm_status !== 'Draft' && c.protocol_category !== 'System Logo'
+            c => (c.sender_id === myId || c.receiver_id === myId) && c.comm_status !== 'Draft' && c.protocol_category !== 'Avatar Request'
         );
         body.innerHTML = hist.map(c => `
             <div class="p-3 rounded-xl bg-white border border-zinc-200 mb-2 space-y-1">
@@ -1745,7 +1852,7 @@ async function resolveCommItem(commId, decision) {
 }
 
 // ============================================================================
-// 16. SYSTEM-GENERATED FORMAL A4 REPORTS & VISUAL DATABASE
+// 16. SYSTEM-GENERATED FORMAL A4 REPORTS (USES REPO ./mas-logo.png & ./bodyline-logo.png)
 // ============================================================================
 function switchReportMode(mode) {
     document.getElementById('reports-mgmt-container').classList.toggle('hidden', mode !== 'mgmt');
@@ -1777,15 +1884,14 @@ function renderGroupedReport() {
     const nowStr = new Date().toLocaleString();
     const roleFor = currentLoggedInUser ? `${currentLoggedInUser.full_name} (${currentLoggedInUser.role_designation})` : 'Cutting Department';
 
-    const masRec = DB.department_communications.find(c => c.linked_reference_id === 'LOGO_MAS' && c.resolution_note);
-    const bodyRec = DB.department_communications.find(c => c.linked_reference_id === 'LOGO_BODYLINE' && c.resolution_note);
-
-    const leftLogoHtml = masRec
-        ? `<img src="${masRec.resolution_note}" class="h-9 max-w-[144px] object-contain">`
-        : `<span class="font-black text-zinc-900 text-sm tracking-tight uppercase">MAS HOLDINGS</span>`;
-    const rightLogoHtml = bodyRec
-        ? `<img src="${bodyRec.resolution_note}" class="h-9 max-w-[144px] object-contain ml-auto">`
-        : `<span class="font-extrabold text-zinc-900 text-sm tracking-widest uppercase">BODYLINE</span>`;
+    const leftLogoHtml = `
+        <img src="./mas-logo.png" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');" class="h-9 max-w-[144px] object-contain" alt="MAS">
+        <span class="hidden font-black text-zinc-900 text-sm tracking-tight uppercase">MAS HOLDINGS</span>
+    `;
+    const rightLogoHtml = `
+        <img src="./bodyline-logo.png" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');" class="h-9 max-w-[144px] object-contain ml-auto" alt="Bodyline">
+        <span class="hidden font-extrabold text-zinc-900 text-sm tracking-widest uppercase">BODYLINE</span>
+    `;
 
     const defaultTitles = {
         1: 'PATTERN BLOCKS & 3D MOLDS INVENTORY REPORT',
@@ -1856,7 +1962,7 @@ function renderGroupedReport() {
                             <tr><th class="p-2">ID</th><th class="p-2">Operator</th><th class="p-2">Supervisor</th><th class="p-2">Date</th><th class="p-2">Line</th></tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-200">
-                            ${rows.map(r => `<tr><td class="p-2 font-mono">#${r.assignment_id}</td><td class="p-2 font-bold">${r.borrower_id}</td><td class="p-2">${r.supervisor_id}</td><td class="p-2">${r.assigned_date}</td><td class="p-2">${r.production_line}</td></tr>`).join('') || '<tr><td colspan="5" class="p-3 text-zinc-400">None</td></tr>'}
+                            ${rows.map(r => `<tr><td class="p-2 font-mono">#${r.assignment_id}</td><td class="p-2 font-bold">${r.borrower_id}</td><td class="p-2">${r.supervisor_id}</td><td class="p-2">${r.assigned_date}</td><td class="p-2">${r.production_line}</td></tr>`).join('') || '<tr><td colspan="5" class="p-3 text-zinc-400">No shift deployments assigned yet.</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -1929,7 +2035,7 @@ function renderVisualDatabaseExplorer(tableName) {
     const rows = DB[tableName] || [];
     document.getElementById('vdb-table-title').innerText = `Table: ${tableName} (${rows.length} Rows)`;
     if (rows.length === 0) {
-        document.getElementById('vdb-table-rows').innerHTML = '<p class="text-zinc-400 py-6">No rows.</p>';
+        document.getElementById('vdb-table-rows').innerHTML = '<p class="text-zinc-400 py-6">0 rows (Clean Day-0 State).</p>';
         return;
     }
     const cols = Object.keys(rows[0]);

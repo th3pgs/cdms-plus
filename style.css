@@ -1,43 +1,6 @@
-/* Fast, Crisp Modal & View Animations */
-.modal-pop {
-    animation: modalPopIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-@keyframes modalPopIn {
-    from { opacity: 0; transform: scale(0.96) translateY(4px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-.modal-fade-out {
-    opacity: 0 !important;
-    transform: scale(0.98) !important;
-    transition: opacity 0.14s ease-out, transform 0.14s ease-out !important;
-    pointer-events: none !important;
-}
-
-.fade-in {
-    animation: fadeIn 0.15s ease-out forwards;
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Snappy Stage Transitions */
-#stage-wrapper {
-    transition: opacity 0.15s ease-out, transform 0.15s ease-out;
-}
-.view-stage-ready {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-}
-.view-stage-switching {
-    opacity: 0;
-    transform: scale(0.992);
-}
-
-/* Snappy Morphing Top Bar (MAS & Bodyline Only) */
+/* Snappy, Zero-Lag Top Bar Logo Corner Glide */
 #top-bar-inner {
-    transition: max-width 0.26s cubic-bezier(0.16, 1, 0.3, 1), padding 0.22s ease, box-shadow 0.22s ease;
+    transition: max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #top-bar-inner.compact-bar {
@@ -55,12 +18,11 @@
 .custom-scroll::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
 
 .product-card {
-    transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+    transition: transform 0.12s ease, border-color 0.12s ease;
 }
 .product-card:hover {
     transform: translateY(-2px);
     border-color: #18181b;
-    box-shadow: 0 10px 20px -10px rgba(24, 24, 27, 0.12);
 }
 
 @media print {

@@ -13,7 +13,7 @@
 </head>
 <body class="bg-zinc-50 text-zinc-900 antialiased min-h-screen flex flex-col font-sans relative overflow-x-hidden">
 
-    <!-- BOTTOM-LEFT INTERNAL NOTIFICATION CONTAINER -->
+    <!-- BOTTOM-LEFT INTERNAL NOTIFICATION CONTAINER (DEDUPLICATED) -->
     <div id="toast-container" class="fixed bottom-5 left-5 z-[220] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
 
     <!-- 15-MINUTE MUTEX LOCK BAR -->
@@ -30,30 +30,29 @@
     </div>
 
     <!-- ================================================================= -->
-    <!-- UNIFIED MORPHING TOP BAR (ONLY MAS & BODYLINE LOGOS)              -->
+    <!-- UNIFIED TOP BAR (BAKED-IN REPOSITORY LOGOS: ./mas-logo.png & ./bodyline-logo.png) -->
     <!-- ================================================================= -->
-    <header id="unified-top-bar" class="sticky top-0 z-[180] pt-4 px-4 sm:px-8 transition-all duration-500 ease-out">
-        <div id="top-bar-inner" class="mx-auto bg-white/95 backdrop-blur-md border border-zinc-200 shadow-sm rounded-2xl px-6 py-2.5 flex items-center justify-between transition-all duration-500 ease-out compact-bar">
+    <header id="unified-top-bar" class="sticky top-0 z-[180] pt-4 px-4 sm:px-8">
+        <div id="top-bar-inner" class="mx-auto bg-white/95 backdrop-blur-md border border-zinc-200 shadow-sm rounded-2xl px-6 py-2.5 flex items-center justify-between compact-bar">
             
-            <!-- LEFT SLOT: MAS HOLDINGS LOGO (400x100 RATIO) -->
-            <div class="flex items-center h-9 shrink-0 transition-all duration-500">
-                <img id="top-mas-logo" src="" class="hidden h-8 sm:h-9 w-auto max-w-[144px] object-contain" alt="MAS">
+            <!-- LEFT SLOT: MAS HOLDINGS LOGO (FROM REPO ./mas-logo.png) -->
+            <div class="flex items-center h-9 shrink-0">
+                <img id="top-mas-logo" src="./mas-logo.png" onload="this.classList.remove('hidden'); document.getElementById('top-mas-fallback').classList.add('hidden');" onerror="this.classList.add('hidden'); document.getElementById('top-mas-fallback').classList.remove('hidden');" class="hidden h-8 sm:h-9 w-auto max-w-[144px] object-contain" alt="MAS">
                 <span id="top-mas-fallback" class="font-black text-zinc-900 text-xs sm:text-sm tracking-tight uppercase">MAS HOLDINGS</span>
             </div>
 
             <!-- CENTER DIVIDER (VISIBLE ONLY WHEN COMPACT ON WELCOME PAGE) -->
-            <div id="top-bar-compact-divider" class="h-5 w-px bg-zinc-200 mx-6 transition-all duration-300"></div>
+            <div id="top-bar-compact-divider" class="h-5 w-px bg-zinc-200 mx-6"></div>
 
-            <!-- RIGHT SLOT: BODYLINE LOGO (400x100 RATIO) + SESSION CONTROLS -->
-            <div class="flex items-center gap-3 shrink-0 transition-all duration-500">
+            <!-- RIGHT SLOT: BODYLINE LOGO (FROM REPO ./bodyline-logo.png) + SESSION CONTROLS -->
+            <div class="flex items-center gap-3 shrink-0">
                 <div class="flex items-center h-9">
-                    <img id="top-bodyline-logo" src="" class="hidden h-8 sm:h-9 w-auto max-w-[144px] object-contain" alt="Bodyline">
+                    <img id="top-bodyline-logo" src="./bodyline-logo.png" onload="this.classList.remove('hidden'); document.getElementById('top-bodyline-fallback').classList.add('hidden');" onerror="this.classList.add('hidden'); document.getElementById('top-bodyline-fallback').classList.remove('hidden');" class="hidden h-8 sm:h-9 w-auto max-w-[144px] object-contain" alt="Bodyline">
                     <span id="top-bodyline-fallback" class="font-extrabold text-zinc-900 text-xs sm:text-sm tracking-widest uppercase">BODYLINE</span>
                 </div>
 
                 <!-- EXPANDED SESSION CONTROLS (PROFILE POPOVER + SIGN OUT) -->
                 <div id="top-bar-session-controls" class="hidden items-center gap-2.5 pl-3 border-l border-zinc-200">
-                    <!-- Profile Pill (Hidden inside Pattern Room) -->
                     <div id="header-profile-wrapper" class="relative">
                         <button type="button" onclick="toggleProfilePopover(event)" class="flex items-center gap-2 bg-zinc-50 hover:bg-zinc-100 px-2.5 py-1 rounded-xl border border-zinc-200 transition-colors">
                             <img id="header-user-avatar" src="" class="w-7 h-7 rounded-full object-cover border border-zinc-300" alt="Avatar">
@@ -64,7 +63,7 @@
                         </button>
 
                         <!-- TINY PROFILE POPOVER WINDOW -->
-                        <div id="profile-popover-menu" class="hidden absolute right-0 mt-2 w-64 bg-white rounded-2xl border border-zinc-200 shadow-xl p-4 z-[210] modal-pop">
+                        <div id="profile-popover-menu" class="hidden absolute right-0 mt-2 w-64 bg-white rounded-2xl border border-zinc-200 shadow-xl p-4 z-[210]">
                             <div class="flex justify-between items-start mb-3">
                                 <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Staff Profile</span>
                                 <button type="button" onclick="closeProfilePopover()" class="text-zinc-400 hover:text-zinc-800"><i class="ph-bold ph-x"></i></button>
@@ -91,16 +90,16 @@
             </div>
         </div>
 
-        <!-- SECONDARY WORKSPACE NAVIGATION SUB-BAR (ONLY SHOWN WHEN LOGGED IN AS STAFF) -->
+        <!-- SECONDARY WORKSPACE NAVIGATION SUB-BAR -->
         <div id="portal-subnav-bar" class="hidden max-w-7xl mx-auto mt-2 flex justify-center">
-            <nav id="role-workspace-tabs" class="bg-white/90 backdrop-blur border border-zinc-200 rounded-xl p-1 flex flex-wrap items-center gap-1 shadow-sm"></nav>
+            <nav id="role-workspace-tabs" class="bg-white/95 backdrop-blur border border-zinc-200 rounded-xl p-1 flex flex-wrap items-center gap-1 shadow-sm"></nav>
         </div>
     </header>
 
     <!-- ================================================================= -->
-    <!-- MAIN VIEW STAGE (WITH SMOOTH LOGIN / LOGOUT TRANSITIONS)          -->
+    <!-- MAIN VIEW STAGE                                                   -->
     <!-- ================================================================= -->
-    <div id="stage-wrapper" class="flex-1 flex flex-col view-stage-ready">
+    <div id="stage-wrapper" class="flex-1 flex flex-col">
 
         <!-- WELCOME SCREEN (GATEWAY) -->
         <main id="view-gateway" class="flex-1 flex flex-col justify-between p-4 sm:p-8 bg-zinc-50">
@@ -111,12 +110,12 @@
                 </h1>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <button type="button" onclick="openUserLoginModal()" class="bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] text-white py-5 px-6 rounded-xl font-semibold text-sm tracking-wide transition-all shadow-sm flex items-center justify-center gap-2.5">
+                    <button type="button" onclick="openUserLoginModal()" class="bg-zinc-900 hover:bg-zinc-800 text-white py-5 px-6 rounded-xl font-semibold text-sm tracking-wide transition-colors shadow-sm flex items-center justify-center gap-2.5">
                         <i class="ph-bold ph-user text-lg"></i>
                         <span>Login as a User</span>
                     </button>
 
-                    <button type="button" onclick="promptPatternRoomAccess()" class="bg-white hover:bg-zinc-100 active:scale-[0.99] text-zinc-900 border border-zinc-300 py-5 px-6 rounded-xl font-semibold text-sm tracking-wide transition-all shadow-sm flex items-center justify-center gap-2.5">
+                    <button type="button" onclick="promptPatternRoomAccess()" class="bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-300 py-5 px-6 rounded-xl font-semibold text-sm tracking-wide transition-colors shadow-sm flex items-center justify-center gap-2.5">
                         <i class="ph-bold ph-magnifying-glass text-lg"></i>
                         <span>Pattern Room</span>
                     </button>
@@ -125,7 +124,7 @@
 
             <!-- BOTTOM BAR: BIG ICON-ONLY PADLOCK -->
             <div class="max-w-6xl mx-auto w-full flex justify-between items-center pt-4">
-                <button type="button" id="viva-padlock-btn" onclick="toggleVivaPadlock()" class="w-12 h-12 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-500 flex items-center justify-center transition-all shadow-sm">
+                <button type="button" id="viva-padlock-btn" onclick="toggleVivaPadlock()" class="w-12 h-12 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-500 flex items-center justify-center transition-colors shadow-sm">
                     <i id="viva-padlock-icon" class="ph-fill ph-lock-key text-2xl"></i>
                 </button>
                 <span id="db-status-label" class="text-[11px] text-zinc-400 font-mono">Online</span>
@@ -149,7 +148,7 @@
             <div class="mb-10">
                 <div class="flex items-center justify-between border-b border-zinc-200 pb-2 mb-4">
                     <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Active on Line</h2>
-                    <span id="count-active-patterns" class="text-xs font-mono text-zinc-400">0</span>
+                    <span id="count-active-patterns" class="text-xs font-mono text-zinc-400">0 items</span>
                 </div>
                 <div id="tracker-grid-active" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
             </div>
@@ -158,7 +157,7 @@
             <div>
                 <div class="flex items-center justify-between border-b border-zinc-200 pb-2 mb-4">
                     <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Room Inventory</h2>
-                    <span id="count-inactive-patterns" class="text-xs font-mono text-zinc-400">0</span>
+                    <span id="count-inactive-patterns" class="text-xs font-mono text-zinc-400">0 items</span>
                 </div>
                 <div id="tracker-grid-inactive" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
             </div>
@@ -240,10 +239,16 @@
                 </div>
 
                 <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col h-72">
-                    <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider border-b border-zinc-100 pb-2.5 mb-3 flex justify-between items-center">
-                        <span>Operator Pool</span>
-                        <span id="selected-op-indicator" class="text-[11px] font-normal text-zinc-400">Tap Worker to Select</span>
-                    </h3>
+                    <div class="flex justify-between items-center border-b border-zinc-100 pb-2 mb-2.5">
+                        <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Operator Pool</span>
+                        <div class="flex gap-1 text-[10px] font-semibold">
+                            <button type="button" onclick="filterSupervisorPool('ALL')" class="px-2 py-0.5 rounded bg-zinc-900 text-white">All</button>
+                            <button type="button" onclick="filterSupervisorPool('Line 1')" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">L1</button>
+                            <button type="button" onclick="filterSupervisorPool('Line 2')" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">L2</button>
+                            <button type="button" onclick="filterSupervisorPool('Line 3')" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">L3</button>
+                        </div>
+                    </div>
+                    <p id="selected-op-indicator" class="text-[11px] text-zinc-400 mb-2">Tap Worker to Select</p>
                     <div id="operator-pool" class="grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto flex-1 pr-1 custom-scroll content-start"></div>
                 </div>
             </div>
@@ -260,13 +265,17 @@
         <!-- WORKSPACE 4: DESIGN, CAD & PATTERN ROOM HUB -->
         <main id="view-design-cad" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Style & CAD Marker with Auto-ID -->
                 <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Style & CAD Marker</h3>
-                    <input id="cad-style-code" type="text" placeholder="Style Code (e.g. VS-LUX-99)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
-                    <div class="grid grid-cols-2 gap-2">
-                        <select id="cad-brand-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
-                        <input id="cad-model-name" type="text" placeholder="Model Name" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                    <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Style & CAD Marker</h3>
+                        <span id="next-cad-id-badge" class="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-100 text-zinc-800">CAD-MK-17</span>
                     </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="cad-brand-select" onchange="autoSuggestStyleCode()" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                        <input id="cad-style-code" type="text" placeholder="Style Code" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-mono">
+                    </div>
+                    <input id="cad-model-name" type="text" placeholder="Model Name (e.g. Sculpt Contour Bra)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                     <div class="grid grid-cols-2 gap-2">
                         <select id="cad-tooling-mat" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                             <option value="MAT-CRD-01">MAT-CRD-01 (Cardboard)</option>
@@ -275,7 +284,7 @@
                         <select id="cad-fabric-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
                     </div>
                     <div>
-                        <label class="text-[11px] font-semibold text-zinc-500 block mb-1">CAD / Style Picture</label>
+                        <label class="text-[11px] font-semibold text-zinc-500 block mb-1">CAD / Style Picture (Optional)</label>
                         <input id="cad-sketch-file" type="file" accept="image/*" class="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-800">
                     </div>
                     <button type="button" onclick="createStyleAndMarker()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
@@ -285,7 +294,7 @@
                     <div class="border-t border-zinc-100 pt-3 mt-1">
                         <p class="text-xs font-bold text-zinc-700 mb-2">Add New Cloth Fabric Type</p>
                         <div class="flex gap-2 mb-2">
-                            <input id="new-fabric-code" type="text" placeholder="Code (FAB-VS-05)" class="w-1/3 p-2 bg-zinc-50 border border-zinc-300 rounded-lg text-xs">
+                            <input id="new-fabric-code" type="text" placeholder="FAB-TR-03" class="w-1/3 p-2 bg-zinc-50 border border-zinc-300 rounded-lg text-xs font-mono">
                             <input id="new-fabric-specs" type="text" placeholder="Fabric Composition" class="flex-1 p-2 bg-zinc-50 border border-zinc-300 rounded-lg text-xs">
                         </div>
                         <button type="button" onclick="designAddFabricDirect()" class="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-300 text-xs font-semibold py-2 rounded-lg">
@@ -300,22 +309,26 @@
                     </div>
                 </div>
 
+                <!-- Pattern Block & 3D Mold Registration with Auto-ID -->
                 <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Register Pattern Block or 3D Mold</h3>
+                    <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Register Pattern Block or 3D Mold</h3>
+                        <span class="text-[10px] text-zinc-400">Auto-ID Enabled</span>
+                    </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <input id="pat-asset-id" type="text" placeholder="Asset ID (e.g. TR-PB-09)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
-                        <select id="pat-tooling-type" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
-                            <option value="Pattern Block">Pattern Block (Cardboard)</option>
-                            <option value="Pattern Mold">Pattern Mold (3D Plastic)</option>
+                        <select id="pat-style-select" onchange="autoGeneratePatternAssetId()" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                        <select id="pat-tooling-type" onchange="autoGeneratePatternAssetId()" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                            <option value="Pattern Block">Pattern Block (PB)</option>
+                            <option value="Pattern Mold">Pattern Mold (PM)</option>
                         </select>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <select id="pat-style-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                        <input id="pat-asset-id" type="text" placeholder="Auto Asset ID" class="p-2.5 bg-zinc-100 border border-zinc-300 rounded-xl text-xs font-mono font-bold text-zinc-900">
                         <select id="pat-size-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
                     </div>
-                    <input id="pat-rack-loc" type="text" placeholder="Storage Location (e.g. Rack A-04)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                    <select id="pat-rack-loc" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
                     <div>
-                        <label class="text-[11px] font-semibold text-zinc-500 block mb-1">Item Photo</label>
+                        <label class="text-[11px] font-semibold text-zinc-500 block mb-1">Item Photo (Optional)</label>
                         <input id="pat-photo-file" type="file" accept="image/*" class="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-800">
                     </div>
                     <button type="button" onclick="registerNewPatternAsset()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
@@ -329,16 +342,12 @@
                             <p id="pattern-qr-label-text" class="text-sm font-black text-zinc-900"></p>
                         </div>
                     </div>
-
-                    <div class="border-t border-zinc-100 pt-3 mt-auto">
-                        <p class="text-xs font-bold text-zinc-700 mb-2">6-Month Inactive / Dormant Items</p>
-                        <div id="inactive-patterns-alert-box" class="space-y-1.5 max-h-36 overflow-y-auto custom-scroll text-xs"></div>
-                    </div>
                 </div>
 
+                <!-- Existing Items Photo Manager & Active CAD Markers -->
                 <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Registered Styles & CAD Markers</h3>
-                    <div id="cad-markers-mini-list" class="space-y-2.5 overflow-y-auto max-h-[500px] pr-1 custom-scroll"></div>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Pattern & CAD Inventory (Click Photo to Update)</h3>
+                    <div id="cad-markers-mini-list" class="space-y-2 overflow-y-auto max-h-[500px] pr-1 custom-scroll"></div>
                 </div>
             </div>
         </main>
@@ -347,10 +356,13 @@
         <main id="view-supply" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-4">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Sewing Department Cutting Orders</h3>
+                    <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Sewing Department Cutting Orders</h3>
+                        <span id="next-order-id-badge" class="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-100 text-zinc-800">Next: ORD-001</span>
+                    </div>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <select id="sew-style-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
-                        <input id="sew-size" type="text" placeholder="Size (34B / M)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                        <select id="sew-size" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
                         <input id="sew-qty" type="number" placeholder="Qty (1200)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                         <select id="sew-priority" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                             <option value="Normal">Normal</option>
@@ -374,7 +386,10 @@
         <main id="view-qc" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Log Floor Defect</h3>
+                    <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Log Floor Defect</h3>
+                        <span id="next-qc-id-badge" class="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-100 text-zinc-800">Next: QCL-001</span>
+                    </div>
                     <label class="text-xs font-semibold text-zinc-600">1. Target Item</label>
                     <select id="qc-asset-select" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
 
@@ -398,37 +413,46 @@
 
                 <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5 mb-3">
-                        Active QC Inspection Logs
+                        Logged QC Defect Records
                     </h3>
                     <div id="qc-logs-list" class="space-y-2.5 overflow-y-auto max-h-[480px] pr-1 custom-scroll"></div>
                 </div>
             </div>
         </main>
 
-        <!-- WORKSPACE 7: DIGITAL TEAM ADMIN & SUPPORT CONSOLE -->
+        <!-- WORKSPACE 7: DIGITAL TEAM ADMIN & SUPPORT CONSOLE (WITH BULK PHOTO UPLOAD) -->
         <main id="view-admin" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="bg-white p-5 rounded-2xl border border-zinc-200 mb-6">
                 <div class="flex flex-wrap gap-2 border-b border-zinc-200 pb-3 mb-5 text-xs font-semibold">
-                    <button type="button" onclick="switchAdminSubTab('emp')" id="adm-sub-emp" class="px-4 py-2 rounded-xl bg-zinc-900 text-white">1. Staff Directory & Photo Approvals</button>
-                    <button type="button" onclick="switchAdminSubTab('params')" id="adm-sub-params" class="px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">2. System Parameters & Brand Logos</button>
+                    <button type="button" onclick="switchAdminSubTab('emp')" id="adm-sub-emp" class="px-4 py-2 rounded-xl bg-zinc-900 text-white">1. Staff Directory & Bulk Photos</button>
+                    <button type="button" onclick="switchAdminSubTab('params')" id="adm-sub-params" class="px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">2. System Parameters</button>
                     <button type="button" onclick="switchAdminSubTab('records')" id="adm-sub-records" class="px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">3. Immutable System Audit Log</button>
                 </div>
 
+                <!-- Tab 1: Staff Directory, Auto-ID Registration, Inline Photo Edit & Bulk Photo Upload -->
                 <div id="admin-panel-emp" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="space-y-5">
-                        <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-3">Pending Profile Photo Requests</h4>
-                            <div id="support-avatar-requests-list" class="space-y-2.5 max-h-48 overflow-y-auto custom-scroll"></div>
+                    <div class="space-y-4">
+                        <!-- Bulk Profile Picture Uploader -->
+                        <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 space-y-2.5">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Bulk Profile Photo Upload</h4>
+                            <p class="text-[11px] text-zinc-500">Select multiple photos named by Employee ID (e.g. <code class="font-mono bg-white px-1 rounded border">DH-01.jpg</code>, <code class="font-mono bg-white px-1 rounded border">CSE-01.png</code>) or use the <strong class="text-zinc-800">Photo</strong> button on any row on the right.</p>
+                            <input id="bulk-emp-photos" type="file" accept="image/*" multiple onchange="handleBulkEmployeePhotos(this)" class="w-full text-xs text-zinc-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-900 file:text-white cursor-pointer">
                         </div>
 
+                        <!-- Pending Profile Photo Requests (For Support Team) -->
+                        <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2.5">Pending Staff Photo Approvals</h4>
+                            <div id="support-avatar-requests-list" class="space-y-2 max-h-40 overflow-y-auto custom-scroll"></div>
+                        </div>
+
+                        <!-- Register New Employee with Smart Auto-ID -->
                         <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-2.5">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Register New Employee</h4>
-                            <div class="grid grid-cols-2 gap-2">
-                                <input id="reg-emp-id" type="text" placeholder="ID (e.g. CW-L1-CMO-06)" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
-                                <input id="reg-emp-name" type="text" placeholder="Full Name" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                            <div class="flex justify-between items-center">
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Register New Employee</h4>
+                                <span class="text-[10px] text-zinc-400">Auto-ID</span>
                             </div>
                             <div class="grid grid-cols-2 gap-2">
-                                <select id="reg-emp-dept" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                                <select id="reg-emp-dept" onchange="autoGenerateEmployeeId()" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
                                     <option value="Cutting">Cutting</option>
                                     <option value="Cutting - CAD">Cutting - CAD</option>
                                     <option value="Cutting - Pattern">Cutting - Pattern</option>
@@ -438,13 +462,25 @@
                                     <option value="Design - Cutting">Design - Cutting</option>
                                     <option value="Digital - Cutting">Digital - Cutting</option>
                                 </select>
-                                <select id="reg-emp-role" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs"></select>
+                                <select id="reg-emp-role" onchange="autoGenerateEmployeeId()" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs"></select>
                             </div>
-                            <input id="reg-emp-zone" type="text" placeholder="Work Location / Zone" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
-                            <div>
-                                <label class="text-[11px] font-semibold text-zinc-500 block mb-1">Profile Picture</label>
-                                <input id="reg-emp-photo" type="file" accept="image/*" class="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-200 file:text-zinc-800">
+                            <div class="grid grid-cols-2 gap-2">
+                                <select id="reg-emp-zone" onchange="autoGenerateEmployeeId()" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                                    <option value="Cutting Floor - Line 1">Cutting Floor - Line 1</option>
+                                    <option value="Cutting Floor - Line 2">Cutting Floor - Line 2</option>
+                                    <option value="Cutting Floor - Line 3">Cutting Floor - Line 3</option>
+                                    <option value="Cutting Floor">Cutting Floor</option>
+                                    <option value="CD Operations Office">CD Operations Office</option>
+                                    <option value="CAD Room">CAD Room</option>
+                                    <option value="Pattern Room">Pattern Room</option>
+                                    <option value="Sewing Department">Sewing Department</option>
+                                    <option value="Raw Material Warehouse">Raw Material Warehouse</option>
+                                    <option value="Design Department">Design Department</option>
+                                </select>
+                                <input id="reg-emp-id" type="text" placeholder="Auto ID" class="p-2.5 bg-zinc-100 border border-zinc-300 rounded-xl text-xs font-mono font-bold text-zinc-900">
                             </div>
+                            <input id="reg-emp-name" type="text" placeholder="Full Name" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                            <input id="reg-emp-photo" type="file" accept="image/*" class="w-full text-xs text-zinc-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-200 file:text-zinc-800">
                             <button type="button" onclick="registerNewEmployee()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
                                 Register Employee
                             </button>
@@ -452,12 +488,15 @@
                         </div>
                     </div>
 
-                    <div class="lg:col-span-2 bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col h-[540px]">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-3">Employee Directory</h4>
+                    <div class="lg:col-span-2 bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col h-[600px]">
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Employee Directory (85 Staff)</h4>
+                            <input id="admin-emp-search" type="text" oninput="renderAdminEmployeeList()" placeholder="Filter by Name, ID or Role..." class="px-3 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs outline-none">
+                        </div>
                         <div class="flex-1 overflow-auto custom-scroll bg-white rounded-xl border border-zinc-200">
                             <table class="w-full text-left text-xs">
                                 <thead class="bg-zinc-100 sticky top-0 text-[11px] uppercase text-zinc-500 border-b border-zinc-200">
-                                    <tr><th class="p-2.5">Staff Member</th><th class="p-2.5">ID</th><th class="p-2.5">Department</th><th class="p-2.5">Zone</th><th class="p-2.5 text-right">Action</th></tr>
+                                    <tr><th class="p-2.5">Staff Member</th><th class="p-2.5">ID</th><th class="p-2.5">Department</th><th class="p-2.5">Zone</th><th class="p-2.5 text-right">Actions</th></tr>
                                 </thead>
                                 <tbody id="admin-emp-tbody" class="divide-y divide-zinc-100"></tbody>
                             </table>
@@ -465,8 +504,9 @@
                     </div>
                 </div>
 
+                <!-- Tab 2: System Parameters Only (Logo Uploader Removed) -->
                 <div id="admin-panel-params" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-3">
+                    <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-3 h-fit">
                         <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Add System Parameter</h4>
                         <select id="sys-cat" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
                             <option value="Brand">Buyer Brand</option>
@@ -474,34 +514,20 @@
                             <option value="Rack">Pattern Storage Rack</option>
                             <option value="Role">Employee Role</option>
                         </select>
-                        <input id="sys-val" type="text" placeholder="Value (e.g. Lindex, 34D)" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
-                        <input id="sys-prefix" type="text" placeholder="Brand Prefix (e.g. LDX)" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                        <input id="sys-val" type="text" placeholder="Value (e.g. Lindex, 34D, Rack E-01)" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                        <input id="sys-prefix" type="text" placeholder="Brand Prefix (e.g. LDX)" class="p-2.5 bg-white border border-zinc-300 rounded-xl text-xs font-mono">
                         <button type="button" onclick="addSystemSetting()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
                             Save Parameter
                         </button>
                     </div>
 
-                    <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col h-80">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2">Active Parameters</h4>
-                        <ul id="system-settings-list" class="space-y-1.5 overflow-y-auto flex-1 custom-scroll text-xs"></ul>
-                    </div>
-
-                    <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-3">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Enterprise & Plant Logos</h4>
-                        <p class="text-[11px] text-zinc-500 leading-relaxed">
-                            Upload Size: <strong>400 &times; 100 px</strong> (4:1 horizontal transparent PNG or SVG). Used on both the animated top bar and all reports.
-                        </p>
-                        <div class="p-3 bg-white rounded-xl border border-zinc-200">
-                            <label class="text-xs font-bold text-zinc-800 block mb-1">1. MAS Holdings Logo (400 &times; 100 px)</label>
-                            <input type="file" accept="image/*" onchange="uploadBrandLogo(this, 'LOGO_MAS')" class="w-full text-xs text-zinc-600 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:bg-zinc-100 file:text-zinc-800 file:font-semibold">
-                        </div>
-                        <div class="p-3 bg-white rounded-xl border border-zinc-200">
-                            <label class="text-xs font-bold text-zinc-800 block mb-1">2. Bodyline Logo (400 &times; 100 px)</label>
-                            <input type="file" accept="image/*" onchange="uploadBrandLogo(this, 'LOGO_BODYLINE')" class="w-full text-xs text-zinc-600 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:bg-zinc-100 file:text-zinc-800 file:font-semibold">
-                        </div>
+                    <div class="lg:col-span-2 bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col h-96">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2">Active System Parameters</h4>
+                        <ul id="system-settings-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto flex-1 custom-scroll text-xs content-start pr-1"></ul>
                     </div>
                 </div>
 
+                <!-- Tab 3: Immutable Audit Log -->
                 <div id="admin-panel-records" class="hidden flex flex-col gap-4">
                     <div class="flex justify-between items-center text-xs text-zinc-500">
                         <span>Permanent append-only audit log stored in PostgreSQL.</span>
@@ -582,6 +608,9 @@
 
     </div>
 
+    <!-- HIDDEN SINGLE FILE INPUT FOR 1-CLICK ROW PHOTO UPDATES -->
+    <input id="single-row-photo-input" type="file" accept="image/*" class="hidden">
+
     <!-- ================================================================= -->
     <!-- FLOATING PROTOCOL COMMUNICATOR & APPROVAL DRAWER (BOTTOM-RIGHT)   -->
     <!-- ================================================================= -->
@@ -592,7 +621,7 @@
             <span id="comm-unread-badge" class="px-2 py-0.5 rounded-full bg-zinc-700 text-white text-[10px]">0</span>
         </button>
 
-        <div id="comm-drawer-window" class="hidden fixed inset-0 sm:inset-auto sm:bottom-5 sm:right-5 sm:w-[420px] sm:h-[540px] bg-white sm:rounded-2xl border border-zinc-300 shadow-2xl flex flex-col overflow-hidden z-[195] modal-pop">
+        <div id="comm-drawer-window" class="hidden fixed inset-0 sm:inset-auto sm:bottom-5 sm:right-5 sm:w-[420px] sm:h-[540px] bg-white sm:rounded-2xl border border-zinc-300 shadow-2xl flex flex-col overflow-hidden z-[195]">
             <div class="bg-zinc-900 text-white px-4 py-3.5 flex justify-between items-center">
                 <h4 class="text-xs font-bold uppercase tracking-wider">Task & Approval Communicator</h4>
                 <button type="button" onclick="closeCommDrawer()" class="text-zinc-400 hover:text-white p-1"><i class="ph-bold ph-x text-lg"></i></button>
@@ -613,7 +642,7 @@
     <!-- MODAL 1: STAFF PORTAL LOGIN MODAL                                 -->
     <!-- ================================================================= -->
     <div id="user-login-modal" onclick="if(event.target===this) closeLoginModal()" class="fixed inset-0 bg-zinc-900/40 backdrop-blur-md z-[170] flex items-center justify-center hidden p-4 pt-20">
-        <div class="bg-white w-full max-w-md rounded-2xl border border-zinc-200 p-6 sm:p-7 shadow-2xl relative modal-pop">
+        <div class="bg-white w-full max-w-md rounded-2xl border border-zinc-200 p-6 sm:p-7 shadow-2xl relative">
             <button type="button" onclick="closeLoginModal()" class="absolute top-5 right-5 text-zinc-400 hover:text-zinc-900 p-1"><i class="ph-bold ph-x text-lg"></i></button>
 
             <div class="flex flex-col items-center text-center mb-6">
@@ -661,10 +690,10 @@
     </div>
 
     <!-- ================================================================= -->
-    <!-- MODAL 2: INTERNAL PATTERN ROOM KIOSK PASSWORD MODAL (SIGN IN/OUT) -->
+    <!-- MODAL 2: INTERNAL PATTERN ROOM KIOSK PASSWORD MODAL               -->
     <!-- ================================================================= -->
     <div id="kiosk-auth-modal" onclick="if(event.target===this) closeKioskAuthModal()" class="fixed inset-0 bg-zinc-900/40 backdrop-blur-md z-[175] flex items-center justify-center hidden p-4 pt-20">
-        <div class="bg-white w-full max-w-sm rounded-2xl border border-zinc-200 p-6 sm:p-7 shadow-2xl relative modal-pop">
+        <div class="bg-white w-full max-w-sm rounded-2xl border border-zinc-200 p-6 sm:p-7 shadow-2xl relative">
             <button type="button" onclick="closeKioskAuthModal()" class="absolute top-5 right-5 text-zinc-400 hover:text-zinc-900 p-1"><i class="ph-bold ph-x text-lg"></i></button>
 
             <div class="flex flex-col items-center text-center mb-5">
@@ -690,7 +719,7 @@
     <!-- MODAL 3: ITEM DETAIL & QR VERIFICATION MODAL                      -->
     <!-- ================================================================= -->
     <div id="verify-modal" onclick="if(event.target===this) closeVerifyModal()" class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-[190] flex items-center justify-center hidden p-4">
-        <div class="bg-white border border-zinc-200 w-full max-w-lg rounded-2xl flex flex-col overflow-hidden max-h-[90vh] shadow-2xl modal-pop">
+        <div class="bg-white border border-zinc-200 w-full max-w-lg rounded-2xl flex flex-col overflow-hidden max-h-[90vh] shadow-2xl">
             <div class="bg-zinc-50 px-5 py-3.5 border-b border-zinc-200 flex justify-between items-center">
                 <h3 id="modal-title" class="font-bold text-sm text-zinc-900">Item Details</h3>
                 <button type="button" onclick="closeVerifyModal()" class="text-zinc-400 hover:text-zinc-900 p-1"><i class="ph-bold ph-x text-lg"></i></button>
