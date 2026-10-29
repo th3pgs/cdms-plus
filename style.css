@@ -12,20 +12,34 @@
     width: 100%;
 }
 
-/* S (Green System Mode) vs T (Glowing Red Testing Mode) Square Button */
-.mode-btn-system {
-    border-color: #10b981 !important;
-    color: #059669 !important;
-    background-color: #ffffff !important;
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+/* Unified Control Buttons (Padlock & 1/0 Mode Switch) */
+.ctrl-btn-green {
+    background-color: #16a34a !important;
+    border: 2px solid #15803d !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+}
+.ctrl-btn-green:hover {
+    background-color: #15803d !important;
 }
 
-.mode-btn-testing {
-    border-color: #ef4444 !important;
-    color: #ef4444 !important;
-    background-color: #ffffff !important;
-    box-shadow: 0 0 18px rgba(239, 68, 68, 0.65), inset 0 0 6px rgba(239, 68, 68, 0.2);
-    text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+.ctrl-btn-red {
+    background-color: #dc2626 !important;
+    border: 2px solid #f87171 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.8), 0 0 8px rgba(220, 38, 38, 0.6);
+}
+.ctrl-btn-red:hover {
+    background-color: #b91c1c !important;
+}
+
+/* Live QR Camera Stream Box */
+#qr-camera-reader video {
+    border-radius: 12px;
+    object-fit: cover;
+    width: 100% !important;
+    max-height: 220px !important;
+    border: 1px solid #e4e4e7;
 }
 
 .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }

@@ -1,16 +1,18 @@
-// V8 Update
-// CDMS+ ENTERPRISE ENGINE DAY with0MS UNLOCK + BULK PHOTO & AUTO-ID
+// V9 Update
+// CDMS+ ENTERPRISE ENGINE WITH CAMERA PERMISSION + MANUAL ID CHECKBOX + FILTERS
 
 const SUPABASE_URL = 'https://uvfmircbplfqkgkmzssb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_NZNswR7y9y-oSJIC-unRvw_wioNx760';
 const realSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const MODE_STORAGE_KEY = 'CDMS_ACTIVE_MODE'; // 'S' (System) or 'T' (Testing)
+const MODE_STORAGE_KEY = 'CDMS_ACTIVE_MODE_1_0'; // '1' (System) or '0' (Testing)
 const SANDBOX_DB_KEY = 'CDMS_TESTING_SANDBOX_DB';
 
-let systemOperatingMode = localStorage.getItem(MODE_STORAGE_KEY) || 'S';
+let systemOperatingMode = localStorage.getItem(MODE_STORAGE_KEY) === '0' ? '0' : '1';
 let resolvedMasLogoUrl = null;
 let resolvedBodylineLogoUrl = null;
+let cameraPermissionState = 'prompt'; // 'prompt', 'granted', 'denied'
+let html5QrScanner = null;
 
 // EMPTY HEAD AVATAR & "NO DATA" ITEM PLACEHOLDER SVGS
 const DEFAULT_AVATAR_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
@@ -58,10 +60,10 @@ let DB = {
 };
 
 // ============================================================================
-// 1. S (SYSTEM) vs T (TESTING SANDBOX) INTERCEPTOR PROXY
+// 1. 1 (GREEN SYSTEM MODE) vs 0 (GLOWING RED TESTING SANDBOX) INTERCEPTOR
 // ============================================================================
 function saveSandboxDB() {
-    if (systemOperatingMode === 'T') {
+    if (systemOperatingMode === '0') {
         localStorage.setItem(SANDBOX_DB_KEY, JSON.stringify(DB));
     }
 }
@@ -74,10 +76,9 @@ const AUTO_ID_COLS = {
     immutable_audit_logs: 'audit_id'
 };
 
-// Smart proxy: In 'S' mode, writes go to real Supabase. In 'T' mode, writes stay in temporary Sandbox!
 const supa = {
     from: (tableName) => {
-        if (systemOperatingMode === 'S') {
+        if (systemOperatingMode === '1') {
             return realSupa.from(tableName);
         }
         const key = tableName.toLowerCase();
@@ -135,50 +136,39 @@ const supa = {
 function updateModeButtonUI() {
     const btn = document.getElementById('mode-switch-btn');
     const letter = document.getElementById('mode-switch-letter');
-    const statusLbl = document.getElementById('db-status-label');
     if (!btn || !letter) return;
 
-    if (systemOperatingMode === 'T') {
-        letter.innerText = 'T';
-        btn.classList.remove('mode-btn-system');
-        btn.classList.add('mode-btn-testing');
-        if (statusLbl) {
-            statusLbl.innerText = 'Testing Sandbox (T)';
-            statusLbl.className = 'text-[11px] text-red-500 font-mono font-bold';
-        }
+    if (systemOperatingMode === '0') {
+        letter.innerText = '0';
+        btn.classList.remove('ctrl-btn-green');
+        btn.classList.add('ctrl-btn-red');
     } else {
-        letter.innerText = 'S';
-        btn.classList.remove('mode-btn-testing');
-        btn.classList.add('mode-btn-system');
-        if (statusLbl) {
-            statusLbl.innerText = 'System Mode (S)';
-            statusLbl.className = 'text-[11px] text-emerald-600 font-mono font-bold';
-        }
+        letter.innerText = '1';
+        btn.classList.remove('ctrl-btn-red');
+        btn.classList.add('ctrl-btn-green');
     }
 }
 
 async function toggleSystemTestingMode() {
-    if (systemOperatingMode === 'S') {
-        // Switching S -> T: Clone clean live DB into temporary sandbox
+    if (systemOperatingMode === '1') {
         await fetchLiveSupabaseIntoDB();
-        systemOperatingMode = 'T';
-        localStorage.setItem(MODE_STORAGE_KEY, 'T');
+        systemOperatingMode = '0';
+        localStorage.setItem(MODE_STORAGE_KEY, '0');
         localStorage.setItem(SANDBOX_DB_KEY, JSON.stringify(DB));
         updateModeButtonUI();
-        showToast('Testing Mode (T) Active: All changes are temporary and will not alter the main system.');
+        showToast('Testing Mode (0): Temporary sandbox active.');
     } else {
-        // Switching T -> S: Wipe all temporary testing data and restore clean live DB from Supabase
         localStorage.removeItem(SANDBOX_DB_KEY);
-        systemOperatingMode = 'S';
-        localStorage.setItem(MODE_STORAGE_KEY, 'S');
+        systemOperatingMode = '1';
+        localStorage.setItem(MODE_STORAGE_KEY, '1');
         updateModeButtonUI();
         await fetchLiveSupabaseIntoDB();
-        showToast('System Mode (S) Restored: Temporary testing data wiped.');
+        showToast('System Mode (1): Restored clean system state.');
     }
 }
 
 // ============================================================================
-// 2. AUTOMATIC MULTI-FILENAME LOGO DETECTOR (CHECKS .png, .png.png, .jpg, .svg)
+// 2. AUTOMATIC MULTI-FILENAME LOGO DETECTOR
 // ============================================================================
 function probeImageCandidates(candidates, onFound) {
     let idx = 0;
@@ -313,7 +303,7 @@ async function fetchLiveSupabaseIntoDB() {
 
 async function syncFromSupabase() {
     try {
-        if (systemOperatingMode === 'T') {
+        if (systemOperatingMode === '0') {
             const savedSandbox = localStorage.getItem(SANDBOX_DB_KEY);
             if (savedSandbox) {
                 DB = JSON.parse(savedSandbox);
@@ -374,6 +364,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const pop = document.getElementById('profile-popover-menu');
         if (wrapper && pop && !wrapper.contains(e.target)) {
             pop.classList.add('hidden');
+        }
+        const filterPop = document.getElementById('search-filter-popover');
+        const filterBtn = document.getElementById('search-filter-btn');
+        if (filterPop && filterBtn && !filterPop.contains(e.target) && !filterBtn.contains(e.target)) {
+            filterPop.classList.add('hidden');
         }
     });
 
@@ -436,7 +431,20 @@ function closeKioskAuthModal() {
     if (currentMode === 'gateway') setTopBarState('compact');
 }
 
+async function stopActiveQrCamera() {
+    if (html5QrScanner) {
+        try {
+            if (html5QrScanner.isScanning) {
+                await html5QrScanner.stop();
+            }
+            html5QrScanner.clear();
+        } catch (e) {}
+        html5QrScanner = null;
+    }
+}
+
 function closeVerifyModal() {
+    stopActiveQrCamera();
     closeModal('verify-modal');
 }
 
@@ -571,7 +579,7 @@ function getNextSequentialId(list, keyField, prefix) {
 }
 
 // ============================================================================
-// 7. INSTANT 0MS LOGIN & KIOSK UNLOCK
+// 7. GREEN / GLOWING RED PADLOCK & INSTANT 0MS LOGIN
 // ============================================================================
 function toggleVivaPadlock() {
     vivaBypassUnlocked = !vivaBypassUnlocked;
@@ -579,11 +587,13 @@ function toggleVivaPadlock() {
     const btn = document.getElementById('viva-padlock-btn');
 
     if (vivaBypassUnlocked) {
-        icon.className = 'ph-fill ph-lock-key-open text-2xl text-zinc-900';
-        btn.className = 'w-12 h-12 rounded-xl border-2 border-zinc-900 bg-white text-zinc-900 flex items-center justify-center transition-colors shadow-md';
+        icon.className = 'ph-fill ph-lock-key-open text-2xl text-white';
+        btn.classList.remove('ctrl-btn-green');
+        btn.classList.add('ctrl-btn-red');
     } else {
-        icon.className = 'ph-fill ph-lock-key text-2xl text-zinc-500';
-        btn.className = 'w-12 h-12 rounded-xl border border-zinc-200 bg-white text-zinc-500 flex items-center justify-center transition-colors shadow-sm';
+        icon.className = 'ph-fill ph-lock-key text-2xl text-white';
+        btn.classList.remove('ctrl-btn-red');
+        btn.classList.add('ctrl-btn-green');
     }
 }
 
@@ -703,12 +713,14 @@ async function executeKioskAuthAction() {
         document.getElementById('role-workspace-tabs').innerHTML = '';
         hideAllMainViews();
         document.getElementById('view-tracker').classList.remove('hidden');
+        populatePatternRoomFilterDropdowns();
         renderPatternGrid();
         showToast('Pattern Room Kiosk unlocked.');
 
         setTimeout(() => { isAuthBusy = false; }, 400);
         await writeImmutableAudit('KIOSK_UNLOCKED', 'Pattern_Room', 'TERMINAL', { status: 'Unlocked for Shift' });
         await syncFromSupabase();
+        populatePatternRoomFilterDropdowns();
         renderPatternGrid();
     } else {
         returnToWelcomeScreenImmediate();
@@ -736,6 +748,7 @@ function triggerCredentialedLogout() {
 function returnToWelcomeScreenImmediate() {
     currentMode = 'gateway';
     currentLoggedInUser = null;
+    stopActiveQrCamera();
     hideAllMainViews();
     closeProfilePopover();
     closeCommDrawer();
@@ -912,7 +925,7 @@ function switchPortalView(viewKey) {
 
     document.getElementById(`view-${viewKey}`).classList.remove('hidden');
 
-    if (viewKey === 'tracker') renderPatternGrid();
+    if (viewKey === 'tracker') { populatePatternRoomFilterDropdowns(); renderPatternGrid(); }
     if (viewKey === 'dept-head') renderDeptHeadPortal();
     if (viewKey === 'supervisor') renderSupervisorPortal();
     if (viewKey === 'design-cad') renderDesignCadPortal();
@@ -923,12 +936,53 @@ function switchPortalView(viewKey) {
 }
 
 // ============================================================================
-// 10. GOOGLE-STYLE PATTERN ROOM
+// 10. GOOGLE-STYLE PATTERN ROOM (SEARCH BAR FILTERS + IN-APP CAMERA + MANUAL ID)
 // ============================================================================
+function populatePatternRoomFilterDropdowns() {
+    const brandSel = document.getElementById('filter-brand-select');
+    const rackSel = document.getElementById('filter-rack-select');
+    if (!brandSel || !rackSel) return;
+
+    const currentBrand = brandSel.value || 'ALL';
+    const currentRack = rackSel.value || 'ALL';
+
+    const brands = [...new Set(DB.pattern_assets.map(p => p.brand_buyer))].sort();
+    const racks = [...new Set(DB.pattern_assets.map(p => p.storage_location))].sort();
+
+    brandSel.innerHTML = `<option value="ALL">All Brands (${brands.length})</option>` +
+        brands.map(b => `<option value="${b}">${b}</option>`).join('');
+    rackSel.innerHTML = `<option value="ALL">All Locations (${racks.length})</option>` +
+        racks.map(r => `<option value="${r}">${r}</option>`).join('');
+
+    if (brands.includes(currentBrand)) brandSel.value = currentBrand;
+    if (racks.includes(currentRack)) rackSel.value = currentRack;
+}
+
+function toggleSearchFilterMenu(e) {
+    if (e) e.stopPropagation();
+    populatePatternRoomFilterDropdowns();
+    const pop = document.getElementById('search-filter-popover');
+    if (pop) pop.classList.toggle('hidden');
+}
+
+function resetPatternRoomFilters() {
+    const brandSel = document.getElementById('filter-brand-select');
+    const rackSel = document.getElementById('filter-rack-select');
+    if (brandSel) brandSel.value = 'ALL';
+    if (rackSel) rackSel.value = 'ALL';
+    handlePatternSearch();
+}
+
 function handlePatternSearch() {
-    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const q = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+    const brandFilter = document.getElementById('filter-brand-select')?.value || 'ALL';
+    const rackFilter = document.getElementById('filter-rack-select')?.value || 'ALL';
+
     document.getElementById('clearBtn').classList.toggle('hidden', q.length === 0);
-    renderPatternGrid(q);
+    const dot = document.getElementById('filter-active-dot');
+    if (dot) dot.classList.toggle('hidden', brandFilter === 'ALL' && rackFilter === 'ALL');
+
+    renderPatternGrid(q, brandFilter, rackFilter);
 }
 
 function clearSearch() {
@@ -972,8 +1026,14 @@ function renderPatternCardHtml(p) {
     `;
 }
 
-function renderPatternGrid(query = '') {
+function renderPatternGrid(query = '', brandFilter = 'ALL', rackFilter = 'ALL') {
     let list = DB.pattern_assets;
+    if (brandFilter !== 'ALL') {
+        list = list.filter(p => p.brand_buyer === brandFilter);
+    }
+    if (rackFilter !== 'ALL') {
+        list = list.filter(p => p.storage_location === rackFilter);
+    }
     if (query) {
         list = list.filter(p =>
             p.asset_id.toLowerCase().includes(query) ||
@@ -996,9 +1056,145 @@ function renderPatternGrid(query = '') {
         '<p class="text-xs text-zinc-400 col-span-full py-4">No matching inventory items.</p>';
 }
 
+// ============================================================================
+// 11. IN-APP CAMERA PERMISSION PROMPT + LIVE QR SCANNER + MANUAL ID CHECKBOX
+// ============================================================================
+function renderCameraSectionHtml(scanContext, assetId = '') {
+    if (cameraPermissionState === 'prompt') {
+        return `
+            <div id="camera-permission-card" class="p-4 rounded-xl bg-zinc-50 border border-zinc-200 text-center space-y-3">
+                <div class="w-10 h-10 rounded-full bg-zinc-200/80 text-zinc-800 flex items-center justify-center mx-auto">
+                    <i class="ph-bold ph-camera text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-zinc-900">Allow Camera Access for QR Scanning?</p>
+                    <p class="text-[11px] text-zinc-500 mt-0.5">CDMS+ needs permission to use your camera to scan QR codes.</p>
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button type="button" onclick="handleWebsiteCameraPermission(true, '${scanContext}', '${assetId}')" class="bg-zinc-900 hover:bg-zinc-800 text-white py-2 rounded-lg text-xs font-semibold">Allow Camera</button>
+                    <button type="button" onclick="handleWebsiteCameraPermission(false, '${scanContext}', '${assetId}')" class="bg-zinc-200 hover:bg-zinc-300 text-zinc-800 py-2 rounded-lg text-xs font-semibold">Deny (Use Manual ID)</button>
+                </div>
+            </div>
+        `;
+    } else if (cameraPermissionState === 'granted') {
+        return `
+            <div class="space-y-2">
+                <div class="flex justify-between items-center text-[11px] font-semibold text-zinc-600">
+                    <span><i class="ph-fill ph-camera text-emerald-600"></i> Live QR Camera Scanner Active</span>
+                    <button type="button" onclick="handleWebsiteCameraPermission(false, '${scanContext}', '${assetId}')" class="text-zinc-400 hover:text-zinc-800">Turn Off Camera</button>
+                </div>
+                <div id="qr-camera-reader" class="w-full bg-zinc-900 rounded-xl overflow-hidden min-h-[190px] flex items-center justify-center text-xs text-zinc-400">Initializing camera...</div>
+            </div>
+        `;
+    } else {
+        return `
+            <div class="p-2.5 rounded-xl bg-zinc-100 border border-zinc-200 flex justify-between items-center text-xs text-zinc-600">
+                <span>Camera access disabled. Use manual ID below.</span>
+                <button type="button" onclick="handleWebsiteCameraPermission(true, '${scanContext}', '${assetId}')" class="font-bold text-zinc-900 underline">Enable Camera</button>
+            </div>
+        `;
+    }
+}
+
+async function handleWebsiteCameraPermission(allowed, scanContext, assetId) {
+    if (allowed) {
+        cameraPermissionState = 'granted';
+    } else {
+        cameraPermissionState = 'denied';
+        await stopActiveQrCamera();
+    }
+
+    if (scanContext === 'quick-item') {
+        openQuickQrScanner();
+    } else {
+        openScannerForAsset(assetId);
+    }
+}
+
+async function startHtml5CameraStream(onDecodedCallback) {
+    await stopActiveQrCamera();
+    if (cameraPermissionState !== 'granted') return;
+    const readerEl = document.getElementById('qr-camera-reader');
+    if (!readerEl || typeof Html5Qrcode === 'undefined') return;
+
+    try {
+        html5QrScanner = new Html5Qrcode('qr-camera-reader');
+        await html5QrScanner.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 200, height: 200 } },
+            async (decodedText) => {
+                await stopActiveQrCamera();
+                onDecodedCallback(decodedText.trim().toUpperCase());
+            },
+            () => {}
+        );
+    } catch (err) {
+        if (readerEl) {
+            readerEl.innerHTML = `<p class="p-4 text-center text-xs text-zinc-400">Camera unavailable on this device. Please use the Manual ID entry below.</p>`;
+        }
+    }
+}
+
+// FLOATING BUTTON OR SEARCH BAR QR ICON -> QUICK SCAN AN ITEM QR
+function openQuickQrScanner() {
+    document.getElementById('modal-title').innerText = 'Scan Pattern or 3D Mold QR';
+    document.getElementById('verify-modal').classList.remove('hidden');
+    const area = document.getElementById('modal-dynamic-area');
+
+    // Sample Pattern Buttons ONLY in Testing Mode (0)
+    const sandboxItemsHtml = systemOperatingMode === '0' ? `
+        <div class="border-t border-zinc-200 pt-3 mt-3">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-2">Testing Mode (0): Sample Pattern QR Triggers</p>
+            <div class="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
+                ${DB.pattern_assets.map(p => `
+                    <button type="button" onclick="openScannerForAsset('${p.asset_id}')" class="p-2 rounded-lg bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-left text-xs truncate">
+                        <strong class="font-mono text-zinc-900">${p.asset_id}</strong> <span class="text-zinc-500">${p.model_name}</span>
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    ` : '';
+
+    area.innerHTML = `
+        <div class="space-y-4">
+            ${renderCameraSectionHtml('quick-item', '')}
+
+            <div class="border-t border-zinc-200 pt-3">
+                <label class="text-xs font-semibold text-zinc-700 block mb-1.5">Or Enter Asset ID Manually</label>
+                <div class="flex gap-2">
+                    <input id="manual-quick-asset-id" type="text" placeholder="e.g. TR-PB-01 or VS-PM-01" class="flex-1 p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-mono uppercase outline-none focus:border-zinc-900">
+                    <button type="button" onclick="submitManualQuickAssetLocate()" class="bg-zinc-900 hover:bg-zinc-800 text-white px-4 py-2.5 rounded-xl text-xs font-semibold">Locate</button>
+                </div>
+            </div>
+
+            ${sandboxItemsHtml}
+        </div>
+    `;
+
+    if (cameraPermissionState === 'granted') {
+        setTimeout(() => {
+            startHtml5CameraStream((scannedAssetId) => {
+                const found = DB.pattern_assets.find(a => a.asset_id.toUpperCase() === scannedAssetId);
+                if (!found) return showToast(`Scanned code ${scannedAssetId} not found in Pattern Room.`, 'error');
+                openScannerForAsset(found.asset_id);
+            });
+        }, 60);
+    }
+}
+
+function submitManualQuickAssetLocate() {
+    const val = (document.getElementById('manual-quick-asset-id')?.value || '').trim().toUpperCase();
+    if (!val) return showToast('Enter an Asset ID.', 'error');
+    const found = DB.pattern_assets.find(a => a.asset_id.toUpperCase() === val);
+    if (!found) return showToast(`Asset ${val} not found.`, 'error');
+    openScannerForAsset(found.asset_id);
+}
+
+// ITEM BORROW OR RETURN MODAL (CAMERA + MANUAL ID WITH RESPONSIBILITY TICK + SANDBOX ONLY IN 0 MODE)
 function openScannerForAsset(assetId) {
     const asset = DB.pattern_assets.find(a => a.asset_id === assetId);
     if (!asset) return;
+    document.getElementById('modal-title').innerText = `${asset.asset_id} (${asset.model_name})`;
     document.getElementById('verify-modal').classList.remove('hidden');
     const area = document.getElementById('modal-dynamic-area');
     const itemImg = getItemImageUrl(asset.image_url);
@@ -1014,22 +1210,82 @@ function openScannerForAsset(assetId) {
         return;
     }
 
+    const floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-'));
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // IF ITEM IS ACTIVE ON LINE -> RETURN PROTOCOL (CAMERA QR OR MANUAL ID + RESPONSIBILITY CHECKBOX)
     if (asset.operational_status === 'Active on Line') {
-        area.innerHTML = `
-            <div class="space-y-4 text-center">
-                <img src="${itemImg}" class="w-full h-44 object-cover rounded-xl border">
-                <h4 class="text-lg font-bold text-zinc-900">${asset.asset_id} (${asset.model_name})</h4>
-                <p class="text-xs text-zinc-600">Checked out by: <strong>${asset.borrowed_by_id || 'Floor Staff'}</strong></p>
-                <button type="button" onclick="executeAssetReturn('${asset.asset_id}')" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-3 rounded-xl text-xs uppercase tracking-wider">
-                    Confirm Return to ${asset.storage_location}
+        const sandboxReturnBtns = systemOperatingMode === '0' ? `
+            <div class="border-t border-zinc-200 pt-3 mt-2">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1.5">Testing Mode (0): Quick Return Simulation</p>
+                <button type="button" onclick="executeAssetReturn('${asset.asset_id}', '${asset.borrowed_by_id || 'CW-L1-CMO-01'}')" class="w-full p-2 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-800 text-xs font-semibold">
+                    Simulate Badge Scan (${asset.borrowed_by_id || 'Operator'}) & Return
                 </button>
             </div>
+        ` : '';
+
+        area.innerHTML = `
+            <div class="space-y-4">
+                <div class="flex gap-3 items-center p-3 rounded-xl bg-zinc-50 border border-zinc-200">
+                    <img src="${itemImg}" class="w-20 h-14 rounded-lg object-cover border">
+                    <div>
+                        <p class="text-xs font-medium text-zinc-500">Checked Out By: <strong class="text-zinc-900">${asset.borrowed_by_id || 'Floor Staff'}</strong></p>
+                        <h4 class="text-sm font-bold text-zinc-900">${asset.model_name} (${asset.asset_id})</h4>
+                        <p class="text-xs text-zinc-500">Return Location: ${asset.storage_location}</p>
+                    </div>
+                </div>
+
+                ${renderCameraSectionHtml('asset-return', asset.asset_id)}
+
+                <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 space-y-3">
+                    <label class="text-xs font-bold text-zinc-800 block">Manual Return Verification</label>
+                    <input id="manual-op-id-input" type="text" placeholder="Enter Your Employee ID (e.g. ${asset.borrowed_by_id || 'CW-L1-CMO-01'})" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs font-mono uppercase outline-none focus:border-zinc-900">
+                    
+                    <label class="flex items-start gap-2 cursor-pointer select-none text-xs text-zinc-700">
+                        <input id="manual-resp-checkbox" type="checkbox" class="mt-0.5 w-4 h-4 rounded accent-zinc-900">
+                        <span>I confirm this is my Employee ID and I take responsibility for returning this item to <strong>${asset.storage_location}</strong>.</span>
+                    </label>
+
+                    <button type="button" onclick="submitManualReturnWithTick('${asset.asset_id}')" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-2.5 rounded-xl text-xs uppercase tracking-wider">
+                        Return Item
+                    </button>
+                </div>
+
+                ${sandboxReturnBtns}
+            </div>
         `;
+
+        if (cameraPermissionState === 'granted') {
+            setTimeout(() => {
+                startHtml5CameraStream((scannedEmpId) => {
+                    executeAssetReturn(asset.asset_id, scannedEmpId);
+                });
+            }, 60);
+        }
         return;
     }
 
-    const floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-'));
-    const todayStr = new Date().toISOString().split('T')[0];
+    // IF ITEM IS AVAILABLE -> BORROW PROTOCOL (CAMERA QR OR MANUAL ID + RESPONSIBILITY CHECKBOX)
+    // Sample Operator Badges ONLY shown when systemOperatingMode === '0' (Red 0 Testing Sandbox)
+    const sandboxBorrowSection = systemOperatingMode === '0' ? `
+        <div class="border-t border-zinc-200 pt-3">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1.5">Testing Mode (0): Sample Operator Badges</p>
+            <div class="space-y-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
+                ${floorOps.map(op => {
+                    const isSched = DB.shift_assignments.some(s => s.borrower_id === op.employee_id && s.assigned_date === todayStr);
+                    return `
+                        <button type="button" onclick="executeAssetBorrow('${asset.asset_id}', '${op.employee_id}')" class="w-full text-left p-2 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-xs flex justify-between items-center">
+                            <span class="flex items-center gap-2">
+                                <img src="${getAvatarUrl(op.avatar_url)}" class="w-6 h-6 rounded-full object-cover border border-zinc-300">
+                                <span><strong class="text-zinc-900">${op.full_name}</strong> <span class="font-mono text-zinc-400">(${op.employee_id})</span></span>
+                            </span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isSched ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${isSched ? 'Scheduled' : '15m Lock'}</span>
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    ` : '';
 
     area.innerHTML = `
         <div class="space-y-4">
@@ -1041,37 +1297,72 @@ function openScannerForAsset(assetId) {
                     <p class="text-xs text-zinc-500">Size ${asset.size_category} / ${asset.storage_location}</p>
                 </div>
             </div>
+
             <div>
-                <label class="text-xs font-semibold text-zinc-600 block mb-1">Shift</label>
+                <label class="text-xs font-semibold text-zinc-600 block mb-1">Target Shift</label>
                 <select id="scan-shift-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold">
                     <option value="Morning">Morning (06:00 to 14:00)</option>
                     <option value="Afternoon">Afternoon (14:00 to 22:00)</option>
                     <option value="Night">Night (22:00 to 06:00)</option>
                 </select>
             </div>
-            <div>
-                <label class="text-xs font-semibold text-zinc-600 block mb-1.5">Operator Badge</label>
-                <div class="space-y-1.5 max-h-56 overflow-y-auto custom-scroll pr-1">
-                    ${floorOps.map(op => {
-                        const isSched = DB.shift_assignments.some(s => s.borrower_id === op.employee_id && s.assigned_date === todayStr);
-                        return `
-                            <button type="button" onclick="executeAssetBorrow('${asset.asset_id}', '${op.employee_id}')" class="w-full text-left p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-xs flex justify-between items-center transition-colors">
-                                <span class="flex items-center gap-2">
-                                    <img src="${getAvatarUrl(op.avatar_url)}" class="w-7 h-7 rounded-full object-cover border border-zinc-300">
-                                    <span><strong class="text-zinc-900">${op.full_name}</strong> <span class="text-zinc-400">(${op.employee_id})</span></span>
-                                </span>
-                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isSched ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${isSched ? 'Scheduled' : '15m Lock'}</span>
-                            </button>
-                        `;
-                    }).join('')}
-                </div>
+
+            ${renderCameraSectionHtml('asset-borrow', asset.asset_id)}
+
+            <!-- MANUAL EMPLOYEE ID + RESPONSIBILITY CHECKBOX -->
+            <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 space-y-3">
+                <label class="text-xs font-bold text-zinc-800 block">Manual Operator ID Entry</label>
+                <input id="manual-op-id-input" type="text" placeholder="Enter Employee ID (e.g. CW-L1-CMO-01)" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs font-mono uppercase outline-none focus:border-zinc-900">
+                
+                <label class="flex items-start gap-2 cursor-pointer select-none text-xs text-zinc-700">
+                    <input id="manual-resp-checkbox" type="checkbox" class="mt-0.5 w-4 h-4 rounded accent-zinc-900">
+                    <span>I confirm this is my Employee ID and I take full responsibility for borrowing <strong>${asset.asset_id}</strong>.</span>
+                </label>
+
+                <button type="button" onclick="submitManualBorrowWithTick('${asset.asset_id}')" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-2.5 rounded-xl text-xs uppercase tracking-wider">
+                    Borrow Item
+                </button>
             </div>
+
+            ${sandboxBorrowSection}
         </div>
     `;
+
+    if (cameraPermissionState === 'granted') {
+        setTimeout(() => {
+            startHtml5CameraStream((scannedEmpId) => {
+                executeAssetBorrow(asset.asset_id, scannedEmpId);
+            });
+        }, 60);
+    }
+}
+
+function submitManualBorrowWithTick(assetId) {
+    const empId = (document.getElementById('manual-op-id-input')?.value || '').trim().toUpperCase();
+    const ticked = document.getElementById('manual-resp-checkbox')?.checked;
+
+    if (!empId) return showToast('Please enter your Employee ID.', 'error');
+    const emp = DB.employees.find(e => e.employee_id.toUpperCase() === empId);
+    if (!emp) return showToast(`Employee ID ${empId} not found.`, 'error');
+    if (!ticked) return showToast('Please tick the responsibility confirmation box to proceed.', 'error');
+
+    executeAssetBorrow(assetId, emp.employee_id);
+}
+
+function submitManualReturnWithTick(assetId) {
+    const empId = (document.getElementById('manual-op-id-input')?.value || '').trim().toUpperCase();
+    const ticked = document.getElementById('manual-resp-checkbox')?.checked;
+
+    if (!empId) return showToast('Please enter your Employee ID.', 'error');
+    const emp = DB.employees.find(e => e.employee_id.toUpperCase() === empId);
+    if (!emp) return showToast(`Employee ID ${empId} not found.`, 'error');
+    if (!ticked) return showToast('Please tick the responsibility confirmation box to return this item.', 'error');
+
+    executeAssetReturn(assetId, emp.employee_id);
 }
 
 async function executeAssetBorrow(assetId, operatorId) {
-    const shift = document.getElementById('scan-shift-select').value;
+    const shift = document.getElementById('scan-shift-select')?.value || 'Morning';
     const todayStr = new Date().toISOString().split('T')[0];
     const isScheduled = DB.shift_assignments.some(
         s => s.borrower_id === operatorId && s.assigned_date === todayStr && s.shift_type === shift
@@ -1115,7 +1406,7 @@ async function executeAssetBorrow(assetId, operatorId) {
     showToast(`Checked out ${assetId} to ${operatorId}.`);
 }
 
-async function executeAssetReturn(assetId) {
+async function executeAssetReturn(assetId, returningOperatorId = '') {
     await supa.from('pattern_assets').update({
         operational_status: 'Available in Room',
         borrowed_by_id: null,
@@ -1123,7 +1414,7 @@ async function executeAssetReturn(assetId) {
         checkout_time: null
     }).eq('asset_id', assetId);
 
-    await writeImmutableAudit('RETURN_ASSET', 'Pattern_Assets', assetId, { status: 'Available in Room' });
+    await writeImmutableAudit('RETURN_ASSET', 'Pattern_Assets', assetId, { returned_by: returningOperatorId, status: 'Available in Room' });
     await syncFromSupabase();
     closeVerifyModal();
     handlePatternSearch();
@@ -1136,7 +1427,10 @@ function startMutexBarCountdown(assetId, operatorId, shift) {
     const timer = document.getElementById('mutex-timer');
     const btn = document.getElementById('mutex-action-btn');
 
-    bar.classList.remove('hidden');
+    // Only show bar when inside Pattern Room
+    if (currentMode === 'terminal') {
+        bar.classList.remove('hidden');
+    }
     btn.classList.add('hidden');
     msg.innerText = `15-Min Lock on ${assetId} (${operatorId}) : Awaiting Supervisor Approval`;
 
@@ -1171,7 +1465,7 @@ function dismissMutexBar() {
 }
 
 // ============================================================================
-// 11. DEPARTMENT HEAD READ-ONLY OVERSIGHT PORTAL
+// 12. DEPARTMENT HEAD READ-ONLY OVERSIGHT PORTAL
 // ============================================================================
 async function renderDeptHeadPortal() {
     await syncFromSupabase();
@@ -1227,7 +1521,7 @@ async function renderDeptHeadPortal() {
 }
 
 // ============================================================================
-// 12. SUPERVISOR COMMAND & 7-DAY SHIFT MATRIX
+// 13. SUPERVISOR COMMAND & 7-DAY SHIFT MATRIX
 // ============================================================================
 function filterSupervisorPool(lineFilter) {
     supervisorPoolLineFilter = lineFilter;
@@ -1387,7 +1681,7 @@ async function resolveMutexTicket(reqId, decision) {
 }
 
 // ============================================================================
-// 13. DESIGN, CAD & PATTERN ROOM HUB
+// 14. DESIGN, CAD & PATTERN ROOM HUB
 // ============================================================================
 async function renderDesignCadPortal() {
     await syncFromSupabase();
@@ -1518,7 +1812,7 @@ async function registerNewPatternAsset() {
 }
 
 // ============================================================================
-// 14. SEWING ORDERS & RMW WAREHOUSE DISPATCH
+// 15. SEWING ORDERS & RMW WAREHOUSE DISPATCH
 // ============================================================================
 async function renderSupplyPortal() {
     await syncFromSupabase();
@@ -1589,7 +1883,7 @@ async function dispatchRmwMaterial(matCode) {
 }
 
 // ============================================================================
-// 15. FLOOR QUALITY CONTROL (QC)
+// 16. FLOOR QUALITY CONTROL (QC)
 // ============================================================================
 async function renderQcPortal() {
     await syncFromSupabase();
@@ -1665,7 +1959,7 @@ async function resolveQcLog(logId, assetId) {
 }
 
 // ============================================================================
-// 16. DIGITAL TEAM ADMIN, BULK PHOTOS & AUTO-ID REGISTRATION
+// 17. DIGITAL TEAM ADMIN, BULK PHOTOS & AUTO-ID REGISTRATION
 // ============================================================================
 async function renderAdminPortal() {
     await syncFromSupabase();
@@ -1827,7 +2121,7 @@ async function deleteSystemParam(recId) {
 }
 
 // ============================================================================
-// 17. PROTOCOL COMMUNICATOR & APPROVAL ENGINE
+// 18. PROTOCOL COMMUNICATOR & APPROVAL ENGINE
 // ============================================================================
 function updateCommUnreadBadge() {
     if (!currentLoggedInUser) return;
@@ -2034,7 +2328,7 @@ async function resolveCommItem(commId, decision) {
 }
 
 // ============================================================================
-// 18. SYSTEM-GENERATED FORMAL A4 REPORTS (REP-02 STRICTLY SHOWS LOGGED DEFECTS)
+// 19. SYSTEM-GENERATED FORMAL A4 REPORTS
 // ============================================================================
 function switchReportMode(mode) {
     document.getElementById('reports-mgmt-container').classList.toggle('hidden', mode !== 'mgmt');
@@ -2105,7 +2399,6 @@ function renderGroupedReport() {
             `;
         }).join('');
     } else if (repNo === 2) {
-        // REP-02: STRICTLY READS ACTUAL LOGGED FLOOR DEFECTS (DB.qc_inspection_logs)
         let lines = ['Line 1', 'Line 2', 'Line 3'];
         if (filterVal !== 'ALL') lines = lines.filter(l => l === filterVal);
         bodyGroupsHtml = lines.map(lineName => {
@@ -2191,7 +2484,7 @@ function renderGroupedReport() {
             <div><span class="text-zinc-400 block">Generated At</span><strong>${nowStr}</strong></div>
             <div><span class="text-zinc-400 block">Recipient</span><strong>${roleFor}</strong></div>
             <div><span class="text-zinc-400 block">Filter</span><strong>${filterVal}</strong></div>
-            <div><span class="text-zinc-400 block">Mode</span><strong>${systemOperatingMode === 'T' ? 'Testing Sandbox (T)' : 'System Telemetry (S)'}</strong></div>
+            <div><span class="text-zinc-400 block">Note</span><strong>${customNote || 'System Telemetry'}</strong></div>
         </div>
 
         ${bodyGroupsHtml}
