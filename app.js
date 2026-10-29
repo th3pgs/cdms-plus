@@ -1,46 +1,46 @@
-// V12 Update
+/*
+  Project: CDMS+ Application Script
+  Version: v12
+
+  v12 Changelog & Recent Additions:
+  - Added custom in-app dropdown menu engine (Section 3) so mobile/desktop never open browser OS select popups
+  - Fixed mobile/tablet top bar state switching (Section 4) so tabs never duplicate or clash on scroll
+  - Added Sandbox mode (1 = Live DB, 0 = Temporary Test Storage) in Section 1
+  - Added Lock / Unlock quick login toggle (authLockOpen) in Section 7
+*/
+
+
+// ============================================================================
+// SECTION 1: DATABASE CONNECTION & SANDBOX MODE (1 = LIVE, 0 = SANDBOX)
+// ============================================================================
+
 const SUPABASE_URL = 'https://uvfmircbplfqkgkmzssb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_NZNswR7y9y-oSJIC-unRvw_wioNx760';
-const realSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const liveSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const MODE_STORAGE_KEY = 'CDMS_ACTIVE_MODE_1_0'; // '1' (System) or '0' (Testing)
+const MODE_STORAGE_KEY = 'CDMS_ACTIVE_MODE_1_0';
 const SANDBOX_DB_KEY = 'CDMS_TESTING_SANDBOX_DB';
 
-let systemOperatingMode = localStorage.getItem(MODE_STORAGE_KEY) === '0' ? '0' : '1';
+// '1' = Normal Live System Mode, '0' = Temporary Testing Sandbox Mode
+let sandboxMode = localStorage.getItem(MODE_STORAGE_KEY) === '0' ? '0' : '1';
+let authLockOpen = false; // False = Padlock Locked (Standard Auth), True = Padlock Unlocked (Quick Role Select)
+
 let resolvedMasLogoUrl = null;
 let resolvedBodylineLogoUrl = null;
-let cameraPermissionState = 'prompt'; // 'prompt', 'granted', 'denied'
+let cameraPermissionState = 'prompt';
 let html5QrScanner = null;
 
-// EMPTY HEAD AVATAR & "NO DATA" ITEM PLACEHOLDER SVGS
-const DEFAULT_AVATAR_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
-  <rect width="120" height="120" fill="#E4E4E7"/>
-  <circle cx="60" cy="44" r="22" fill="#A1A1AA"/>
-  <path d="M20 112C20 88.804 37.9086 72 60 72C82.0914 72 100 88.804 100 112" fill="#A1A1AA"/>
-</svg>`);
-
-const NO_DATA_IMAGE_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260" fill="none">
-  <rect width="400" height="260" fill="#F4F4F5"/>
-  <rect x="150" y="78" width="100" height="68" rx="8" stroke="#A1A1AA" stroke-width="2" stroke-dasharray="4 4"/>
-  <line x1="166" y1="130" x2="234" y2="94" stroke="#D4D4D8" stroke-width="2"/>
-  <text x="200" y="176" text-anchor="middle" fill="#71717A" font-family="monospace, sans-serif" font-size="13" font-weight="bold" letter-spacing="2">NO DATA</text>
-</svg>`);
-
-function getAvatarUrl(url) {
-    if (!url || url.trim() === '' || url.includes('unsplash.com') || url.includes('placehold.co')) {
-        return DEFAULT_AVATAR_SVG;
-    }
-    return url;
-}
-
-function getItemImageUrl(url) {
-    if (!url || url.trim() === '' || url.includes('unsplash.com') || url.includes('placehold.co')) {
-        return NO_DATA_IMAGE_SVG;
-    }
-    return url;
-}
+let currentLoggedInUser = null;
+let currentMode = 'gateway';
+let kioskAuthMode = 'unlock';
+let idleSecondsRemaining = 300;
+let selectedOperatorForAssign = null;
+let supervisorPoolLineFilter = 'ALL';
+let activeCommTab = 'inbox';
+let mutexPollInterval = null;
+let isAuthBusy = false;
+let lastToastMessage = '';
+let lastToastTime = 0;
 
 let DB = {
     employees: [],
@@ -57,24 +57,8 @@ let DB = {
     immutable_audit_logs: []
 };
 
-let vivaBypassUnlocked = false;
-let currentLoggedInUser = null;
-let currentMode = 'gateway';
-let kioskAuthMode = 'unlock';
-let idleSecondsRemaining = 300;
-let selectedOperatorForAssign = null;
-let supervisorPoolLineFilter = 'ALL';
-let activeCommTab = 'inbox';
-let mutexPollInterval = null;
-let isAuthBusy = false;
-let lastToastMessage = '';
-let lastToastTime = 0;
-
-// ============================================================================
-// 1. 1 (NORMAL SYSTEM) vs 0 (SANDBOX) INTERCEPTOR & STATUS LABEL CONTROLLER
-// ============================================================================
 function saveSandboxDB() {
-    if (systemOperatingMode === '0') {
+    if (sandboxMode === '0') {
         localStorage.setItem(SANDBOX_DB_KEY, JSON.stringify(DB));
     }
 }
@@ -87,10 +71,11 @@ const AUTO_ID_COLS = {
     immutable_audit_logs: 'audit_id'
 };
 
+// Database router: uses live Supabase when sandboxMode === '1', or temporary sandbox memory when '0'
 const supa = {
     from: (tableName) => {
-        if (systemOperatingMode === '1') {
-            return realSupa.from(tableName);
+        if (sandboxMode === '1') {
+            return liveSupabase.from(tableName);
         }
         const key = tableName.toLowerCase();
         return {
@@ -144,13 +129,14 @@ const supa = {
     }
 };
 
+// Updates the bottom-right status text based on Padlock and 1/0 Sandbox state
 function updateGatewayStatusLabel() {
     const statusLbl = document.getElementById('db-status-label');
     if (!statusLbl) return;
 
-    if (systemOperatingMode === '0') {
+    if (sandboxMode === '0') {
         statusLbl.innerText = 'Sandbox Online';
-    } else if (vivaBypassUnlocked) {
+    } else if (authLockOpen) {
         statusLbl.innerText = 'Online Only';
     } else {
         statusLbl.innerText = 'Online Secured';
@@ -162,7 +148,7 @@ function updateModeButtonUI() {
     const letter = document.getElementById('mode-switch-letter');
     if (!btn || !letter) return;
 
-    if (systemOperatingMode === '0') {
+    if (sandboxMode === '0') {
         letter.innerText = '0';
         btn.classList.remove('ctrl-btn-minimal-light');
         btn.classList.add('ctrl-btn-minimal-dark');
@@ -174,17 +160,18 @@ function updateModeButtonUI() {
     updateGatewayStatusLabel();
 }
 
-async function toggleSystemTestingMode() {
-    if (systemOperatingMode === '1') {
+// Toggles between '1' (Live System) and '0' (Temporary Sandbox)
+async function toggleSandboxMode() {
+    if (sandboxMode === '1') {
         await fetchLiveSupabaseIntoDB();
-        systemOperatingMode = '0';
+        sandboxMode = '0';
         localStorage.setItem(MODE_STORAGE_KEY, '0');
         localStorage.setItem(SANDBOX_DB_KEY, JSON.stringify(DB));
         updateModeButtonUI();
         showToast('Sandbox Online (0): Temporary testing mode active.');
     } else {
         localStorage.removeItem(SANDBOX_DB_KEY);
-        systemOperatingMode = '1';
+        sandboxMode = '1';
         localStorage.setItem(MODE_STORAGE_KEY, '1');
         updateModeButtonUI();
         await fetchLiveSupabaseIntoDB();
@@ -192,9 +179,41 @@ async function toggleSystemTestingMode() {
     }
 }
 
+
+
 // ============================================================================
-// 2. AUTOMATIC MULTI-FILENAME LOGO DETECTOR
+// SECTION 2: PLACEHOLDER GRAPHICS & LOGO LOADER
 // ============================================================================
+
+const DEFAULT_AVATAR_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <rect width="120" height="120" fill="#E4E4E7"/>
+  <circle cx="60" cy="44" r="22" fill="#A1A1AA"/>
+  <path d="M20 112C20 88.804 37.9086 72 60 72C82.0914 72 100 88.804 100 112" fill="#A1A1AA"/>
+</svg>`);
+
+const NO_DATA_IMAGE_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260" fill="none">
+  <rect width="400" height="260" fill="#F4F4F5"/>
+  <rect x="150" y="78" width="100" height="68" rx="8" stroke="#A1A1AA" stroke-width="2" stroke-dasharray="4 4"/>
+  <line x1="166" y1="130" x2="234" y2="94" stroke="#D4D4D8" stroke-width="2"/>
+  <text x="200" y="176" text-anchor="middle" fill="#71717A" font-family="monospace, sans-serif" font-size="13" font-weight="bold" letter-spacing="2">NO DATA</text>
+</svg>`);
+
+function getAvatarUrl(url) {
+    if (!url || url.trim() === '' || url.includes('unsplash.com') || url.includes('placehold.co')) {
+        return DEFAULT_AVATAR_SVG;
+    }
+    return url;
+}
+
+function getItemImageUrl(url) {
+    if (!url || url.trim() === '' || url.includes('unsplash.com') || url.includes('placehold.co')) {
+        return NO_DATA_IMAGE_SVG;
+    }
+    return url;
+}
+
 function probeImageCandidates(candidates, onFound) {
     let idx = 0;
     function tryNext() {
@@ -235,17 +254,132 @@ function resolveRepoLogos() {
     });
 }
 
+
+
 // ============================================================================
-// 3. GOOGLE / GEMINI-STYLE TOP BAR CONTROLLER (NO MOBILE OVERFLOW)
+// SECTION 3: CUSTOM IN-SITE DROPDOWN ENGINE (REPLACES NATIVE OS SELECT POPUPS)
 // ============================================================================
+
+let activeCustomSelectEl = null;
+
+function refreshAllCustomSelects() {
+    document.querySelectorAll('select').forEach(sel => {
+        // Hide the default browser select element
+        sel.classList.add('c-select-hidden');
+
+        let btn = sel.nextElementSibling;
+        if (!btn || !btn.classList.contains('c-select-btn')) {
+            btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'c-select-btn';
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openCustomSelectMenu(sel, btn);
+            });
+            sel.parentNode.insertBefore(btn, sel.nextSibling);
+        }
+
+        const selectedOpt = sel.options[sel.selectedIndex] || sel.options[0];
+        const labelText = selectedOpt ? selectedOpt.text : 'Select...';
+        btn.innerHTML = `
+            <span class="truncate pr-1">${labelText}</span>
+            <i class="ph-bold ph-caret-down text-zinc-400 shrink-0 text-xs"></i>
+        `;
+    });
+}
+
+function openCustomSelectMenu(selectEl, triggerBtn) {
+    const menu = document.getElementById('custom-select-menu');
+    const backdrop = document.getElementById('custom-select-backdrop');
+    if (!menu || !backdrop) return;
+
+    activeCustomSelectEl = selectEl;
+    const options = Array.from(selectEl.options);
+
+    menu.innerHTML = `
+        <div class="px-3.5 py-2.5 bg-zinc-50 border-b border-zinc-200 flex justify-between items-center sm:hidden">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Select Option</span>
+            <button type="button" onclick="closeCustomSelectMenu()" class="text-zinc-400 hover:text-zinc-800"><i class="ph-bold ph-x text-sm"></i></button>
+        </div>
+        <div class="overflow-y-auto custom-scroll divide-y divide-zinc-100 max-h-[230px]">
+            ${options.map((opt, idx) => {
+                const isSelected = idx === selectEl.selectedIndex;
+                return `
+                    <button type="button" onclick="pickCustomSelectOption(${idx})" class="w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between gap-2 transition-colors ${isSelected ? 'bg-zinc-900 text-white font-bold' : 'bg-white hover:bg-zinc-100 text-zinc-800 font-medium'}">
+                        <span class="leading-snug">${opt.text}</span>
+                        ${isSelected ? '<i class="ph-bold ph-check text-xs shrink-0"></i>' : ''}
+                    </button>
+                `;
+            }).join('')}
+        </div>
+    `;
+
+    backdrop.classList.remove('hidden');
+    menu.classList.remove('hidden');
+    menu.classList.add('flex');
+
+    const rect = triggerBtn.getBoundingClientRect();
+    const isMobile = window.innerWidth < 640;
+
+    if (isMobile) {
+        // Centered floating sheet on mobile phones so text is never cramped
+        menu.style.left = '16px';
+        menu.style.right = '16px';
+        menu.style.width = 'auto';
+        const spaceBelow = window.innerHeight - rect.bottom;
+        if (spaceBelow > 240) {
+            menu.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - 260)}px`;
+        } else {
+            menu.style.top = `${Math.max(72, rect.top - 220)}px`;
+        }
+    } else {
+        // Anchored directly below the field on tablet/desktop
+        const menuWidth = Math.max(rect.width, 220);
+        const leftPos = Math.min(rect.left, window.innerWidth - menuWidth - 16);
+        menu.style.width = `${menuWidth}px`;
+        menu.style.left = `${Math.max(12, leftPos)}px`;
+        menu.style.right = 'auto';
+        const spaceBelow = window.innerHeight - rect.bottom;
+        if (spaceBelow > 250) {
+            menu.style.top = `${rect.bottom + 6}px`;
+        } else {
+            menu.style.top = `${Math.max(16, rect.top - 240)}px`;
+        }
+    }
+}
+
+function pickCustomSelectOption(optionIndex) {
+    if (!activeCustomSelectEl) return;
+    activeCustomSelectEl.selectedIndex = optionIndex;
+    activeCustomSelectEl.value = activeCustomSelectEl.options[optionIndex].value;
+    refreshAllCustomSelects();
+    activeCustomSelectEl.dispatchEvent(new Event('change', { bubbles: true }));
+    closeCustomSelectMenu();
+}
+
+function closeCustomSelectMenu() {
+    const menu = document.getElementById('custom-select-menu');
+    const backdrop = document.getElementById('custom-select-backdrop');
+    if (menu) { menu.classList.add('hidden'); menu.classList.remove('flex'); }
+    if (backdrop) backdrop.classList.add('hidden');
+    activeCustomSelectEl = null;
+}
+
+
+
+// ============================================================================
+// SECTION 4: TOP BAR LAYOUT CONTROLLER
+// ============================================================================
+
 function setTopBarState(state) {
+    const header = document.getElementById('unified-top-bar');
     const inner = document.getElementById('top-bar-inner');
     const divider = document.getElementById('top-bar-compact-divider');
     const sessionCtrls = document.getElementById('top-bar-session-controls');
     const profileWrap = document.getElementById('header-profile-wrapper');
     const kioskSignOutBtn = document.getElementById('kiosk-header-signout-btn');
-    const desktopTabs = document.getElementById('desktop-workspace-tabs');
-    const mobileSubnav = document.getElementById('portal-subnav-bar');
+
+    if (header) header.setAttribute('data-bar-mode', state);
 
     if (state === 'compact') {
         inner.classList.remove('expanded-bar');
@@ -253,16 +387,12 @@ function setTopBarState(state) {
         divider.classList.remove('hidden');
         sessionCtrls.classList.add('hidden');
         sessionCtrls.classList.remove('flex');
-        if (desktopTabs) { desktopTabs.classList.add('hidden'); desktopTabs.classList.remove('md:flex'); }
-        if (mobileSubnav) mobileSubnav.classList.add('hidden');
     } else if (state === 'expanded-auth') {
         inner.classList.remove('compact-bar');
         inner.classList.add('expanded-bar');
         divider.classList.add('hidden');
         sessionCtrls.classList.add('hidden');
         sessionCtrls.classList.remove('flex');
-        if (desktopTabs) { desktopTabs.classList.add('hidden'); desktopTabs.classList.remove('md:flex'); }
-        if (mobileSubnav) mobileSubnav.classList.add('hidden');
     } else if (state === 'expanded-terminal') {
         inner.classList.remove('compact-bar');
         inner.classList.add('expanded-bar');
@@ -271,9 +401,7 @@ function setTopBarState(state) {
         sessionCtrls.classList.add('flex');
         profileWrap.classList.add('hidden');
         if (kioskSignOutBtn) { kioskSignOutBtn.classList.remove('hidden'); kioskSignOutBtn.classList.add('flex'); }
-        if (desktopTabs) { desktopTabs.classList.add('hidden'); desktopTabs.classList.remove('md:flex'); }
-        if (mobileSubnav) mobileSubnav.classList.add('hidden');
-    } else if (state === 'expanded-portal') {
+    } else if (state === 'portal') {
         inner.classList.remove('compact-bar');
         inner.classList.add('expanded-bar');
         divider.classList.add('hidden');
@@ -281,30 +409,31 @@ function setTopBarState(state) {
         sessionCtrls.classList.add('flex');
         profileWrap.classList.remove('hidden');
         if (kioskSignOutBtn) { kioskSignOutBtn.classList.add('hidden'); kioskSignOutBtn.classList.remove('flex'); }
-        if (desktopTabs) { desktopTabs.classList.remove('hidden'); desktopTabs.classList.add('md:flex'); }
-        if (mobileSubnav) mobileSubnav.classList.remove('hidden');
     }
 }
 
+
+
 // ============================================================================
-// 4. SUPABASE LIVE SYNC & SANDBOX SYNC
+// SECTION 5: SUPABASE DATA SYNC & AUDIT LOGGING
 // ============================================================================
+
 async function fetchLiveSupabaseIntoDB() {
     const [
         emp, pat, cad, rmw, qcd, shf, req, ord, qcl, sys, com, aud
     ] = await Promise.all([
-        realSupa.from('employees').select('*').order('employee_id'),
-        realSupa.from('pattern_assets').select('*').order('asset_id'),
-        realSupa.from('cad_markers').select('*').order('cad_marker_id'),
-        realSupa.from('rmw_materials').select('*').order('material_code'),
-        realSupa.from('qc_defect_codes').select('*').order('defect_code'),
-        realSupa.from('shift_assignments').select('*').order('assignment_id', { ascending: false }),
-        realSupa.from('pending_requests').select('*').order('request_id', { ascending: false }),
-        realSupa.from('cutting_orders').select('*').order('order_id', { ascending: false }),
-        realSupa.from('qc_inspection_logs').select('*').order('qc_log_id', { ascending: false }),
-        realSupa.from('system_settings_audit').select('*').order('record_id', { ascending: false }),
-        realSupa.from('department_communications').select('*').order('comm_id', { ascending: false }),
-        realSupa.from('immutable_audit_logs').select('*').order('audit_id', { ascending: false }).limit(200)
+        liveSupabase.from('employees').select('*').order('employee_id'),
+        liveSupabase.from('pattern_assets').select('*').order('asset_id'),
+        liveSupabase.from('cad_markers').select('*').order('cad_marker_id'),
+        liveSupabase.from('rmw_materials').select('*').order('material_code'),
+        liveSupabase.from('qc_defect_codes').select('*').order('defect_code'),
+        liveSupabase.from('shift_assignments').select('*').order('assignment_id', { ascending: false }),
+        liveSupabase.from('pending_requests').select('*').order('request_id', { ascending: false }),
+        liveSupabase.from('cutting_orders').select('*').order('order_id', { ascending: false }),
+        liveSupabase.from('qc_inspection_logs').select('*').order('qc_log_id', { ascending: false }),
+        liveSupabase.from('system_settings_audit').select('*').order('record_id', { ascending: false }),
+        liveSupabase.from('department_communications').select('*').order('comm_id', { ascending: false }),
+        liveSupabase.from('immutable_audit_logs').select('*').order('audit_id', { ascending: false }).limit(200)
     ]);
 
     if (emp.data) DB.employees = emp.data;
@@ -323,7 +452,7 @@ async function fetchLiveSupabaseIntoDB() {
 
 async function syncFromSupabase() {
     try {
-        if (systemOperatingMode === '0') {
+        if (sandboxMode === '0') {
             const savedSandbox = localStorage.getItem(SANDBOX_DB_KEY);
             if (savedSandbox) {
                 DB = JSON.parse(savedSandbox);
@@ -343,12 +472,13 @@ async function syncFromSupabase() {
             }
         }
         updateCommUnreadBadge();
+        setTimeout(refreshAllCustomSelects, 20);
     } catch (err) {
         console.error('Sync Error:', err);
     }
 }
 
-async function writeImmutableAudit(actionVerb, targetEntity, targetId, snapshotObj) {
+async function writeAuditLog(actionVerb, targetEntity, targetId, snapshotObj) {
     const actorId = currentLoggedInUser ? currentLoggedInUser.employee_id : 'TERMINAL';
     const actorName = currentLoggedInUser ? currentLoggedInUser.full_name : 'Pattern Room Terminal';
     const actorRole = currentLoggedInUser ? currentLoggedInUser.role_designation : 'Floor Terminal';
@@ -364,9 +494,12 @@ async function writeImmutableAudit(actionVerb, targetEntity, targetId, snapshotO
     }]);
 }
 
+
+
 // ============================================================================
-// 5. BOOT, DEDUPLICATED TOAST NOTIFICATIONS & IDLE TIMEOUT
+// SECTION 6: INITIALIZATION, NOTIFICATIONS & IDLE RESET
 // ============================================================================
+
 document.addEventListener('DOMContentLoaded', async () => {
     setTopBarState('compact');
     updateModeButtonUI();
@@ -374,7 +507,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     resolveRepoLogos();
     document.getElementById('header-user-avatar').src = DEFAULT_AVATAR_SVG;
     document.getElementById('popover-user-avatar').src = DEFAULT_AVATAR_SVG;
+
     await syncFromSupabase();
+    refreshAllCustomSelects();
 
     ['click', 'keydown', 'touchstart'].forEach(evt => {
         document.addEventListener(evt, () => { idleSecondsRemaining = 300; });
@@ -392,6 +527,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             filterPop.classList.add('hidden');
         }
     });
+
+    window.addEventListener('resize', () => closeCustomSelectMenu());
 
     setInterval(() => {
         if (currentMode === 'gateway') return;
@@ -438,6 +575,7 @@ function showToast(msg, type = 'success') {
 }
 
 function closeModal(id) {
+    closeCustomSelectMenu();
     const el = document.getElementById(id);
     if (el) el.classList.add('hidden');
 }
@@ -470,11 +608,13 @@ function closeVerifyModal() {
 }
 
 function closeCommDrawer() {
+    closeCustomSelectMenu();
     closeModal('comm-drawer-window');
 }
 
 function toggleProfilePopover(e) {
     if (e) e.stopPropagation();
+    closeCustomSelectMenu();
     const pop = document.getElementById('profile-popover-menu');
     if (pop) pop.classList.toggle('hidden');
 }
@@ -509,9 +649,200 @@ function readAndCompressImage(fileInput, maxWidth = 360) {
     return readAndCompressImageFile(fileInput.files[0], maxWidth);
 }
 
+
+
 // ============================================================================
-// 6. SMART AUTO-ID GENERATORS
+// SECTION 7: LOCK / UNLOCK QUICK LOGIN TOGGLE & AUTHENTICATION
 // ============================================================================
+
+// Toggles the Padlock button on the Welcome screen (Locked vs Unlocked quick login)
+function toggleAuthLock() {
+    authLockOpen = !authLockOpen;
+    const icon = document.getElementById('auth-lock-icon');
+    const btn = document.getElementById('auth-lock-btn');
+
+    if (authLockOpen) {
+        icon.className = 'ph-fill ph-lock-key-open text-xl';
+        btn.classList.remove('ctrl-btn-minimal-light');
+        btn.classList.add('ctrl-btn-minimal-dark');
+    } else {
+        icon.className = 'ph-fill ph-lock-key text-xl';
+        btn.classList.remove('ctrl-btn-minimal-dark');
+        btn.classList.add('ctrl-btn-minimal-light');
+    }
+    updateGatewayStatusLabel();
+}
+
+function openUserLoginModal() {
+    setTopBarState('expanded-auth');
+    document.getElementById('user-login-modal').classList.remove('hidden');
+    const helper = document.getElementById('quick-role-box');
+    const stdInputs = document.getElementById('standard-login-inputs');
+
+    if (authLockOpen) {
+        helper.classList.remove('hidden');
+        stdInputs.classList.add('hidden');
+        onQuickRoleChange();
+    } else {
+        helper.classList.add('hidden');
+        stdInputs.classList.remove('hidden');
+        morphDepartmentIconOnType(document.getElementById('login-emp-id').value);
+    }
+    refreshAllCustomSelects();
+}
+
+function onQuickRoleChange() {
+    const val = document.getElementById('quick-role-select').value;
+    morphDepartmentIconOnType(val);
+}
+
+function morphDepartmentIconOnType(rawId) {
+    const code = (rawId || '').trim().toUpperCase();
+    const icon = document.getElementById('login-dept-icon');
+    const badge = document.getElementById('login-dept-badge');
+    const title = document.getElementById('login-dynamic-title');
+
+    const emp = DB.employees.find(e => e.employee_id.toUpperCase() === code);
+    let cfg = { icon: 'ph-identification-badge', dept: 'Bodyline Staff Authentication', title: 'Staff Portal Sign In' };
+
+    if (code.startsWith('DH')) cfg = { icon: 'ph-buildings', dept: emp ? emp.full_name : 'CD Operations Office', title: 'Cutting Department Head Sign In' };
+    else if (code.startsWith('CSE')) cfg = { icon: 'ph-briefcase', dept: emp ? emp.full_name : 'CD Operations Office', title: 'Cutting Senior Executive Sign In' };
+    else if (code.startsWith('CS-')) cfg = { icon: 'ph-calendar-check', dept: emp ? emp.full_name : 'Cutting Floor', title: 'Cutting Supervisor Sign In' };
+    else if (code.startsWith('DDC')) cfg = { icon: 'ph-paint-brush-broad', dept: emp ? emp.full_name : 'Design Department', title: 'Design Coordinator Sign In' };
+    else if (code.startsWith('CAD')) cfg = { icon: 'ph-compass-tool', dept: emp ? emp.full_name : 'CAD Room', title: 'CAD Room Sign In' };
+    else if (code.startsWith('PR-')) cfg = { icon: 'ph-barcode', dept: emp ? emp.full_name : 'Pattern Room', title: 'Pattern Coordinator Sign In' };
+    else if (code.startsWith('SDC')) cfg = { icon: 'ph-scissors', dept: emp ? emp.full_name : 'Sewing Department', title: 'Sewing Coordinator Sign In' };
+    else if (code.startsWith('RMW')) cfg = { icon: 'ph-warehouse', dept: emp ? emp.full_name : 'Raw Material Warehouse', title: 'RMW Coordinator Sign In' };
+    else if (code.startsWith('CQC') || code.startsWith('QCI')) cfg = { icon: 'ph-warning-octagon', dept: emp ? emp.full_name : 'Quality Control', title: 'Quality Control Sign In' };
+    else if (code.startsWith('DT-C-CST')) cfg = { icon: 'ph-headset', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Support Team Sign In' };
+    else if (code.startsWith('CDTE') || code.startsWith('DT-')) cfg = { icon: 'ph-terminal-window', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Admin Sign In' };
+
+    icon.className = `ph-bold ${cfg.icon} text-2xl`;
+    badge.innerText = cfg.dept;
+    title.innerText = cfg.title;
+}
+
+function updateProfileUI(emp) {
+    const av = getAvatarUrl(emp.avatar_url);
+    const headerAv = document.getElementById('header-user-avatar');
+    if (headerAv) headerAv.src = av;
+
+    document.getElementById('popover-user-name').innerText = emp.full_name;
+    document.getElementById('popover-user-role').innerText = emp.role_designation;
+    document.getElementById('popover-user-id').innerText = emp.employee_id;
+    document.getElementById('popover-user-avatar').src = av;
+}
+
+async function executeDepartmentLogin() {
+    if (isAuthBusy) return;
+    let empId = authLockOpen
+        ? document.getElementById('quick-role-select').value
+        : document.getElementById('login-emp-id').value.trim().toUpperCase();
+    const pass = document.getElementById('login-emp-pass').value;
+
+    const emp = DB.employees.find(e => e.employee_id.toUpperCase() === empId);
+    if (!emp) return showToast('Employee ID not found.', 'error');
+    if (!authLockOpen && !pass) return showToast('Please enter your password.', 'error');
+
+    isAuthBusy = true;
+    closeModal('user-login-modal');
+    currentLoggedInUser = emp;
+    currentMode = 'portal';
+    document.getElementById('view-gateway').classList.add('hidden');
+    setTopBarState('portal');
+    document.getElementById('comm-floating-Dock').classList.remove('hidden');
+    updateProfileUI(emp);
+    buildRoleIsolatedTabs(emp);
+    showToast(`Signed in as ${emp.full_name}`);
+
+    setTimeout(() => { isAuthBusy = false; }, 400);
+    await writeAuditLog('USER_LOGIN', 'Employees', emp.employee_id, { name: emp.full_name, role: emp.role_designation });
+    await syncFromSupabase();
+}
+
+function promptPatternRoomAccess() {
+    setTopBarState('expanded-auth');
+    kioskAuthMode = 'unlock';
+    document.getElementById('kiosk-auth-title').innerText = 'Unlock Pattern Room Kiosk';
+    document.getElementById('kiosk-auth-submit-btn').innerText = 'Unlock Kiosk';
+    document.getElementById('kiosk-auth-password').value = '';
+    document.getElementById('kiosk-pass-wrapper').classList.toggle('hidden', authLockOpen);
+    document.getElementById('kiosk-auth-modal').classList.remove('hidden');
+}
+
+async function executeKioskAuthAction() {
+    if (isAuthBusy) return;
+    const pass = document.getElementById('kiosk-auth-password').value.trim();
+    if (!authLockOpen && !pass) {
+        return showToast('Please enter the Pattern Room password.', 'error');
+    }
+
+    isAuthBusy = true;
+    closeModal('kiosk-auth-modal');
+
+    if (kioskAuthMode === 'unlock') {
+        currentMode = 'terminal';
+        currentLoggedInUser = null;
+        document.getElementById('view-gateway').classList.add('hidden');
+        setTopBarState('expanded-terminal');
+        document.getElementById('comm-floating-Dock').classList.add('hidden');
+        document.getElementById('role-workspace-tabs').innerHTML = '';
+        const deskTabs = document.getElementById('desktop-workspace-tabs');
+        if (deskTabs) deskTabs.innerHTML = '';
+        hideAllMainViews();
+        document.getElementById('view-tracker').classList.remove('hidden');
+        populatePatternRoomFilterDropdowns();
+        renderPatternGrid();
+        showToast('Pattern Room Kiosk unlocked.');
+
+        setTimeout(() => { isAuthBusy = false; }, 400);
+        await writeAuditLog('KIOSK_UNLOCKED', 'Pattern_Room', 'TERMINAL', { status: 'Unlocked for Shift' });
+        await syncFromSupabase();
+        populatePatternRoomFilterDropdowns();
+        renderPatternGrid();
+    } else {
+        returnToWelcomeScreenImmediate();
+        showToast('Pattern Room Kiosk signed out.');
+        setTimeout(() => { isAuthBusy = false; }, 400);
+        await writeAuditLog('KIOSK_SIGNED_OUT', 'Pattern_Room', 'TERMINAL', { status: 'Signed Out' });
+    }
+}
+
+function triggerCredentialedLogout() {
+    closeProfilePopover();
+    if (currentMode === 'terminal') {
+        kioskAuthMode = 'logout';
+        document.getElementById('kiosk-auth-title').innerText = 'Sign Out Pattern Room Kiosk';
+        document.getElementById('kiosk-auth-submit-btn').innerText = 'Confirm Sign Out';
+        document.getElementById('kiosk-auth-password').value = '';
+        document.getElementById('kiosk-pass-wrapper').classList.toggle('hidden', authLockOpen);
+        document.getElementById('kiosk-auth-modal').classList.remove('hidden');
+        return;
+    }
+
+    returnToWelcomeScreenImmediate();
+    showToast('Signed out.');
+}
+
+function returnToWelcomeScreenImmediate() {
+    currentMode = 'gateway';
+    currentLoggedInUser = null;
+    stopActiveQrCamera();
+    hideAllMainViews();
+    closeProfilePopover();
+    closeCommDrawer();
+    setTopBarState('compact');
+    updateGatewayStatusLabel();
+    document.getElementById('comm-floating-Dock').classList.add('hidden');
+    document.getElementById('view-gateway').classList.remove('hidden');
+}
+
+
+
+// ============================================================================
+// SECTION 8: AUTO-ID GENERATORS (EMPLOYEES, PATTERNS, ORDERS, QC)
+// ============================================================================
+
 function getBrandPrefix(brandName) {
     const b = (brandName || '').toLowerCase();
     if (b.includes('triumph')) return 'TR';
@@ -599,192 +930,12 @@ function getNextSequentialId(list, keyField, prefix) {
     return `${prefix}${String(next).padStart(3, '0')}`;
 }
 
-// ============================================================================
-// 7. MINIMALIST PADLOCK & INSTANT 0MS LOGIN
-// ============================================================================
-function toggleVivaPadlock() {
-    vivaBypassUnlocked = !vivaBypassUnlocked;
-    const icon = document.getElementById('viva-padlock-icon');
-    const btn = document.getElementById('viva-padlock-btn');
 
-    if (vivaBypassUnlocked) {
-        icon.className = 'ph-fill ph-lock-key-open text-xl';
-        btn.classList.remove('ctrl-btn-minimal-light');
-        btn.classList.add('ctrl-btn-minimal-dark');
-    } else {
-        icon.className = 'ph-fill ph-lock-key text-xl';
-        btn.classList.remove('ctrl-btn-minimal-dark');
-        btn.classList.add('ctrl-btn-minimal-light');
-    }
-    updateGatewayStatusLabel();
-}
-
-function openUserLoginModal() {
-    setTopBarState('expanded-auth');
-    document.getElementById('user-login-modal').classList.remove('hidden');
-    const helper = document.getElementById('viva-login-helper');
-    const stdInputs = document.getElementById('standard-login-inputs');
-
-    if (vivaBypassUnlocked) {
-        helper.classList.remove('hidden');
-        stdInputs.classList.add('hidden');
-        onVivaRoleChange();
-    } else {
-        helper.classList.add('hidden');
-        stdInputs.classList.remove('hidden');
-        morphDepartmentIconOnType(document.getElementById('login-emp-id').value);
-    }
-}
-
-function onVivaRoleChange() {
-    const val = document.getElementById('viva-role-dropdown').value;
-    morphDepartmentIconOnType(val);
-}
-
-function morphDepartmentIconOnType(rawId) {
-    const code = (rawId || '').trim().toUpperCase();
-    const icon = document.getElementById('login-dept-icon');
-    const badge = document.getElementById('login-dept-badge');
-    const title = document.getElementById('login-dynamic-title');
-
-    const emp = DB.employees.find(e => e.employee_id.toUpperCase() === code);
-    let cfg = { icon: 'ph-identification-badge', dept: 'Bodyline Staff Authentication', title: 'Staff Portal Sign In' };
-
-    if (code.startsWith('DH')) cfg = { icon: 'ph-buildings', dept: emp ? emp.full_name : 'CD Operations Office', title: 'Cutting Department Head Sign In' };
-    else if (code.startsWith('CSE')) cfg = { icon: 'ph-briefcase', dept: emp ? emp.full_name : 'CD Operations Office', title: 'Cutting Senior Executive Sign In' };
-    else if (code.startsWith('CS-')) cfg = { icon: 'ph-calendar-check', dept: emp ? emp.full_name : 'Cutting Floor', title: 'Cutting Supervisor Sign In' };
-    else if (code.startsWith('DDC')) cfg = { icon: 'ph-paint-brush-broad', dept: emp ? emp.full_name : 'Design Department', title: 'Design Coordinator Sign In' };
-    else if (code.startsWith('CAD')) cfg = { icon: 'ph-compass-tool', dept: emp ? emp.full_name : 'CAD Room', title: 'CAD Room Sign In' };
-    else if (code.startsWith('PR-')) cfg = { icon: 'ph-barcode', dept: emp ? emp.full_name : 'Pattern Room', title: 'Pattern Coordinator Sign In' };
-    else if (code.startsWith('SDC')) cfg = { icon: 'ph-scissors', dept: emp ? emp.full_name : 'Sewing Department', title: 'Sewing Coordinator Sign In' };
-    else if (code.startsWith('RMW')) cfg = { icon: 'ph-warehouse', dept: emp ? emp.full_name : 'Raw Material Warehouse', title: 'RMW Coordinator Sign In' };
-    else if (code.startsWith('CQC') || code.startsWith('QCI')) cfg = { icon: 'ph-warning-octagon', dept: emp ? emp.full_name : 'Quality Control', title: 'Quality Control Sign In' };
-    else if (code.startsWith('DT-C-CST')) cfg = { icon: 'ph-headset', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Support Team Sign In' };
-    else if (code.startsWith('CDTE') || code.startsWith('DT-')) cfg = { icon: 'ph-terminal-window', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Admin Sign In' };
-
-    icon.className = `ph-bold ${cfg.icon} text-2xl`;
-    badge.innerText = cfg.dept;
-    title.innerText = cfg.title;
-}
-
-function updateProfileUI(emp) {
-    const av = getAvatarUrl(emp.avatar_url);
-    const headerAv = document.getElementById('header-user-avatar');
-    if (headerAv) headerAv.src = av;
-
-    document.getElementById('popover-user-name').innerText = `Hi, ${emp.full_name.split(' ')[0]}! (${emp.full_name})`;
-    document.getElementById('popover-user-role').innerText = emp.role_designation;
-    document.getElementById('popover-user-id').innerText = `${emp.employee_id} • ${emp.department}`;
-    document.getElementById('popover-user-avatar').src = av;
-}
-
-async function executeDepartmentLogin() {
-    if (isAuthBusy) return;
-    let empId = vivaBypassUnlocked
-        ? document.getElementById('viva-role-dropdown').value
-        : document.getElementById('login-emp-id').value.trim().toUpperCase();
-    const pass = document.getElementById('login-emp-pass').value;
-
-    const emp = DB.employees.find(e => e.employee_id.toUpperCase() === empId);
-    if (!emp) return showToast('Employee ID not found.', 'error');
-    if (!vivaBypassUnlocked && !pass) return showToast('Please enter your password.', 'error');
-
-    isAuthBusy = true;
-    closeModal('user-login-modal');
-    currentLoggedInUser = emp;
-    currentMode = 'portal';
-    document.getElementById('view-gateway').classList.add('hidden');
-    setTopBarState('expanded-portal');
-    document.getElementById('comm-floating-Dock').classList.remove('hidden');
-    updateProfileUI(emp);
-    buildRoleIsolatedTabs(emp);
-    showToast(`Signed in as ${emp.full_name}`);
-
-    setTimeout(() => { isAuthBusy = false; }, 400);
-    await writeImmutableAudit('USER_LOGIN', 'Employees', emp.employee_id, { name: emp.full_name, role: emp.role_designation });
-    await syncFromSupabase();
-}
-
-function promptPatternRoomAccess() {
-    setTopBarState('expanded-auth');
-    kioskAuthMode = 'unlock';
-    document.getElementById('kiosk-auth-title').innerText = 'Unlock Pattern Room Kiosk';
-    document.getElementById('kiosk-auth-submit-btn').innerText = 'Unlock Kiosk';
-    document.getElementById('kiosk-auth-password').value = '';
-    document.getElementById('kiosk-pass-wrapper').classList.toggle('hidden', vivaBypassUnlocked);
-    document.getElementById('kiosk-auth-modal').classList.remove('hidden');
-}
-
-async function executeKioskAuthAction() {
-    if (isAuthBusy) return;
-    const pass = document.getElementById('kiosk-auth-password').value.trim();
-    if (!vivaBypassUnlocked && !pass) {
-        return showToast('Please enter the Pattern Room password.', 'error');
-    }
-
-    isAuthBusy = true;
-    closeModal('kiosk-auth-modal');
-
-    if (kioskAuthMode === 'unlock') {
-        currentMode = 'terminal';
-        currentLoggedInUser = null;
-        document.getElementById('view-gateway').classList.add('hidden');
-        setTopBarState('expanded-terminal');
-        document.getElementById('comm-floating-Dock').classList.add('hidden');
-        document.getElementById('role-workspace-tabs').innerHTML = '';
-        const deskTabs = document.getElementById('desktop-workspace-tabs');
-        if (deskTabs) deskTabs.innerHTML = '';
-        hideAllMainViews();
-        document.getElementById('view-tracker').classList.remove('hidden');
-        populatePatternRoomFilterDropdowns();
-        renderPatternGrid();
-        showToast('Pattern Room Kiosk unlocked.');
-
-        setTimeout(() => { isAuthBusy = false; }, 400);
-        await writeImmutableAudit('KIOSK_UNLOCKED', 'Pattern_Room', 'TERMINAL', { status: 'Unlocked for Shift' });
-        await syncFromSupabase();
-        populatePatternRoomFilterDropdowns();
-        renderPatternGrid();
-    } else {
-        returnToWelcomeScreenImmediate();
-        showToast('Pattern Room Kiosk signed out.');
-        setTimeout(() => { isAuthBusy = false; }, 400);
-        await writeImmutableAudit('KIOSK_SIGNED_OUT', 'Pattern_Room', 'TERMINAL', { status: 'Signed Out' });
-    }
-}
-
-function triggerCredentialedLogout() {
-    closeProfilePopover();
-    if (currentMode === 'terminal') {
-        kioskAuthMode = 'logout';
-        document.getElementById('kiosk-auth-title').innerText = 'Sign Out Pattern Room Kiosk';
-        document.getElementById('kiosk-auth-submit-btn').innerText = 'Confirm Sign Out';
-        document.getElementById('kiosk-auth-password').value = '';
-        document.getElementById('kiosk-pass-wrapper').classList.toggle('hidden', vivaBypassUnlocked);
-        document.getElementById('kiosk-auth-modal').classList.remove('hidden');
-        return;
-    }
-
-    returnToWelcomeScreenImmediate();
-    showToast('Signed out.');
-}
-
-function returnToWelcomeScreenImmediate() {
-    currentMode = 'gateway';
-    currentLoggedInUser = null;
-    stopActiveQrCamera();
-    hideAllMainViews();
-    closeProfilePopover();
-    closeCommDrawer();
-    setTopBarState('compact');
-    updateGatewayStatusLabel();
-    document.getElementById('comm-floating-Dock').classList.add('hidden');
-    document.getElementById('view-gateway').classList.remove('hidden');
-}
 
 // ============================================================================
-// 8. BULK & 1-CLICK PHOTO UPLOADERS
+// SECTION 9: PHOTO UPLOAD HANDLERS (SINGLE & BULK)
 // ============================================================================
+
 function triggerSingleRowPhotoUpload(targetType, targetId) {
     const fileInput = document.getElementById('single-row-photo-input');
     fileInput.value = '';
@@ -794,13 +945,13 @@ function triggerSingleRowPhotoUpload(targetType, targetId) {
 
         if (targetType === 'employee') {
             await supa.from('employees').update({ avatar_url: dataUrl }).eq('employee_id', targetId);
-            await writeImmutableAudit('UPDATE_STAFF_PHOTO', 'Employees', targetId, { updated_by: 'Admin' });
+            await writeAuditLog('UPDATE_STAFF_PHOTO', 'Employees', targetId, { updated_by: 'Admin' });
             await syncFromSupabase();
             renderAdminEmployeeList();
             showToast(`Updated profile photo for ${targetId}.`);
         } else if (targetType === 'pattern') {
             await supa.from('pattern_assets').update({ image_url: dataUrl }).eq('asset_id', targetId);
-            await writeImmutableAudit('UPDATE_ASSET_PHOTO', 'Pattern_Assets', targetId, { asset_id: targetId });
+            await writeAuditLog('UPDATE_ASSET_PHOTO', 'Pattern_Assets', targetId, { asset_id: targetId });
             await syncFromSupabase();
             renderDesignCadPortal();
             showToast(`Updated item photo for ${targetId}.`);
@@ -857,7 +1008,7 @@ async function submitAvatarChangeRequest(fileInput) {
 
     const { error } = await supa.from('department_communications').insert([payload]);
     if (error) return showToast(error.message, 'error');
-    await writeImmutableAudit('REQUEST_AVATAR_UPDATE', 'Employees', currentLoggedInUser.employee_id, { requested_by: currentLoggedInUser.full_name });
+    await writeAuditLog('REQUEST_AVATAR_UPDATE', 'Employees', currentLoggedInUser.employee_id, { requested_by: currentLoggedInUser.full_name });
     await syncFromSupabase();
     closeProfilePopover();
     showToast('Profile picture request sent to CDMS Support Team.');
@@ -871,15 +1022,18 @@ async function resolveAvatarRequest(commId, empId, decision) {
         await supa.from('employees').update({ avatar_url: req.resolution_note }).eq('employee_id', empId);
     }
     await supa.from('department_communications').update({ comm_status: decision }).eq('comm_id', commId);
-    await writeImmutableAudit(`AVATAR_${decision.toUpperCase()}`, 'Employees', empId, { comm_id: commId });
+    await writeAuditLog(`AVATAR_${decision.toUpperCase()}`, 'Employees', empId, { comm_id: commId });
     await syncFromSupabase();
     renderAdminPortal();
     showToast(decision === 'Approved' ? `Accepted new profile photo for ${empId}.` : `Rejected photo request.`);
 }
 
+
+
 // ============================================================================
-// 9. ROLE-ISOLATED WORKSPACE NAVIGATION (INLINE DESKTOP + SLIM MOBILE BAR)
+// SECTION 10: ROLE-BASED WORKSPACE NAVIGATION
 // ============================================================================
+
 function buildRoleIsolatedTabs(emp) {
     const id = emp.employee_id.toUpperCase();
     const mobileNav = document.getElementById('role-workspace-tabs');
@@ -943,6 +1097,7 @@ function hideAllMainViews() {
 }
 
 function switchPortalView(viewKey) {
+    closeCustomSelectMenu();
     hideAllMainViews();
     document.querySelectorAll('.role-tab').forEach(b => {
         if (b.getAttribute('data-tab-key') === viewKey) {
@@ -962,11 +1117,15 @@ function switchPortalView(viewKey) {
     if (viewKey === 'qc') renderQcPortal();
     if (viewKey === 'admin') renderAdminPortal();
     if (viewKey === 'reports') { populateReportGroupFilter(); renderGroupedReport(); }
+    setTimeout(refreshAllCustomSelects, 20);
 }
 
+
+
 // ============================================================================
-// 10. GOOGLE-STYLE PATTERN ROOM (SEARCH BAR FILTERS + IN-APP CAMERA + MANUAL ID)
+// SECTION 11: PATTERN ROOM CATALOG, FILTERS & QR CAMERA SCANNER
 // ============================================================================
+
 function populatePatternRoomFilterDropdowns() {
     const brandSel = document.getElementById('filter-brand-select');
     const rackSel = document.getElementById('filter-rack-select');
@@ -985,10 +1144,12 @@ function populatePatternRoomFilterDropdowns() {
 
     if (brands.includes(currentBrand)) brandSel.value = currentBrand;
     if (racks.includes(currentRack)) rackSel.value = currentRack;
+    refreshAllCustomSelects();
 }
 
 function toggleSearchFilterMenu(e) {
     if (e) e.stopPropagation();
+    closeCustomSelectMenu();
     populatePatternRoomFilterDropdowns();
     const pop = document.getElementById('search-filter-popover');
     if (pop) pop.classList.toggle('hidden');
@@ -999,6 +1160,7 @@ function resetPatternRoomFilters() {
     const rackSel = document.getElementById('filter-rack-select');
     if (brandSel) brandSel.value = 'ALL';
     if (rackSel) rackSel.value = 'ALL';
+    refreshAllCustomSelects();
     handlePatternSearch();
 }
 
@@ -1085,9 +1247,6 @@ function renderPatternGrid(query = '', brandFilter = 'ALL', rackFilter = 'ALL') 
         '<p class="text-xs text-zinc-400 col-span-full py-4">No matching inventory items.</p>';
 }
 
-// ============================================================================
-// 11. IN-APP CAMERA PERMISSION PROMPT + LIVE QR SCANNER + MANUAL ID CHECKBOX
-// ============================================================================
 function renderCameraSectionHtml(scanContext, assetId = '') {
     if (cameraPermissionState === 'prompt') {
         return `
@@ -1169,7 +1328,7 @@ function openQuickQrScanner() {
     document.getElementById('verify-modal').classList.remove('hidden');
     const area = document.getElementById('modal-dynamic-area');
 
-    const sandboxItemsHtml = systemOperatingMode === '0' ? `
+    const sandboxItemsHtml = sandboxMode === '0' ? `
         <div class="border-t border-zinc-200 pt-3 mt-3">
             <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-2">Sandbox Mode (0): Sample Pattern QR Triggers</p>
             <div class="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
@@ -1240,7 +1399,7 @@ function openScannerForAsset(assetId) {
     const todayStr = new Date().toISOString().split('T')[0];
 
     if (asset.operational_status === 'Active on Line') {
-        const sandboxReturnBtns = systemOperatingMode === '0' ? `
+        const sandboxReturnBtns = sandboxMode === '0' ? `
             <div class="border-t border-zinc-200 pt-3 mt-2">
                 <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Sandbox Mode (0): Quick Return Simulation</p>
                 <button type="button" onclick="executeAssetReturn('${asset.asset_id}', '${asset.borrowed_by_id || 'CW-L1-CMO-01'}')" class="w-full p-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 text-zinc-900 text-xs font-semibold">
@@ -1290,7 +1449,7 @@ function openScannerForAsset(assetId) {
         return;
     }
 
-    const sandboxBorrowSection = systemOperatingMode === '0' ? `
+    const sandboxBorrowSection = sandboxMode === '0' ? `
         <div class="border-t border-zinc-200 pt-3">
             <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Sandbox Mode (0): Sample Operator Badges</p>
             <div class="space-y-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
@@ -1332,7 +1491,6 @@ function openScannerForAsset(assetId) {
 
             ${renderCameraSectionHtml('asset-borrow', asset.asset_id)}
 
-            <!-- MANUAL EMPLOYEE ID + RESPONSIBILITY CHECKBOX -->
             <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 space-y-3">
                 <label class="text-xs font-bold text-zinc-800 block">Manual Operator ID Entry</label>
                 <input id="manual-op-id-input" type="text" placeholder="Enter Employee ID (e.g. CW-L1-CMO-01)" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs font-mono uppercase outline-none focus:border-zinc-900">
@@ -1350,6 +1508,8 @@ function openScannerForAsset(assetId) {
             ${sandboxBorrowSection}
         </div>
     `;
+
+    refreshAllCustomSelects();
 
     if (cameraPermissionState === 'granted') {
         setTimeout(() => {
@@ -1405,7 +1565,7 @@ async function executeAssetBorrow(assetId, operatorId) {
             request_status: 'Pending'
         }]);
 
-        await writeImmutableAudit('15M_MUTEX_LOCK', 'Pattern_Assets', assetId, { operator: operatorId, shift });
+        await writeAuditLog('15M_MUTEX_LOCK', 'Pattern_Assets', assetId, { operator: operatorId, shift });
         await syncFromSupabase();
         closeVerifyModal();
         handlePatternSearch();
@@ -1422,7 +1582,7 @@ async function executeAssetBorrow(assetId, operatorId) {
         last_used_date: todayStr
     }).eq('asset_id', assetId);
 
-    await writeImmutableAudit('BORROW_ASSET', 'Pattern_Assets', assetId, { operator: operatorId, shift });
+    await writeAuditLog('BORROW_ASSET', 'Pattern_Assets', assetId, { operator: operatorId, shift });
     await syncFromSupabase();
     closeVerifyModal();
     handlePatternSearch();
@@ -1437,7 +1597,7 @@ async function executeAssetReturn(assetId, returningOperatorId = '') {
         checkout_time: null
     }).eq('asset_id', assetId);
 
-    await writeImmutableAudit('RETURN_ASSET', 'Pattern_Assets', assetId, { returned_by: returningOperatorId, status: 'Available in Room' });
+    await writeAuditLog('RETURN_ASSET', 'Pattern_Assets', assetId, { returned_by: returningOperatorId, status: 'Available in Room' });
     await syncFromSupabase();
     closeVerifyModal();
     handlePatternSearch();
@@ -1486,9 +1646,12 @@ function dismissMutexBar() {
     closeModal('mutex-bar');
 }
 
+
+
 // ============================================================================
-// 12. DEPARTMENT HEAD READ-ONLY OVERSIGHT PORTAL
+// SECTION 12: DEPARTMENT HEAD OVERVIEW PORTAL
 // ============================================================================
+
 async function renderDeptHeadPortal() {
     await syncFromSupabase();
     document.getElementById('dh-kpi-total').innerText = DB.pattern_assets.length;
@@ -1542,9 +1705,12 @@ async function renderDeptHeadPortal() {
     `).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No quality control logs recorded yet.</p>';
 }
 
+
+
 // ============================================================================
-// 13. SUPERVISOR COMMAND & 7-DAY SHIFT MATRIX
+// SECTION 13: SUPERVISOR SHIFT MATRIX & CLEARANCE QUEUE
 // ============================================================================
+
 function filterSupervisorPool(lineFilter) {
     supervisorPoolLineFilter = lineFilter;
     renderSupervisorPortal();
@@ -1662,7 +1828,7 @@ async function tapDeployShift(dateStr, shiftType) {
         shift_type: shiftType,
         production_line: lineMatch ? lineMatch[0] : 'Line 1'
     }]);
-    await writeImmutableAudit('ASSIGN_SHIFT', 'Shift_Assignments', selectedOperatorForAssign, { date: dateStr, shift: shiftType });
+    await writeAuditLog('ASSIGN_SHIFT', 'Shift_Assignments', selectedOperatorForAssign, { date: dateStr, shift: shiftType });
     await renderSupervisorPortal();
     showToast(`Assigned ${selectedOperatorForAssign} to ${shiftType} (${dateStr}).`);
 }
@@ -1698,13 +1864,16 @@ async function resolveMutexTicket(reqId, decision) {
         }).eq('asset_id', req.pattern_id);
         showToast(`Denied ${req.pattern_id}.`, 'error');
     }
-    await writeImmutableAudit(`MUTEX_${decision.toUpperCase()}`, 'Pending_Requests', reqId, req);
+    await writeAuditLog(`MUTEX_${decision.toUpperCase()}`, 'Pending_Requests', reqId, req);
     await renderSupervisorPortal();
 }
 
+
+
 // ============================================================================
-// 14. DESIGN, CAD & PATTERN ROOM HUB
+// SECTION 14: DESIGN, CAD & PATTERN ROOM REGISTRATION
 // ============================================================================
+
 async function renderDesignCadPortal() {
     await syncFromSupabase();
     const brands = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Brand');
@@ -1724,6 +1893,7 @@ async function renderDesignCadPortal() {
 
     autoSuggestStyleCode();
     autoGeneratePatternAssetId();
+    refreshAllCustomSelects();
 
     document.getElementById('cad-markers-mini-list').innerHTML = DB.pattern_assets.map(p => `
         <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center justify-between gap-3 text-xs">
@@ -1768,7 +1938,7 @@ async function createStyleAndMarker() {
 
     const { error } = await supa.from('cad_markers').insert([newRow]);
     if (error) return showToast(error.message, 'error');
-    await writeImmutableAudit('CREATE_STYLE_MARKER', 'CAD_Markers', mkId, newRow);
+    await writeAuditLog('CREATE_STYLE_MARKER', 'CAD_Markers', mkId, newRow);
     await renderDesignCadPortal();
     showToast(`Saved Style ${style} (${mkId}).`);
 }
@@ -1790,7 +1960,7 @@ async function designAddFabricDirect() {
     };
     const { error } = await supa.from('rmw_materials').insert([newFab]);
     if (error) return showToast(error.message, 'error');
-    await writeImmutableAudit('ADD_FABRIC_DIRECT', 'RMW_Materials', code, newFab);
+    await writeAuditLog('ADD_FABRIC_DIRECT', 'RMW_Materials', code, newFab);
     await renderDesignCadPortal();
     showToast(`Added ${code} to catalog.`);
 }
@@ -1821,7 +1991,7 @@ async function registerNewPatternAsset() {
 
     const { error } = await supa.from('pattern_assets').insert([newAsset]);
     if (error) return showToast(error.message, 'error');
-    await writeImmutableAudit('REGISTER_PATTERN_ASSET', 'Pattern_Assets', id, newAsset);
+    await writeAuditLog('REGISTER_PATTERN_ASSET', 'Pattern_Assets', id, newAsset);
 
     const box = document.getElementById('pattern-qr-preview-box');
     const canvas = document.getElementById('pattern-qr-canvas');
@@ -1833,9 +2003,12 @@ async function registerNewPatternAsset() {
     showToast(`Registered ${id}.`);
 }
 
+
+
 // ============================================================================
-// 15. SEWING ORDERS & RMW WAREHOUSE DISPATCH
+// SECTION 15: SEWING CUTTING ORDERS & RMW WAREHOUSE DISPATCH
 // ============================================================================
+
 async function renderSupplyPortal() {
     await syncFromSupabase();
     const sizes = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Size');
@@ -1845,6 +2018,7 @@ async function renderSupplyPortal() {
     const nextOrdId = getNextSequentialId(DB.cutting_orders, 'order_id', 'ORD-');
     const ordBadge = document.getElementById('next-order-id-badge');
     if (ordBadge) ordBadge.innerText = `Next: ${nextOrdId}`;
+    refreshAllCustomSelects();
 
     document.getElementById('sewing-orders-list').innerHTML = DB.cutting_orders.map(o => `
         <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex justify-between items-center text-xs">
@@ -1889,7 +2063,7 @@ async function submitSewingOrder() {
         order_status: 'Queued'
     };
     await supa.from('cutting_orders').insert([newOrd]);
-    await writeImmutableAudit('CREATE_SEWING_ORDER', 'Cutting_Orders', ordId, newOrd);
+    await writeAuditLog('CREATE_SEWING_ORDER', 'Cutting_Orders', ordId, newOrd);
     await renderSupplyPortal();
     showToast(`Submitted Cutting Order ${ordId}.`);
 }
@@ -1899,14 +2073,17 @@ async function dispatchRmwMaterial(matCode) {
     if (!mat) return;
     const newStatus = mat.material_category.includes('CAD') ? 'Dispatched to CAD Room' : 'Dispatched to Cutting Floor';
     await supa.from('rmw_materials').update({ lot_status: newStatus }).eq('material_code', matCode);
-    await writeImmutableAudit('DISPATCH_MATERIAL', 'RMW_Materials', matCode, { status: newStatus });
+    await writeAuditLog('DISPATCH_MATERIAL', 'RMW_Materials', matCode, { status: newStatus });
     await renderSupplyPortal();
     showToast(`Dispatched ${matCode}.`);
 }
 
+
+
 // ============================================================================
-// 16. FLOOR QUALITY CONTROL (QC)
+// SECTION 16: QUALITY CONTROL DEFECT LOGGING
 // ============================================================================
+
 async function renderQcPortal() {
     await syncFromSupabase();
     document.getElementById('qc-asset-select').innerHTML = DB.pattern_assets.map(p => `<option value="${p.asset_id}">${p.asset_id} (${p.model_name} / ${p.operational_status})</option>`).join('');
@@ -1917,6 +2094,7 @@ async function renderQcPortal() {
     if (qcBadge) qcBadge.innerText = `Next: ${nextQcId}`;
 
     previewDefectAction();
+    refreshAllCustomSelects();
 
     document.getElementById('qc-logs-list').innerHTML = DB.qc_inspection_logs.map(l => `
         <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex justify-between items-center gap-3 text-xs">
@@ -1967,7 +2145,7 @@ async function submitQcDefectFlag() {
     };
 
     await supa.from('qc_inspection_logs').insert([newLog]);
-    await writeImmutableAudit('QC_DEFECT_FLAG', 'QC_Inspection_Logs', logId, newLog);
+    await writeAuditLog('QC_DEFECT_FLAG', 'QC_Inspection_Logs', logId, newLog);
     await renderQcPortal();
     showToast(`Logged ${logId} (${defCode}) on ${assetId}.`, 'error');
 }
@@ -1975,19 +2153,23 @@ async function submitQcDefectFlag() {
 async function resolveQcLog(logId, assetId) {
     await supa.from('qc_inspection_logs').update({ resolution_status: 'Resolved' }).eq('qc_log_id', logId);
     await supa.from('pattern_assets').update({ operational_status: 'Available in Room' }).eq('asset_id', assetId);
-    await writeImmutableAudit('QC_RESOLVED', 'QC_Inspection_Logs', logId, { asset_id: assetId, status: 'Resolved' });
+    await writeAuditLog('QC_RESOLVED', 'QC_Inspection_Logs', logId, { asset_id: assetId, status: 'Resolved' });
     await renderQcPortal();
     showToast(`Resolved ${logId}.`);
 }
 
+
+
 // ============================================================================
-// 17. DIGITAL TEAM ADMIN, BULK PHOTOS & AUTO-ID REGISTRATION
+// SECTION 17: DIGITAL TEAM ADMIN & SUPPORT CONSOLE
 // ============================================================================
+
 async function renderAdminPortal() {
     await syncFromSupabase();
     const uniqueRoles = [...new Set(DB.employees.map(e => e.role_designation))];
     document.getElementById('reg-emp-role').innerHTML = uniqueRoles.map(r => `<option value="${r}">${r}</option>`).join('');
     autoGenerateEmployeeId();
+    refreshAllCustomSelects();
 
     const avatarReqs = DB.department_communications.filter(
         c => c.protocol_category === 'Avatar Request' && c.comm_status === 'Pending Approval'
@@ -2063,12 +2245,14 @@ function renderAdminEmployeeList() {
 }
 
 function switchAdminSubTab(tab) {
+    closeCustomSelectMenu();
     ['emp', 'params', 'records'].forEach(t => {
         document.getElementById(`admin-panel-${t}`).classList.add('hidden');
         document.getElementById(`adm-sub-${t}`).className = 'px-3.5 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200';
     });
     document.getElementById(`admin-panel-${tab}`).classList.remove('hidden');
     document.getElementById(`adm-sub-${tab}`).className = 'px-3.5 py-2 rounded-xl bg-zinc-900 text-white';
+    refreshAllCustomSelects();
 }
 
 async function registerNewEmployee() {
@@ -2094,7 +2278,7 @@ async function registerNewEmployee() {
 
     const { error } = await supa.from('employees').insert([newEmp]);
     if (error) return showToast(error.message, 'error');
-    await writeImmutableAudit('REGISTER_EMPLOYEE', 'Employees', id, { id, name, dept, role, zone });
+    await writeAuditLog('REGISTER_EMPLOYEE', 'Employees', id, { id, name, dept, role, zone });
 
     const box = document.getElementById('emp-qr-preview-box');
     box.innerHTML = `<div class="p-3 bg-white rounded-xl border border-zinc-300 inline-block"><div id="emp-qr-canvas"></div><p class="text-xs font-bold mt-1">${name}</p></div>`;
@@ -2108,7 +2292,7 @@ async function registerNewEmployee() {
 async function removeEmployeeWithImmutableLog(empId) {
     const target = DB.employees.find(e => e.employee_id === empId);
     if (!target) return;
-    await writeImmutableAudit('PURGE_EMPLOYEE_BACKUP', 'Employees', empId, target);
+    await writeAuditLog('PURGE_EMPLOYEE_BACKUP', 'Employees', empId, target);
     await supa.from('employees').delete().eq('employee_id', empId);
     await renderAdminPortal();
     showToast(`Removed ${empId} and logged backup.`);
@@ -2129,7 +2313,7 @@ async function addSystemSetting() {
         request_status: 'Active'
     };
     await supa.from('system_settings_audit').insert([row]);
-    await writeImmutableAudit('ADD_PARAMETER', 'System_Settings_Audit', val, row);
+    await writeAuditLog('ADD_PARAMETER', 'System_Settings_Audit', val, row);
     document.getElementById('sys-val').value = '';
     await renderAdminPortal();
     showToast(`Saved ${cat}: ${val}`);
@@ -2137,14 +2321,17 @@ async function addSystemSetting() {
 
 async function deleteSystemParam(recId) {
     const target = DB.system_settings_audit.find(s => s.record_id === recId);
-    await writeImmutableAudit('REMOVE_PARAMETER', 'System_Settings_Audit', recId, target || {});
+    await writeAuditLog('REMOVE_PARAMETER', 'System_Settings_Audit', recId, target || {});
     await supa.from('system_settings_audit').delete().eq('record_id', recId);
     await renderAdminPortal();
 }
 
+
+
 // ============================================================================
-// 18. PROTOCOL COMMUNICATOR & APPROVAL ENGINE
+// SECTION 18: TASK & APPROVAL COMMUNICATOR DRAWER
 // ============================================================================
+
 function updateCommUnreadBadge() {
     if (!currentLoggedInUser) return;
     const myId = currentLoggedInUser.employee_id;
@@ -2155,6 +2342,7 @@ function updateCommUnreadBadge() {
 }
 
 function toggleCommDrawer() {
+    closeCustomSelectMenu();
     const win = document.getElementById('comm-drawer-window');
     win.classList.toggle('hidden');
     if (!win.classList.contains('hidden')) switchCommTab('inbox');
@@ -2178,6 +2366,7 @@ function getPermittedRecipientsForUser(user) {
 }
 
 function switchCommTab(tab, preReceiver = null, preCategory = null) {
+    closeCustomSelectMenu();
     activeCommTab = tab;
     ['inbox', 'compose', 'drafts', 'history'].forEach(t => {
         const btn = document.getElementById(`comm-tab-${t}`);
@@ -2244,11 +2433,11 @@ function switchCommTab(tab, preReceiver = null, preCategory = null) {
                 </div>
                 <div>
                     <label class="text-[11px] font-bold text-zinc-600 block mb-1">Subject</label>
-                    <input id="comm-subject" type="text" placeholder="Subject" class="w-full p-2 bg-zinc-50 border border-zinc-300 rounded-lg">
+                    <input id="comm-subject" type="text" placeholder="Subject" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl outline-none focus:border-zinc-900">
                 </div>
                 <div>
                     <label class="text-[11px] font-bold text-zinc-600 block mb-1">Details</label>
-                    <textarea id="comm-message" rows="3" placeholder="Details" class="w-full p-2 bg-zinc-50 border border-zinc-300 rounded-lg"></textarea>
+                    <textarea id="comm-message" rows="3" placeholder="Details" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl outline-none focus:border-zinc-900"></textarea>
                 </div>
                 <div class="grid grid-cols-2 gap-2 pt-1">
                     <button type="button" onclick="saveOrSendComm('Draft')" class="bg-zinc-100 hover:bg-zinc-200 text-zinc-800 py-2 rounded-lg font-semibold">Save Draft</button>
@@ -2256,6 +2445,7 @@ function switchCommTab(tab, preReceiver = null, preCategory = null) {
                 </div>
             </div>
         `;
+        refreshAllCustomSelects();
     } else if (tab === 'drafts') {
         const drafts = DB.department_communications.filter(c => c.sender_id === myId && c.comm_status === 'Draft');
         body.innerHTML = drafts.map(d => `
@@ -2321,7 +2511,7 @@ async function saveOrSendComm(targetStatus) {
     };
 
     await supa.from('department_communications').insert([payload]);
-    await writeImmutableAudit(targetStatus === 'Draft' ? 'SAVE_DRAFT' : 'SEND_REQUEST', 'Department_Communications', refId, payload);
+    await writeAuditLog(targetStatus === 'Draft' ? 'SAVE_DRAFT' : 'SEND_REQUEST', 'Department_Communications', refId, payload);
     await syncFromSupabase();
     switchCommTab(targetStatus === 'Draft' ? 'drafts' : 'history');
     showToast(targetStatus === 'Draft' ? 'Draft saved.' : `Sent to ${recObj.full_name}.`);
@@ -2342,17 +2532,21 @@ async function deleteSavedDraft(commId) {
 
 async function resolveCommItem(commId, decision) {
     await supa.from('department_communications').update({ comm_status: decision }).eq('comm_id', commId);
-    await writeImmutableAudit(`COMM_${decision.toUpperCase()}`, 'Department_Communications', commId, { decision });
+    await writeAuditLog(`COMM_${decision.toUpperCase()}`, 'Department_Communications', commId, { decision });
     await syncFromSupabase();
     if (!document.getElementById('view-dept-head').classList.contains('hidden')) renderDeptHeadPortal();
     switchCommTab('inbox');
     showToast(`Marked as ${decision}.`);
 }
 
+
+
 // ============================================================================
-// 19. SYSTEM-GENERATED FORMAL A4 REPORTS
+// SECTION 19: SYSTEM REPORTS & DATABASE EXPLORER
 // ============================================================================
+
 function switchReportMode(mode) {
+    closeCustomSelectMenu();
     document.getElementById('reports-mgmt-container').classList.toggle('hidden', mode !== 'mgmt');
     document.getElementById('reports-vdb-container').classList.toggle('hidden', mode !== 'vdb');
     document.getElementById('rep-mode-mgmt').className = mode === 'mgmt' ? 'px-4 py-2 rounded-xl bg-zinc-900 text-white' : 'px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700';
@@ -2371,6 +2565,7 @@ function populateReportGroupFilter() {
 
     sel.innerHTML = `<option value="ALL">All Groups (${groups.length})</option>` +
         groups.map(g => `<option value="${g}">${g}</option>`).join('');
+    refreshAllCustomSelects();
 }
 
 function renderGroupedReport() {
