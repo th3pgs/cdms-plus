@@ -1,5 +1,4 @@
-// V10 Update
-// CDMS+ ENTERPRISE ENGINE WITH CAMERA PERMISSION + MANUAL ID CHECKBOX + FILTERS
+// V12 Update
 const SUPABASE_URL = 'https://uvfmircbplfqkgkmzssb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_NZNswR7y9y-oSJIC-unRvw_wioNx760';
 const realSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -145,10 +144,6 @@ const supa = {
     }
 };
 
-// Updates the bottom-right corner status text:
-// Mode 0 -> "Sandbox Online"
-// Mode 1 + Padlock Locked -> "Online Secured"
-// Mode 1 + Padlock Unlocked -> "Online Only"
 function updateGatewayStatusLabel() {
     const statusLbl = document.getElementById('db-status-label');
     if (!statusLbl) return;
@@ -241,14 +236,16 @@ function resolveRepoLogos() {
 }
 
 // ============================================================================
-// 3. TOP BAR CONTROLLER
+// 3. GOOGLE / GEMINI-STYLE TOP BAR CONTROLLER (NO MOBILE OVERFLOW)
 // ============================================================================
 function setTopBarState(state) {
     const inner = document.getElementById('top-bar-inner');
     const divider = document.getElementById('top-bar-compact-divider');
     const sessionCtrls = document.getElementById('top-bar-session-controls');
     const profileWrap = document.getElementById('header-profile-wrapper');
-    const subnav = document.getElementById('portal-subnav-bar');
+    const kioskSignOutBtn = document.getElementById('kiosk-header-signout-btn');
+    const desktopTabs = document.getElementById('desktop-workspace-tabs');
+    const mobileSubnav = document.getElementById('portal-subnav-bar');
 
     if (state === 'compact') {
         inner.classList.remove('expanded-bar');
@@ -256,14 +253,16 @@ function setTopBarState(state) {
         divider.classList.remove('hidden');
         sessionCtrls.classList.add('hidden');
         sessionCtrls.classList.remove('flex');
-        subnav.classList.add('hidden');
+        if (desktopTabs) { desktopTabs.classList.add('hidden'); desktopTabs.classList.remove('md:flex'); }
+        if (mobileSubnav) mobileSubnav.classList.add('hidden');
     } else if (state === 'expanded-auth') {
         inner.classList.remove('compact-bar');
         inner.classList.add('expanded-bar');
         divider.classList.add('hidden');
         sessionCtrls.classList.add('hidden');
         sessionCtrls.classList.remove('flex');
-        subnav.classList.add('hidden');
+        if (desktopTabs) { desktopTabs.classList.add('hidden'); desktopTabs.classList.remove('md:flex'); }
+        if (mobileSubnav) mobileSubnav.classList.add('hidden');
     } else if (state === 'expanded-terminal') {
         inner.classList.remove('compact-bar');
         inner.classList.add('expanded-bar');
@@ -271,7 +270,9 @@ function setTopBarState(state) {
         sessionCtrls.classList.remove('hidden');
         sessionCtrls.classList.add('flex');
         profileWrap.classList.add('hidden');
-        subnav.classList.add('hidden');
+        if (kioskSignOutBtn) { kioskSignOutBtn.classList.remove('hidden'); kioskSignOutBtn.classList.add('flex'); }
+        if (desktopTabs) { desktopTabs.classList.add('hidden'); desktopTabs.classList.remove('md:flex'); }
+        if (mobileSubnav) mobileSubnav.classList.add('hidden');
     } else if (state === 'expanded-portal') {
         inner.classList.remove('compact-bar');
         inner.classList.add('expanded-bar');
@@ -279,7 +280,9 @@ function setTopBarState(state) {
         sessionCtrls.classList.remove('hidden');
         sessionCtrls.classList.add('flex');
         profileWrap.classList.remove('hidden');
-        subnav.classList.remove('hidden');
+        if (kioskSignOutBtn) { kioskSignOutBtn.classList.add('hidden'); kioskSignOutBtn.classList.remove('flex'); }
+        if (desktopTabs) { desktopTabs.classList.remove('hidden'); desktopTabs.classList.add('md:flex'); }
+        if (mobileSubnav) mobileSubnav.classList.remove('hidden');
     }
 }
 
@@ -666,13 +669,12 @@ function morphDepartmentIconOnType(rawId) {
 
 function updateProfileUI(emp) {
     const av = getAvatarUrl(emp.avatar_url);
-    document.getElementById('header-user-name').innerText = emp.full_name;
-    document.getElementById('header-user-role').innerText = emp.role_designation;
-    document.getElementById('header-user-avatar').src = av;
+    const headerAv = document.getElementById('header-user-avatar');
+    if (headerAv) headerAv.src = av;
 
-    document.getElementById('popover-user-name').innerText = emp.full_name;
+    document.getElementById('popover-user-name').innerText = `Hi, ${emp.full_name.split(' ')[0]}! (${emp.full_name})`;
     document.getElementById('popover-user-role').innerText = emp.role_designation;
-    document.getElementById('popover-user-id').innerText = emp.employee_id;
+    document.getElementById('popover-user-id').innerText = `${emp.employee_id} • ${emp.department}`;
     document.getElementById('popover-user-avatar').src = av;
 }
 
@@ -730,6 +732,8 @@ async function executeKioskAuthAction() {
         setTopBarState('expanded-terminal');
         document.getElementById('comm-floating-Dock').classList.add('hidden');
         document.getElementById('role-workspace-tabs').innerHTML = '';
+        const deskTabs = document.getElementById('desktop-workspace-tabs');
+        if (deskTabs) deskTabs.innerHTML = '';
         hideAllMainViews();
         document.getElementById('view-tracker').classList.remove('hidden');
         populatePatternRoomFilterDropdowns();
@@ -750,6 +754,7 @@ async function executeKioskAuthAction() {
 }
 
 function triggerCredentialedLogout() {
+    closeProfilePopover();
     if (currentMode === 'terminal') {
         kioskAuthMode = 'logout';
         document.getElementById('kiosk-auth-title').innerText = 'Sign Out Pattern Room Kiosk';
@@ -873,11 +878,12 @@ async function resolveAvatarRequest(commId, empId, decision) {
 }
 
 // ============================================================================
-// 9. ROLE-ISOLATED WORKSPACE NAVIGATION
+// 9. ROLE-ISOLATED WORKSPACE NAVIGATION (INLINE DESKTOP + SLIM MOBILE BAR)
 // ============================================================================
 function buildRoleIsolatedTabs(emp) {
     const id = emp.employee_id.toUpperCase();
-    const nav = document.getElementById('role-workspace-tabs');
+    const mobileNav = document.getElementById('role-workspace-tabs');
+    const desktopNav = document.getElementById('desktop-workspace-tabs');
     let tabs = [];
 
     if (id.startsWith('DH')) {
@@ -918,11 +924,14 @@ function buildRoleIsolatedTabs(emp) {
         ];
     }
 
-    nav.innerHTML = tabs.map(t => `
-        <button type="button" onclick="switchPortalView('${t.key}')" id="nav-btn-${t.key}" class="role-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-colors">
+    const tabsHtml = tabs.map(t => `
+        <button type="button" onclick="switchPortalView('${t.key}')" data-tab-key="${t.key}" class="role-tab whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 hover:bg-zinc-200/70 transition-colors">
             ${t.label}
         </button>
     `).join('');
+
+    if (mobileNav) mobileNav.innerHTML = tabsHtml;
+    if (desktopNav) desktopNav.innerHTML = tabsHtml;
 
     switchPortalView(tabs[0].key);
 }
@@ -936,12 +945,12 @@ function hideAllMainViews() {
 function switchPortalView(viewKey) {
     hideAllMainViews();
     document.querySelectorAll('.role-tab').forEach(b => {
-        b.className = 'role-tab px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-colors';
+        if (b.getAttribute('data-tab-key') === viewKey) {
+            b.className = 'role-tab whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 text-white transition-colors';
+        } else {
+            b.className = 'role-tab whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-600 hover:bg-zinc-200/70 transition-colors';
+        }
     });
-    const activeBtn = document.getElementById(`nav-btn-${viewKey}`);
-    if (activeBtn) {
-        activeBtn.className = 'role-tab px-3.5 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 text-white transition-colors';
-    }
 
     document.getElementById(`view-${viewKey}`).classList.remove('hidden');
 
@@ -1103,7 +1112,7 @@ function renderCameraSectionHtml(scanContext, assetId = '') {
                     <span><i class="ph-fill ph-camera text-emerald-600"></i> Live QR Camera Scanner Active</span>
                     <button type="button" onclick="handleWebsiteCameraPermission(false, '${scanContext}', '${assetId}')" class="text-zinc-400 hover:text-zinc-800">Turn Off Camera</button>
                 </div>
-                <div id="qr-camera-reader" class="w-full bg-zinc-900 rounded-xl overflow-hidden min-h-[190px] flex items-center justify-center text-xs text-zinc-400">Initializing camera...</div>
+                <div id="qr-camera-reader" class="w-full bg-zinc-900 rounded-xl overflow-hidden min-h-[180px] flex items-center justify-center text-xs text-zinc-400">Initializing camera...</div>
             </div>
         `;
     } else {
@@ -1141,7 +1150,7 @@ async function startHtml5CameraStream(onDecodedCallback) {
         html5QrScanner = new Html5Qrcode('qr-camera-reader');
         await html5QrScanner.start(
             { facingMode: 'environment' },
-            { fps: 10, qrbox: { width: 200, height: 200 } },
+            { fps: 10, qrbox: { width: 190, height: 190 } },
             async (decodedText) => {
                 await stopActiveQrCamera();
                 onDecodedCallback(decodedText.trim().toUpperCase());
@@ -2056,10 +2065,10 @@ function renderAdminEmployeeList() {
 function switchAdminSubTab(tab) {
     ['emp', 'params', 'records'].forEach(t => {
         document.getElementById(`admin-panel-${t}`).classList.add('hidden');
-        document.getElementById(`adm-sub-${t}`).className = 'px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200';
+        document.getElementById(`adm-sub-${t}`).className = 'px-3.5 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200';
     });
     document.getElementById(`admin-panel-${tab}`).classList.remove('hidden');
-    document.getElementById(`adm-sub-${tab}`).className = 'px-4 py-2 rounded-xl bg-zinc-900 text-white';
+    document.getElementById(`adm-sub-${tab}`).className = 'px-3.5 py-2 rounded-xl bg-zinc-900 text-white';
 }
 
 async function registerNewEmployee() {
@@ -2374,11 +2383,11 @@ function renderGroupedReport() {
     const roleFor = currentLoggedInUser ? `${currentLoggedInUser.full_name} (${currentLoggedInUser.role_designation})` : 'Cutting Department';
 
     const leftLogoHtml = resolvedMasLogoUrl
-        ? `<img src="${resolvedMasLogoUrl}" class="h-9 max-w-[150px] object-contain" alt="MAS">`
-        : `<span class="font-black text-zinc-900 text-sm tracking-tight uppercase">MAS HOLDINGS</span>`;
+        ? `<img src="${resolvedMasLogoUrl}" class="h-7 sm:h-9 max-w-[110px] sm:max-w-[150px] object-contain" alt="MAS">`
+        : `<span class="font-black text-zinc-900 text-xs sm:text-sm tracking-tight uppercase">MAS HOLDINGS</span>`;
     const rightLogoHtml = resolvedBodylineLogoUrl
-        ? `<img src="${resolvedBodylineLogoUrl}" class="h-9 max-w-[150px] object-contain ml-auto" alt="Bodyline">`
-        : `<span class="font-extrabold text-zinc-900 text-sm tracking-widest uppercase">BODYLINE</span>`;
+        ? `<img src="${resolvedBodylineLogoUrl}" class="h-7 sm:h-9 max-w-[110px] sm:max-w-[150px] object-contain ml-auto" alt="Bodyline">`
+        : `<span class="font-extrabold text-zinc-900 text-xs sm:text-sm tracking-widest uppercase">BODYLINE</span>`;
 
     const defaultTitles = {
         1: 'PATTERN BLOCKS & 3D MOLDS INVENTORY REPORT',
@@ -2395,7 +2404,7 @@ function renderGroupedReport() {
         bodyGroupsHtml = brands.map(brand => {
             const items = DB.pattern_assets.filter(p => p.brand_buyer === brand);
             return `
-                <div class="mb-5 border border-zinc-300 rounded-lg overflow-hidden">
+                <div class="mb-5 border border-zinc-300 rounded-lg overflow-x-auto">
                     <div class="bg-zinc-100 px-4 py-2 border-b border-zinc-300 flex justify-between items-center text-xs font-bold text-zinc-900">
                         <span>BRAND GROUP: ${brand.toUpperCase()}</span>
                         <span>Subtotal: ${items.length}</span>
@@ -2417,7 +2426,7 @@ function renderGroupedReport() {
         bodyGroupsHtml = lines.map(lineName => {
             const logs = DB.qc_inspection_logs.filter(l => l.production_line === lineName);
             return `
-                <div class="mb-5 border border-zinc-300 rounded-lg overflow-hidden">
+                <div class="mb-5 border border-zinc-300 rounded-lg overflow-x-auto">
                     <div class="bg-zinc-100 px-4 py-2 border-b border-zinc-300 flex justify-between text-xs font-bold">
                         <span>PRODUCTION LINE: ${lineName.toUpperCase()}</span>
                         <span>Logged Defects: ${logs.length}</span>
@@ -2442,7 +2451,7 @@ function renderGroupedReport() {
         bodyGroupsHtml = shifts.map(sh => {
             const rows = DB.shift_assignments.filter(a => a.shift_type === sh);
             return `
-                <div class="mb-5 border border-zinc-300 rounded-lg overflow-hidden">
+                <div class="mb-5 border border-zinc-300 rounded-lg overflow-x-auto">
                     <div class="bg-zinc-100 px-4 py-2 border-b border-zinc-300 flex justify-between text-xs font-bold">
                         <span>SHIFT: ${sh.toUpperCase()}</span>
                         <span>Subtotal: ${rows.length}</span>
@@ -2464,7 +2473,7 @@ function renderGroupedReport() {
         bodyGroupsHtml = cats.map(cat => {
             const items = DB.rmw_materials.filter(m => m.material_category === cat);
             return `
-                <div class="mb-5 border border-zinc-300 rounded-lg overflow-hidden">
+                <div class="mb-5 border border-zinc-300 rounded-lg overflow-x-auto">
                     <div class="bg-zinc-100 px-4 py-2 border-b border-zinc-300 flex justify-between text-xs font-bold">
                         <span>CATEGORY: ${cat.toUpperCase()}</span>
                         <span>Subtotal: ${items.length}</span>
@@ -2483,12 +2492,12 @@ function renderGroupedReport() {
     }
 
     canvas.innerHTML = `
-        <div class="border-b-2 border-zinc-900 pb-4 mb-5 grid grid-cols-3 items-center">
+        <div class="border-b-2 border-zinc-900 pb-4 mb-5 grid grid-cols-3 items-center gap-2">
             <div>${leftLogoHtml}</div>
             <div class="text-center">
-                <p class="text-[11px] font-black uppercase tracking-widest text-zinc-900">CDMS<span class="text-red-600">+</span> Report REP-0${repNo}</p>
-                <h2 class="text-base font-black text-zinc-900 uppercase mt-0.5">${customTitle || defaultTitles[repNo]}</h2>
-                <p class="text-[11px] text-zinc-500">Bodyline (Pvt) Ltd, Horana Plant 1</p>
+                <p class="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-zinc-900">CDMS<span class="text-red-600">+</span> Report REP-0${repNo}</p>
+                <h2 class="text-xs sm:text-base font-black text-zinc-900 uppercase mt-0.5">${customTitle || defaultTitles[repNo]}</h2>
+                <p class="text-[10px] sm:text-[11px] text-zinc-500">Bodyline (Pvt) Ltd, Horana Plant 1</p>
             </div>
             <div class="text-right">${rightLogoHtml}</div>
         </div>
@@ -2502,7 +2511,7 @@ function renderGroupedReport() {
 
         ${bodyGroupsHtml}
 
-        <div class="mt-6 pt-3 border-t border-zinc-200 flex justify-between items-center text-[10px] font-mono text-zinc-400">
+        <div class="mt-6 pt-3 border-t border-zinc-200 flex flex-wrap justify-between items-center gap-2 text-[10px] font-mono text-zinc-400">
             <span>CDMS+ AUTOMATED SYSTEM REPORT</span>
             <span>GENERATED FROM POSTGRESQL DATABASE</span>
         </div>

@@ -1,10 +1,17 @@
+/* Prevent any accidental horizontal page overflow on mobile/tablet */
+html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+
 /* Snappy, Zero-Lag Top Bar Logo Corner Glide */
 #top-bar-inner {
     transition: max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #top-bar-inner.compact-bar {
-    max-width: 360px;
+    max-width: 340px;
+    width: 100%;
 }
 
 #top-bar-inner.expanded-bar {
@@ -12,8 +19,16 @@
     width: 100%;
 }
 
+/* Hide scrollbars on horizontal mobile chip bars */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
 /* Minimalist Zen Control Buttons (Padlock & 1/0 Mode Switch) */
-/* Light = Locked / Normal System Mode (1) */
 .ctrl-btn-minimal-light {
     background-color: #ffffff !important;
     border: 1.5px solid #d4d4d8 !important;
@@ -25,7 +40,6 @@
     border-color: #18181b !important;
 }
 
-/* Dark Inverted = Unlocked / Sandbox Mode (0) */
 .ctrl-btn-minimal-dark {
     background-color: #18181b !important;
     border: 1.5px solid #18181b !important;
@@ -41,7 +55,7 @@
     border-radius: 12px;
     object-fit: cover;
     width: 100% !important;
-    max-height: 220px !important;
+    max-height: 200px !important;
     border: 1px solid #e4e4e7;
 }
 
