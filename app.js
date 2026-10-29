@@ -1,9 +1,16 @@
-// V7 Update
+// V8 Update
 // CDMS+ ENTERPRISE ENGINE DAY with0MS UNLOCK + BULK PHOTO & AUTO-ID
 
 const SUPABASE_URL = 'https://uvfmircbplfqkgkmzssb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_NZNswR7y9y-oSJIC-unRvw_wioNx760';
-const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const realSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const MODE_STORAGE_KEY = 'CDMS_ACTIVE_MODE'; // 'S' (System) or 'T' (Testing)
+const SANDBOX_DB_KEY = 'CDMS_TESTING_SANDBOX_DB';
+
+let systemOperatingMode = localStorage.getItem(MODE_STORAGE_KEY) || 'S';
+let resolvedMasLogoUrl = null;
+let resolvedBodylineLogoUrl = null;
 
 // EMPTY HEAD AVATAR & "NO DATA" ITEM PLACEHOLDER SVGS
 const DEFAULT_AVATAR_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
@@ -50,6 +57,172 @@ let DB = {
     immutable_audit_logs: []
 };
 
+// ============================================================================
+// 1. S (SYSTEM) vs T (TESTING SANDBOX) INTERCEPTOR PROXY
+// ============================================================================
+function saveSandboxDB() {
+    if (systemOperatingMode === 'T') {
+        localStorage.setItem(SANDBOX_DB_KEY, JSON.stringify(DB));
+    }
+}
+
+const AUTO_ID_COLS = {
+    shift_assignments: 'assignment_id',
+    pending_requests: 'request_id',
+    system_settings_audit: 'record_id',
+    department_communications: 'comm_id',
+    immutable_audit_logs: 'audit_id'
+};
+
+// Smart proxy: In 'S' mode, writes go to real Supabase. In 'T' mode, writes stay in temporary Sandbox!
+const supa = {
+    from: (tableName) => {
+        if (systemOperatingMode === 'S') {
+            return realSupa.from(tableName);
+        }
+        const key = tableName.toLowerCase();
+        return {
+            select: () => ({
+                order: () => ({
+                    limit: async () => ({ data: DB[key] || [], error: null }),
+                    then: (resolve) => resolve({ data: DB[key] || [], error: null })
+                }),
+                then: (resolve) => resolve({ data: DB[key] || [], error: null })
+            }),
+            insert: async (rows) => {
+                if (!DB[key]) DB[key] = [];
+                const idCol = AUTO_ID_COLS[key];
+                rows.forEach(r => {
+                    const copy = { ...r };
+                    if (idCol && !copy[idCol]) {
+                        copy[idCol] = DB[key].length > 0
+                            ? Math.max(...DB[key].map(x => Number(x[idCol]) || 0)) + 1
+                            : 1;
+                    }
+                    if (!copy.created_at) copy.created_at = new Date().toISOString();
+                    if (!copy.logged_timestamp) copy.logged_timestamp = new Date().toISOString();
+                    DB[key].unshift(copy);
+                });
+                saveSandboxDB();
+                return { data: rows, error: null };
+            },
+            update: (fields) => ({
+                eq: async (col, val) => {
+                    if (DB[key]) {
+                        DB[key].forEach(item => {
+                            if (String(item[col]) === String(val)) {
+                                Object.assign(item, fields);
+                            }
+                        });
+                        saveSandboxDB();
+                    }
+                    return { data: null, error: null };
+                }
+            }),
+            delete: () => ({
+                eq: async (col, val) => {
+                    if (DB[key]) {
+                        DB[key] = DB[key].filter(item => String(item[col]) !== String(val));
+                        saveSandboxDB();
+                    }
+                    return { data: null, error: null };
+                }
+            })
+        };
+    }
+};
+
+function updateModeButtonUI() {
+    const btn = document.getElementById('mode-switch-btn');
+    const letter = document.getElementById('mode-switch-letter');
+    const statusLbl = document.getElementById('db-status-label');
+    if (!btn || !letter) return;
+
+    if (systemOperatingMode === 'T') {
+        letter.innerText = 'T';
+        btn.classList.remove('mode-btn-system');
+        btn.classList.add('mode-btn-testing');
+        if (statusLbl) {
+            statusLbl.innerText = 'Testing Sandbox (T)';
+            statusLbl.className = 'text-[11px] text-red-500 font-mono font-bold';
+        }
+    } else {
+        letter.innerText = 'S';
+        btn.classList.remove('mode-btn-testing');
+        btn.classList.add('mode-btn-system');
+        if (statusLbl) {
+            statusLbl.innerText = 'System Mode (S)';
+            statusLbl.className = 'text-[11px] text-emerald-600 font-mono font-bold';
+        }
+    }
+}
+
+async function toggleSystemTestingMode() {
+    if (systemOperatingMode === 'S') {
+        // Switching S -> T: Clone clean live DB into temporary sandbox
+        await fetchLiveSupabaseIntoDB();
+        systemOperatingMode = 'T';
+        localStorage.setItem(MODE_STORAGE_KEY, 'T');
+        localStorage.setItem(SANDBOX_DB_KEY, JSON.stringify(DB));
+        updateModeButtonUI();
+        showToast('Testing Mode (T) Active: All changes are temporary and will not alter the main system.');
+    } else {
+        // Switching T -> S: Wipe all temporary testing data and restore clean live DB from Supabase
+        localStorage.removeItem(SANDBOX_DB_KEY);
+        systemOperatingMode = 'S';
+        localStorage.setItem(MODE_STORAGE_KEY, 'S');
+        updateModeButtonUI();
+        await fetchLiveSupabaseIntoDB();
+        showToast('System Mode (S) Restored: Temporary testing data wiped.');
+    }
+}
+
+// ============================================================================
+// 2. AUTOMATIC MULTI-FILENAME LOGO DETECTOR (CHECKS .png, .png.png, .jpg, .svg)
+// ============================================================================
+function probeImageCandidates(candidates, onFound) {
+    let idx = 0;
+    function tryNext() {
+        if (idx >= candidates.length) return;
+        const url = candidates[idx++];
+        const testImg = new Image();
+        testImg.onload = () => onFound(url);
+        testImg.onerror = () => tryNext();
+        testImg.src = url;
+    }
+    tryNext();
+}
+
+function resolveRepoLogos() {
+    const masCandidates = [
+        './mas-logo.png', './mas-logo.png.png', './mas-logo.jpg', './mas-logo.jpeg', './mas-logo.svg', './mas-logo.webp',
+        './MAS-logo.png', './mas.png', './MAS.png', './mas_logo.png', './MAS_logo.png'
+    ];
+    const bodylineCandidates = [
+        './bodyline-logo.png', './bodyline-logo.png.png', './bodyline-logo.jpg', './bodyline-logo.jpeg', './bodyline-logo.svg', './bodyline-logo.webp',
+        './Bodyline-logo.png', './bodyline.png', './Bodyline.png', './BODYLINE.png', './bodyline_logo.png'
+    ];
+
+    probeImageCandidates(masCandidates, (foundUrl) => {
+        resolvedMasLogoUrl = foundUrl;
+        const img = document.getElementById('top-mas-logo');
+        const fb = document.getElementById('top-mas-fallback');
+        if (img) { img.src = foundUrl; img.classList.remove('hidden'); }
+        if (fb) fb.classList.add('hidden');
+    });
+
+    probeImageCandidates(bodylineCandidates, (foundUrl) => {
+        resolvedBodylineLogoUrl = foundUrl;
+        const img = document.getElementById('top-bodyline-logo');
+        const fb = document.getElementById('top-bodyline-fallback');
+        if (img) { img.src = foundUrl; img.classList.remove('hidden'); }
+        if (fb) fb.classList.add('hidden');
+    });
+}
+
+// ============================================================================
+// 3. STATE VARIABLES & TOP BAR CONTROLLER
+// ============================================================================
 let vivaBypassUnlocked = false;
 let currentLoggedInUser = null;
 let currentMode = 'gateway';
@@ -59,13 +232,10 @@ let selectedOperatorForAssign = null;
 let supervisorPoolLineFilter = 'ALL';
 let activeCommTab = 'inbox';
 let mutexPollInterval = null;
-let isAuthBusy = false; // Prevents double-click spam on Unlock / Sign In
+let isAuthBusy = false;
 let lastToastMessage = '';
 let lastToastTime = 0;
 
-// ============================================================================
-// 1. TOP BAR STATE CONTROLLER (ZERO-LAG)
-// ============================================================================
 function setTopBarState(state) {
     const inner = document.getElementById('top-bar-inner');
     const divider = document.getElementById('top-bar-compact-divider');
@@ -107,39 +277,53 @@ function setTopBarState(state) {
 }
 
 // ============================================================================
-// 2. SUPABASE LIVE SYNC & IMMUTABLE AUDIT
+// 4. SUPABASE LIVE SYNC & SANDBOX SYNC
 // ============================================================================
+async function fetchLiveSupabaseIntoDB() {
+    const [
+        emp, pat, cad, rmw, qcd, shf, req, ord, qcl, sys, com, aud
+    ] = await Promise.all([
+        realSupa.from('employees').select('*').order('employee_id'),
+        realSupa.from('pattern_assets').select('*').order('asset_id'),
+        realSupa.from('cad_markers').select('*').order('cad_marker_id'),
+        realSupa.from('rmw_materials').select('*').order('material_code'),
+        realSupa.from('qc_defect_codes').select('*').order('defect_code'),
+        realSupa.from('shift_assignments').select('*').order('assignment_id', { ascending: false }),
+        realSupa.from('pending_requests').select('*').order('request_id', { ascending: false }),
+        realSupa.from('cutting_orders').select('*').order('order_id', { ascending: false }),
+        realSupa.from('qc_inspection_logs').select('*').order('qc_log_id', { ascending: false }),
+        realSupa.from('system_settings_audit').select('*').order('record_id', { ascending: false }),
+        realSupa.from('department_communications').select('*').order('comm_id', { ascending: false }),
+        realSupa.from('immutable_audit_logs').select('*').order('audit_id', { ascending: false }).limit(200)
+    ]);
+
+    if (emp.data) DB.employees = emp.data;
+    if (pat.data) DB.pattern_assets = pat.data;
+    if (cad.data) DB.cad_markers = cad.data;
+    if (rmw.data) DB.rmw_materials = rmw.data;
+    if (qcd.data) DB.qc_defect_codes = qcd.data;
+    if (shf.data) DB.shift_assignments = shf.data;
+    if (req.data) DB.pending_requests = req.data;
+    if (ord.data) DB.cutting_orders = ord.data;
+    if (qcl.data) DB.qc_inspection_logs = qcl.data;
+    if (sys.data) DB.system_settings_audit = sys.data;
+    if (com.data) DB.department_communications = com.data;
+    if (aud.data) DB.immutable_audit_logs = aud.data;
+}
+
 async function syncFromSupabase() {
     try {
-        const [
-            emp, pat, cad, rmw, qcd, shf, req, ord, qcl, sys, com, aud
-        ] = await Promise.all([
-            supa.from('employees').select('*').order('employee_id'),
-            supa.from('pattern_assets').select('*').order('asset_id'),
-            supa.from('cad_markers').select('*').order('cad_marker_id'),
-            supa.from('rmw_materials').select('*').order('material_code'),
-            supa.from('qc_defect_codes').select('*').order('defect_code'),
-            supa.from('shift_assignments').select('*').order('assignment_id', { ascending: false }),
-            supa.from('pending_requests').select('*').order('request_id', { ascending: false }),
-            supa.from('cutting_orders').select('*').order('order_id', { ascending: false }),
-            supa.from('qc_inspection_logs').select('*').order('qc_log_id', { ascending: false }),
-            supa.from('system_settings_audit').select('*').order('record_id', { ascending: false }),
-            supa.from('department_communications').select('*').order('comm_id', { ascending: false }),
-            supa.from('immutable_audit_logs').select('*').order('audit_id', { ascending: false }).limit(200)
-        ]);
-
-        if (emp.data) DB.employees = emp.data;
-        if (pat.data) DB.pattern_assets = pat.data;
-        if (cad.data) DB.cad_markers = cad.data;
-        if (rmw.data) DB.rmw_materials = rmw.data;
-        if (qcd.data) DB.qc_defect_codes = qcd.data;
-        if (shf.data) DB.shift_assignments = shf.data;
-        if (req.data) DB.pending_requests = req.data;
-        if (ord.data) DB.cutting_orders = ord.data;
-        if (qcl.data) DB.qc_inspection_logs = qcl.data;
-        if (sys.data) DB.system_settings_audit = sys.data;
-        if (com.data) DB.department_communications = com.data;
-        if (aud.data) DB.immutable_audit_logs = aud.data;
+        if (systemOperatingMode === 'T') {
+            const savedSandbox = localStorage.getItem(SANDBOX_DB_KEY);
+            if (savedSandbox) {
+                DB = JSON.parse(savedSandbox);
+            } else {
+                await fetchLiveSupabaseIntoDB();
+                localStorage.setItem(SANDBOX_DB_KEY, JSON.stringify(DB));
+            }
+        } else {
+            await fetchLiveSupabaseIntoDB();
+        }
 
         if (currentLoggedInUser) {
             const refreshed = DB.employees.find(e => e.employee_id === currentLoggedInUser.employee_id);
@@ -150,7 +334,7 @@ async function syncFromSupabase() {
         }
         updateCommUnreadBadge();
     } catch (err) {
-        console.error('Supabase Sync Error:', err);
+        console.error('Sync Error:', err);
     }
 }
 
@@ -171,10 +355,12 @@ async function writeImmutableAudit(actionVerb, targetEntity, targetId, snapshotO
 }
 
 // ============================================================================
-// 3. BOOT, DEDUPLICATED TOAST NOTIFICATIONS & IDLE TIMEOUT
+// 5. BOOT, DEDUPLICATED TOAST NOTIFICATIONS & IDLE TIMEOUT
 // ============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     setTopBarState('compact');
+    updateModeButtonUI();
+    resolveRepoLogos();
     document.getElementById('header-user-avatar').src = DEFAULT_AVATAR_SVG;
     document.getElementById('popover-user-avatar').src = DEFAULT_AVATAR_SVG;
     await syncFromSupabase();
@@ -214,18 +400,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 1000);
 });
 
-// ANTI-SPAM DEDUPLICATED NOTIFICATION (NEVER STACKS DUPLICATE MESSAGES)
 function showToast(msg, type = 'success') {
     const now = Date.now();
     if (msg === lastToastMessage && (now - lastToastTime) < 2500) {
-        return; // Block duplicate notification spam
+        return;
     }
     lastToastMessage = msg;
     lastToastTime = now;
 
     const container = document.getElementById('toast-container');
     if (!container) return;
-    container.innerHTML = ''; // Keep only 1 clean notification visible at a time
+    container.innerHTML = '';
 
     const t = document.createElement('div');
     const border = type === 'error' ? 'border-rose-600' : 'border-zinc-700';
@@ -296,7 +481,7 @@ function readAndCompressImage(fileInput, maxWidth = 360) {
 }
 
 // ============================================================================
-// 4. SMART AUTO-ID GENERATORS (MATCHING EXCEL SPREADSHEET LOGIC)
+// 6. SMART AUTO-ID GENERATORS
 // ============================================================================
 function getBrandPrefix(brandName) {
     const b = (brandName || '').toLowerCase();
@@ -339,7 +524,6 @@ function autoSuggestStyleCode() {
 }
 
 function autoGenerateEmployeeId() {
-    const dept = document.getElementById('reg-emp-dept')?.value || 'Cutting';
     const role = document.getElementById('reg-emp-role')?.value || '';
     const zone = document.getElementById('reg-emp-zone')?.value || '';
     const idInput = document.getElementById('reg-emp-id');
@@ -387,7 +571,7 @@ function getNextSequentialId(list, keyField, prefix) {
 }
 
 // ============================================================================
-// 5. INSTANT 0MS LOGIN & KIOSK UNLOCK (NO DOUBLE-CLICK SPAM)
+// 7. INSTANT 0MS LOGIN & KIOSK UNLOCK
 // ============================================================================
 function toggleVivaPadlock() {
     vivaBypassUnlocked = !vivaBypassUnlocked;
@@ -475,7 +659,6 @@ async function executeDepartmentLogin() {
     if (!vivaBypassUnlocked && !pass) return showToast('Please enter your password.', 'error');
 
     isAuthBusy = true;
-    // Instant 0ms screen transition (no waiting on network before opening workspace)
     closeModal('user-login-modal');
     currentLoggedInUser = emp;
     currentMode = 'portal';
@@ -512,7 +695,6 @@ async function executeKioskAuthAction() {
     closeModal('kiosk-auth-modal');
 
     if (kioskAuthMode === 'unlock') {
-        // Instant 0ms switch to Pattern Room Kiosk
         currentMode = 'terminal';
         currentLoggedInUser = null;
         document.getElementById('view-gateway').classList.add('hidden');
@@ -563,7 +745,7 @@ function returnToWelcomeScreenImmediate() {
 }
 
 // ============================================================================
-// 6. BULK & 1-CLICK PHOTO UPLOADERS (EMPLOYEES & PATTERN ITEMS)
+// 8. BULK & 1-CLICK PHOTO UPLOADERS
 // ============================================================================
 function triggerSingleRowPhotoUpload(targetType, targetId) {
     const fileInput = document.getElementById('single-row-photo-input');
@@ -658,7 +840,7 @@ async function resolveAvatarRequest(commId, empId, decision) {
 }
 
 // ============================================================================
-// 7. ROLE-ISOLATED WORKSPACE NAVIGATION
+// 9. ROLE-ISOLATED WORKSPACE NAVIGATION
 // ============================================================================
 function buildRoleIsolatedTabs(emp) {
     const id = emp.employee_id.toUpperCase();
@@ -741,7 +923,7 @@ function switchPortalView(viewKey) {
 }
 
 // ============================================================================
-// 8. GOOGLE-STYLE PATTERN ROOM
+// 10. GOOGLE-STYLE PATTERN ROOM
 // ============================================================================
 function handlePatternSearch() {
     const q = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -989,7 +1171,7 @@ function dismissMutexBar() {
 }
 
 // ============================================================================
-// 9. DEPARTMENT HEAD READ-ONLY OVERSIGHT PORTAL
+// 11. DEPARTMENT HEAD READ-ONLY OVERSIGHT PORTAL
 // ============================================================================
 async function renderDeptHeadPortal() {
     await syncFromSupabase();
@@ -1045,7 +1227,7 @@ async function renderDeptHeadPortal() {
 }
 
 // ============================================================================
-// 10. SUPERVISOR COMMAND & 7-DAY SHIFT MATRIX
+// 12. SUPERVISOR COMMAND & 7-DAY SHIFT MATRIX
 // ============================================================================
 function filterSupervisorPool(lineFilter) {
     supervisorPoolLineFilter = lineFilter;
@@ -1205,7 +1387,7 @@ async function resolveMutexTicket(reqId, decision) {
 }
 
 // ============================================================================
-// 11. DESIGN, CAD & PATTERN ROOM HUB (WITH AUTO-ID & 1-CLICK PHOTO UPLOAD)
+// 13. DESIGN, CAD & PATTERN ROOM HUB
 // ============================================================================
 async function renderDesignCadPortal() {
     await syncFromSupabase();
@@ -1336,7 +1518,7 @@ async function registerNewPatternAsset() {
 }
 
 // ============================================================================
-// 12. SEWING ORDERS & RMW WAREHOUSE DISPATCH
+// 14. SEWING ORDERS & RMW WAREHOUSE DISPATCH
 // ============================================================================
 async function renderSupplyPortal() {
     await syncFromSupabase();
@@ -1407,7 +1589,7 @@ async function dispatchRmwMaterial(matCode) {
 }
 
 // ============================================================================
-// 13. FLOOR QUALITY CONTROL (QC)
+// 15. FLOOR QUALITY CONTROL (QC)
 // ============================================================================
 async function renderQcPortal() {
     await syncFromSupabase();
@@ -1483,7 +1665,7 @@ async function resolveQcLog(logId, assetId) {
 }
 
 // ============================================================================
-// 14. DIGITAL TEAM ADMIN, BULK PHOTOS & AUTO-ID REGISTRATION
+// 16. DIGITAL TEAM ADMIN, BULK PHOTOS & AUTO-ID REGISTRATION
 // ============================================================================
 async function renderAdminPortal() {
     await syncFromSupabase();
@@ -1645,7 +1827,7 @@ async function deleteSystemParam(recId) {
 }
 
 // ============================================================================
-// 15. PROTOCOL COMMUNICATOR & APPROVAL ENGINE
+// 17. PROTOCOL COMMUNICATOR & APPROVAL ENGINE
 // ============================================================================
 function updateCommUnreadBadge() {
     if (!currentLoggedInUser) return;
@@ -1852,7 +2034,7 @@ async function resolveCommItem(commId, decision) {
 }
 
 // ============================================================================
-// 16. SYSTEM-GENERATED FORMAL A4 REPORTS (USES REPO ./mas-logo.png & ./bodyline-logo.png)
+// 18. SYSTEM-GENERATED FORMAL A4 REPORTS (REP-02 STRICTLY SHOWS LOGGED DEFECTS)
 // ============================================================================
 function switchReportMode(mode) {
     document.getElementById('reports-mgmt-container').classList.toggle('hidden', mode !== 'mgmt');
@@ -1867,7 +2049,7 @@ function populateReportGroupFilter() {
     const sel = document.getElementById('rep-group-filter');
     let groups = [];
     if (repNo === 1) groups = [...new Set(DB.pattern_assets.map(p => p.brand_buyer))];
-    else if (repNo === 2) groups = [...new Set(DB.qc_defect_codes.map(d => d.fault_category))];
+    else if (repNo === 2) groups = ['Line 1', 'Line 2', 'Line 3'];
     else if (repNo === 3) groups = ['Morning', 'Afternoon', 'Night'];
     else groups = ['CAD Tooling Material', 'Cutting Floor Fabric'];
 
@@ -1884,14 +2066,12 @@ function renderGroupedReport() {
     const nowStr = new Date().toLocaleString();
     const roleFor = currentLoggedInUser ? `${currentLoggedInUser.full_name} (${currentLoggedInUser.role_designation})` : 'Cutting Department';
 
-    const leftLogoHtml = `
-        <img src="./mas-logo.png" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');" class="h-9 max-w-[144px] object-contain" alt="MAS">
-        <span class="hidden font-black text-zinc-900 text-sm tracking-tight uppercase">MAS HOLDINGS</span>
-    `;
-    const rightLogoHtml = `
-        <img src="./bodyline-logo.png" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');" class="h-9 max-w-[144px] object-contain ml-auto" alt="Bodyline">
-        <span class="hidden font-extrabold text-zinc-900 text-sm tracking-widest uppercase">BODYLINE</span>
-    `;
+    const leftLogoHtml = resolvedMasLogoUrl
+        ? `<img src="${resolvedMasLogoUrl}" class="h-9 max-w-[150px] object-contain" alt="MAS">`
+        : `<span class="font-black text-zinc-900 text-sm tracking-tight uppercase">MAS HOLDINGS</span>`;
+    const rightLogoHtml = resolvedBodylineLogoUrl
+        ? `<img src="${resolvedBodylineLogoUrl}" class="h-9 max-w-[150px] object-contain ml-auto" alt="Bodyline">`
+        : `<span class="font-extrabold text-zinc-900 text-sm tracking-widest uppercase">BODYLINE</span>`;
 
     const defaultTitles = {
         1: 'PATTERN BLOCKS & 3D MOLDS INVENTORY REPORT',
@@ -1925,22 +2105,26 @@ function renderGroupedReport() {
             `;
         }).join('');
     } else if (repNo === 2) {
-        let cats = [...new Set(DB.qc_defect_codes.map(d => d.fault_category))];
-        if (filterVal !== 'ALL') cats = cats.filter(c => c === filterVal);
-        bodyGroupsHtml = cats.map(cat => {
-            const codes = DB.qc_defect_codes.filter(d => d.fault_category === cat);
+        // REP-02: STRICTLY READS ACTUAL LOGGED FLOOR DEFECTS (DB.qc_inspection_logs)
+        let lines = ['Line 1', 'Line 2', 'Line 3'];
+        if (filterVal !== 'ALL') lines = lines.filter(l => l === filterVal);
+        bodyGroupsHtml = lines.map(lineName => {
+            const logs = DB.qc_inspection_logs.filter(l => l.production_line === lineName);
             return `
                 <div class="mb-5 border border-zinc-300 rounded-lg overflow-hidden">
                     <div class="bg-zinc-100 px-4 py-2 border-b border-zinc-300 flex justify-between text-xs font-bold">
-                        <span>FAULT CATEGORY: ${cat.toUpperCase()}</span>
-                        <span>Subtotal: ${codes.length}</span>
+                        <span>PRODUCTION LINE: ${lineName.toUpperCase()}</span>
+                        <span>Logged Defects: ${logs.length}</span>
                     </div>
                     <table class="w-full text-left text-xs">
                         <thead class="bg-zinc-50 text-[10px] uppercase text-zinc-500 border-b border-zinc-200">
-                            <tr><th class="p-2">Code</th><th class="p-2">Symptom</th><th class="p-2">Severity</th><th class="p-2">Resolver</th><th class="p-2">Action</th></tr>
+                            <tr><th class="p-2">Log ID</th><th class="p-2">Asset ID</th><th class="p-2">Defect Code & Symptom</th><th class="p-2">Ruined Plies</th><th class="p-2">Inspector</th><th class="p-2">Resolver</th><th class="p-2">Status</th></tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-200">
-                            ${codes.map(c => `<tr><td class="p-2 font-mono font-bold">${c.defect_code}</td><td class="p-2">${c.defect_name_symptom}</td><td class="p-2">${c.severity_level}</td><td class="p-2">${c.assigned_resolver_role_id}</td><td class="p-2">${c.mandatory_system_action}</td></tr>`).join('')}
+                            ${logs.map(l => {
+                                const defObj = DB.qc_defect_codes.find(d => d.defect_code === l.defect_code);
+                                return `<tr><td class="p-2 font-mono font-bold">${l.qc_log_id}</td><td class="p-2 font-mono">${l.asset_id}</td><td class="p-2">${l.defect_code} (${defObj ? defObj.defect_name_symptom : ''})</td><td class="p-2">${l.ruined_ply_count}</td><td class="p-2">${l.inspector_id}</td><td class="p-2">${l.resolver_id}</td><td class="p-2 font-semibold">${l.resolution_status}</td></tr>`;
+                            }).join('') || '<tr><td colspan="7" class="p-3 text-zinc-400">No quality control defects registered for this line.</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -2007,7 +2191,7 @@ function renderGroupedReport() {
             <div><span class="text-zinc-400 block">Generated At</span><strong>${nowStr}</strong></div>
             <div><span class="text-zinc-400 block">Recipient</span><strong>${roleFor}</strong></div>
             <div><span class="text-zinc-400 block">Filter</span><strong>${filterVal}</strong></div>
-            <div><span class="text-zinc-400 block">Note</span><strong>${customNote || 'System Telemetry'}</strong></div>
+            <div><span class="text-zinc-400 block">Mode</span><strong>${systemOperatingMode === 'T' ? 'Testing Sandbox (T)' : 'System Telemetry (S)'}</strong></div>
         </div>
 
         ${bodyGroupsHtml}
@@ -2035,7 +2219,7 @@ function renderVisualDatabaseExplorer(tableName) {
     const rows = DB[tableName] || [];
     document.getElementById('vdb-table-title').innerText = `Table: ${tableName} (${rows.length} Rows)`;
     if (rows.length === 0) {
-        document.getElementById('vdb-table-rows').innerHTML = '<p class="text-zinc-400 py-6">0 rows (Clean Day-0 State).</p>';
+        document.getElementById('vdb-table-rows').innerHTML = '<p class="text-zinc-400 py-6">0 rows (Clean Unused State).</p>';
         return;
     }
     const cols = Object.keys(rows[0]);

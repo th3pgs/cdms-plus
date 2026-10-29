@@ -13,7 +13,7 @@
 </head>
 <body class="bg-zinc-50 text-zinc-900 antialiased min-h-screen flex flex-col font-sans relative overflow-x-hidden">
 
-    <!-- BOTTOM-LEFT INTERNAL NOTIFICATION CONTAINER (DEDUPLICATED) -->
+    <!-- BOTTOM-LEFT INTERNAL NOTIFICATION CONTAINER -->
     <div id="toast-container" class="fixed bottom-5 left-5 z-[220] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
 
     <!-- 15-MINUTE MUTEX LOCK BAR -->
@@ -30,24 +30,24 @@
     </div>
 
     <!-- ================================================================= -->
-    <!-- UNIFIED TOP BAR (BAKED-IN REPOSITORY LOGOS: ./mas-logo.png & ./bodyline-logo.png) -->
+    <!-- UNIFIED TOP BAR (MAS & BODYLINE LOGOS)                            -->
     <!-- ================================================================= -->
     <header id="unified-top-bar" class="sticky top-0 z-[180] pt-4 px-4 sm:px-8">
         <div id="top-bar-inner" class="mx-auto bg-white/95 backdrop-blur-md border border-zinc-200 shadow-sm rounded-2xl px-6 py-2.5 flex items-center justify-between compact-bar">
             
-            <!-- LEFT SLOT: MAS HOLDINGS LOGO (FROM REPO ./mas-logo.png) -->
+            <!-- LEFT SLOT: MAS HOLDINGS LOGO -->
             <div class="flex items-center h-9 shrink-0">
-                <img id="top-mas-logo" src="./mas-logo.png" onload="this.classList.remove('hidden'); document.getElementById('top-mas-fallback').classList.add('hidden');" onerror="this.classList.add('hidden'); document.getElementById('top-mas-fallback').classList.remove('hidden');" class="hidden h-8 sm:h-9 w-auto max-w-[144px] object-contain" alt="MAS">
+                <img id="top-mas-logo" src="" class="hidden h-8 sm:h-9 w-auto max-w-[150px] object-contain" alt="MAS">
                 <span id="top-mas-fallback" class="font-black text-zinc-900 text-xs sm:text-sm tracking-tight uppercase">MAS HOLDINGS</span>
             </div>
 
             <!-- CENTER DIVIDER (VISIBLE ONLY WHEN COMPACT ON WELCOME PAGE) -->
             <div id="top-bar-compact-divider" class="h-5 w-px bg-zinc-200 mx-6"></div>
 
-            <!-- RIGHT SLOT: BODYLINE LOGO (FROM REPO ./bodyline-logo.png) + SESSION CONTROLS -->
+            <!-- RIGHT SLOT: BODYLINE LOGO + SESSION CONTROLS -->
             <div class="flex items-center gap-3 shrink-0">
                 <div class="flex items-center h-9">
-                    <img id="top-bodyline-logo" src="./bodyline-logo.png" onload="this.classList.remove('hidden'); document.getElementById('top-bodyline-fallback').classList.add('hidden');" onerror="this.classList.add('hidden'); document.getElementById('top-bodyline-fallback').classList.remove('hidden');" class="hidden h-8 sm:h-9 w-auto max-w-[144px] object-contain" alt="Bodyline">
+                    <img id="top-bodyline-logo" src="" class="hidden h-8 sm:h-9 w-auto max-w-[150px] object-contain" alt="Bodyline">
                     <span id="top-bodyline-fallback" class="font-extrabold text-zinc-900 text-xs sm:text-sm tracking-widest uppercase">BODYLINE</span>
                 </div>
 
@@ -122,12 +122,21 @@
                 </div>
             </div>
 
-            <!-- BOTTOM BAR: BIG ICON-ONLY PADLOCK -->
+            <!-- BOTTOM BAR: PADLOCK + S/T SYSTEM/TESTING MODE SWITCH -->
             <div class="max-w-6xl mx-auto w-full flex justify-between items-center pt-4">
-                <button type="button" id="viva-padlock-btn" onclick="toggleVivaPadlock()" class="w-12 h-12 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-500 flex items-center justify-center transition-colors shadow-sm">
-                    <i id="viva-padlock-icon" class="ph-fill ph-lock-key text-2xl"></i>
-                </button>
-                <span id="db-status-label" class="text-[11px] text-zinc-400 font-mono">Online</span>
+                <div class="flex items-center gap-2.5">
+                    <!-- Padlock Button -->
+                    <button type="button" id="viva-padlock-btn" onclick="toggleVivaPadlock()" class="w-12 h-12 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-500 flex items-center justify-center transition-all shadow-sm">
+                        <i id="viva-padlock-icon" class="ph-fill ph-lock-key text-2xl"></i>
+                    </button>
+
+                    <!-- S (Green System Mode) / T (Glowing Red Testing Mode) Button -->
+                    <button type="button" id="mode-switch-btn" onclick="toggleSystemTestingMode()" class="w-12 h-12 rounded-xl border-2 border-emerald-500 bg-white text-emerald-600 font-black text-xl flex items-center justify-center transition-all mode-btn-system select-none">
+                        <span id="mode-switch-letter">S</span>
+                    </button>
+                </div>
+
+                <span id="db-status-label" class="text-[11px] text-zinc-400 font-mono">System Mode (S)</span>
             </div>
         </main>
 
@@ -265,7 +274,6 @@
         <!-- WORKSPACE 4: DESIGN, CAD & PATTERN ROOM HUB -->
         <main id="view-design-cad" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Style & CAD Marker with Auto-ID -->
                 <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Style & CAD Marker</h3>
@@ -309,7 +317,6 @@
                     </div>
                 </div>
 
-                <!-- Pattern Block & 3D Mold Registration with Auto-ID -->
                 <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Register Pattern Block or 3D Mold</h3>
@@ -344,7 +351,6 @@
                     </div>
                 </div>
 
-                <!-- Existing Items Photo Manager & Active CAD Markers -->
                 <div class="bg-white p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Pattern & CAD Inventory (Click Photo to Update)</h3>
                     <div id="cad-markers-mini-list" class="space-y-2 overflow-y-auto max-h-[500px] pr-1 custom-scroll"></div>
@@ -420,7 +426,7 @@
             </div>
         </main>
 
-        <!-- WORKSPACE 7: DIGITAL TEAM ADMIN & SUPPORT CONSOLE (WITH BULK PHOTO UPLOAD) -->
+        <!-- WORKSPACE 7: DIGITAL TEAM ADMIN & SUPPORT CONSOLE -->
         <main id="view-admin" class="hidden flex-1 flex-col p-4 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="bg-white p-5 rounded-2xl border border-zinc-200 mb-6">
                 <div class="flex flex-wrap gap-2 border-b border-zinc-200 pb-3 mb-5 text-xs font-semibold">
@@ -429,23 +435,19 @@
                     <button type="button" onclick="switchAdminSubTab('records')" id="adm-sub-records" class="px-4 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">3. Immutable System Audit Log</button>
                 </div>
 
-                <!-- Tab 1: Staff Directory, Auto-ID Registration, Inline Photo Edit & Bulk Photo Upload -->
                 <div id="admin-panel-emp" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="space-y-4">
-                        <!-- Bulk Profile Picture Uploader -->
                         <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 space-y-2.5">
                             <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Bulk Profile Photo Upload</h4>
-                            <p class="text-[11px] text-zinc-500">Select multiple photos named by Employee ID (e.g. <code class="font-mono bg-white px-1 rounded border">DH-01.jpg</code>, <code class="font-mono bg-white px-1 rounded border">CSE-01.png</code>) or use the <strong class="text-zinc-800">Photo</strong> button on any row on the right.</p>
+                            <p class="text-[11px] text-zinc-500">Select multiple photos named by Employee ID (e.g. <code class="font-mono bg-white px-1 rounded border">DH-01.jpg</code>) or click <strong class="text-zinc-800">Photo</strong> on any row on the right.</p>
                             <input id="bulk-emp-photos" type="file" accept="image/*" multiple onchange="handleBulkEmployeePhotos(this)" class="w-full text-xs text-zinc-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-900 file:text-white cursor-pointer">
                         </div>
 
-                        <!-- Pending Profile Photo Requests (For Support Team) -->
                         <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200">
                             <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2.5">Pending Staff Photo Approvals</h4>
                             <div id="support-avatar-requests-list" class="space-y-2 max-h-40 overflow-y-auto custom-scroll"></div>
                         </div>
 
-                        <!-- Register New Employee with Smart Auto-ID -->
                         <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-2.5">
                             <div class="flex justify-between items-center">
                                 <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Register New Employee</h4>
@@ -504,7 +506,6 @@
                     </div>
                 </div>
 
-                <!-- Tab 2: System Parameters Only (Logo Uploader Removed) -->
                 <div id="admin-panel-params" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-3 h-fit">
                         <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Add System Parameter</h4>
@@ -527,7 +528,6 @@
                     </div>
                 </div>
 
-                <!-- Tab 3: Immutable Audit Log -->
                 <div id="admin-panel-records" class="hidden flex flex-col gap-4">
                     <div class="flex justify-between items-center text-xs text-zinc-500">
                         <span>Permanent append-only audit log stored in PostgreSQL.</span>
