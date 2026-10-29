@@ -1,5 +1,5 @@
 // ============================================================================
-// CDMS+ ENTERPRISE ENGINE (ANIMATED TOP BAR + RED PLUS EDITION)
+// CDMS+ ENTERPRISE ENGINE (ANIMATED LOGOS + KIOSK AUTH + ZERO BROWSER POPUPS)
 // ============================================================================
 const SUPABASE_URL = 'https://uvfmircbplfqkgkmzssb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_NZNswR7y9y-oSJIC-unRvw_wioNx760';
@@ -22,66 +22,66 @@ let DB = {
 
 let vivaBypassUnlocked = false;
 let currentLoggedInUser = null;
-let currentMode = 'gateway';
+let currentMode = 'gateway'; // 'gateway', 'terminal', 'portal'
+let kioskAuthMode = 'unlock'; // 'unlock' or 'logout'
 let idleSecondsRemaining = 300;
 let selectedOperatorForAssign = null;
 let activeCommTab = 'inbox';
 let mutexPollInterval = null;
 
 // ============================================================================
-// 1. TOP BAR ANIMATION CONTROLLER (COMPACT VS EXPANDED CORNERS)
+// 1. TOP BAR & STAGE TRANSITION ANIMATION CONTROLLERS
 // ============================================================================
 function setTopBarState(state) {
     const inner = document.getElementById('top-bar-inner');
     const divider = document.getElementById('top-bar-compact-divider');
-    const centerLogo = document.getElementById('top-bar-center-logo');
     const sessionCtrls = document.getElementById('top-bar-session-controls');
     const profileWrap = document.getElementById('header-profile-wrapper');
     const subnav = document.getElementById('portal-subnav-bar');
 
     if (state === 'compact') {
-        // Welcome Page State: Small bar, MAS & Bodyline close together, no center CDMS+
         inner.classList.remove('expanded-bar');
         inner.classList.add('compact-bar');
         divider.classList.remove('hidden');
-        centerLogo.classList.remove('center-logo-expanded');
-        centerLogo.classList.add('center-logo-collapsed');
         sessionCtrls.classList.add('hidden');
         sessionCtrls.classList.remove('flex');
         subnav.classList.add('hidden');
     } else if (state === 'expanded-auth') {
-        // Login Modal State: Logos animate to corners, CDMS+ glides into center
         inner.classList.remove('compact-bar');
         inner.classList.add('expanded-bar');
         divider.classList.add('hidden');
-        centerLogo.classList.remove('center-logo-collapsed');
-        centerLogo.classList.add('center-logo-expanded');
         sessionCtrls.classList.add('hidden');
         sessionCtrls.classList.remove('flex');
         subnav.classList.add('hidden');
     } else if (state === 'expanded-terminal') {
-        // Pattern Room State: Logos in corners, CDMS+ in center, Sign Out button (No profile picture)
         inner.classList.remove('compact-bar');
         inner.classList.add('expanded-bar');
         divider.classList.add('hidden');
-        centerLogo.classList.remove('center-logo-collapsed');
-        centerLogo.classList.add('center-logo-expanded');
         sessionCtrls.classList.remove('hidden');
         sessionCtrls.classList.add('flex');
         profileWrap.classList.add('hidden');
         subnav.classList.add('hidden');
     } else if (state === 'expanded-portal') {
-        // Logged-In User State: Logos in corners, CDMS+ in center, Profile + Sign Out + Subnav visible
         inner.classList.remove('compact-bar');
         inner.classList.add('expanded-bar');
         divider.classList.add('hidden');
-        centerLogo.classList.remove('center-logo-collapsed');
-        centerLogo.classList.add('center-logo-expanded');
         sessionCtrls.classList.remove('hidden');
         sessionCtrls.classList.add('flex');
         profileWrap.classList.remove('hidden');
         subnav.classList.remove('hidden');
     }
+}
+
+function animateStageTransition(callback) {
+    const stage = document.getElementById('stage-wrapper');
+    if (!stage) { callback(); return; }
+    stage.classList.remove('view-stage-ready');
+    stage.classList.add('view-stage-switching');
+    setTimeout(() => {
+        callback();
+        stage.classList.remove('view-stage-switching');
+        stage.classList.add('view-stage-ready');
+    }, 220);
 }
 
 // ============================================================================
@@ -150,7 +150,7 @@ async function writeImmutableAudit(actionVerb, targetEntity, targetId, snapshotO
 }
 
 // ============================================================================
-// 3. BOOT, MODALS & 5-MINUTE IDLE PROCEDURE RESET
+// 3. BOOT & IDLE TIMEOUT RULES (KIOSK NEVER LOGS OUT ON IDLE)
 // ============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     setTopBarState('compact');
@@ -171,11 +171,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(() => {
         if (currentMode === 'gateway') return;
         idleSecondsRemaining--;
+
         if (idleSecondsRemaining <= 0) {
             idleSecondsRemaining = 300;
-            closeVerifyModal();
-            returnToWelcomeScreen();
-            showToast('Session timed out due to 5 minutes of inactivity.', 'error');
+
+            if (currentMode === 'terminal') {
+                // Pattern Room Kiosk stays signed in all day! Only close unfinished checkout pop-ups.
+                const verifyOpen = !document.getElementById('verify-modal').classList.contains('hidden');
+                if (verifyOpen) {
+                    closeVerifyModal();
+                    clearSearch();
+                    showToast('Unfinished checkout procedure reset due to inactivity.', 'error');
+                }
+            } else if (currentMode === 'portal') {
+                // Regular user portals sign out on 5-minute idle
+                closeVerifyModal();
+                returnToWelcomeScreen();
+                showToast('Session signed out due to 5 minutes of inactivity.', 'error');
+            }
         }
     }, 1000);
 });
@@ -199,9 +212,12 @@ function closeModal(id) {
 
 function closeLoginModal() {
     closeModal('user-login-modal');
-    if (currentMode === 'gateway') {
-        setTopBarState('compact');
-    }
+    if (currentMode === 'gateway') setTopBarState('compact');
+}
+
+function closeKioskAuthModal() {
+    closeModal('kiosk-auth-modal');
+    if (currentMode === 'gateway') setTopBarState('compact');
 }
 
 function closeVerifyModal() {
@@ -244,7 +260,7 @@ function readAndCompressImage(fileInput, maxWidth = 400) {
 }
 
 // ============================================================================
-// 4. BIG ICON-ONLY PADLOCK & DYNAMIC SIGN-IN MODAL
+// 4. BIG ICON-ONLY PADLOCK, STAFF LOGIN & PATTERN ROOM KIOSK PASSWORD MODAL
 // ============================================================================
 function toggleVivaPadlock() {
     vivaBypassUnlocked = !vivaBypassUnlocked;
@@ -261,7 +277,6 @@ function toggleVivaPadlock() {
 }
 
 function openUserLoginModal() {
-    // Animate Top Bar to corners and reveal CDMS+ in center
     setTopBarState('expanded-auth');
     document.getElementById('user-login-modal').classList.remove('hidden');
     const helper = document.getElementById('viva-login-helper');
@@ -345,22 +360,103 @@ async function executeDepartmentLogin() {
     if (!emp) return showToast('Employee ID not found.', 'error');
     if (!vivaBypassUnlocked && !pass) return showToast('Please enter your password.', 'error');
 
-    currentLoggedInUser = emp;
-    currentMode = 'portal';
     closeModal('user-login-modal');
 
-    document.getElementById('view-gateway').classList.add('hidden');
-    setTopBarState('expanded-portal');
-    document.getElementById('comm-floating-Dock').classList.remove('hidden');
-    updateProfileUI(emp);
-
-    buildRoleIsolatedTabs(emp);
-    await writeImmutableAudit('USER_LOGIN', 'Employees', emp.employee_id, { name: emp.full_name, role: emp.role_designation });
-    showToast(`Signed in as ${emp.full_name}`);
+    animateStageTransition(async () => {
+        currentLoggedInUser = emp;
+        currentMode = 'portal';
+        document.getElementById('view-gateway').classList.add('hidden');
+        setTopBarState('expanded-portal');
+        document.getElementById('comm-floating-Dock').classList.remove('hidden');
+        updateProfileUI(emp);
+        buildRoleIsolatedTabs(emp);
+        await writeImmutableAudit('USER_LOGIN', 'Employees', emp.employee_id, { name: emp.full_name, role: emp.role_designation });
+        showToast(`Signed in as ${emp.full_name}`);
+    });
 }
 
 // ============================================================================
-// 5. PROFILE PICTURE CHANGE REQUEST (PENCIL ICON -> SUPPORT TEAM APPROVAL)
+// 5. PATTERN ROOM KIOSK PASSWORD LOCK / UNLOCK (INTERNAL MODAL ONLY)
+// ============================================================================
+function promptPatternRoomAccess() {
+    setTopBarState('expanded-auth');
+    kioskAuthMode = 'unlock';
+    document.getElementById('kiosk-auth-title').innerText = 'Unlock Pattern Room Kiosk';
+    document.getElementById('kiosk-auth-submit-btn').innerText = 'Unlock Kiosk';
+    document.getElementById('kiosk-auth-password').value = '';
+    document.getElementById('kiosk-pass-wrapper').classList.toggle('hidden', vivaBypassUnlocked);
+    document.getElementById('kiosk-auth-modal').classList.remove('hidden');
+}
+
+async function executeKioskAuthAction() {
+    const pass = document.getElementById('kiosk-auth-password').value.trim();
+    if (!vivaBypassUnlocked && !pass) {
+        return showToast('Please enter the Pattern Room password.', 'error');
+    }
+
+    closeModal('kiosk-auth-modal');
+
+    if (kioskAuthMode === 'unlock') {
+        await syncFromSupabase();
+        animateStageTransition(async () => {
+            currentMode = 'terminal';
+            currentLoggedInUser = null;
+            document.getElementById('view-gateway').classList.add('hidden');
+            setTopBarState('expanded-terminal');
+            document.getElementById('comm-floating-Dock').classList.add('hidden');
+            document.getElementById('role-workspace-tabs').innerHTML = '';
+            hideAllMainViews();
+            document.getElementById('view-tracker').classList.remove('hidden');
+            renderPatternGrid();
+            await writeImmutableAudit('KIOSK_UNLOCKED', 'Pattern_Room', 'TERMINAL', { status: 'Unlocked for Shift' });
+            showToast('Pattern Room Kiosk unlocked.');
+        });
+    } else {
+        animateStageTransition(async () => {
+            await writeImmutableAudit('KIOSK_SIGNED_OUT', 'Pattern_Room', 'TERMINAL', { status: 'Signed Out' });
+            returnToWelcomeScreenImmediate();
+            showToast('Pattern Room Kiosk signed out.');
+        });
+    }
+}
+
+function triggerCredentialedLogout() {
+    if (currentMode === 'terminal') {
+        // Open internal website modal to verify Pattern Room password before signing out
+        kioskAuthMode = 'logout';
+        document.getElementById('kiosk-auth-title').innerText = 'Sign Out Pattern Room Kiosk';
+        document.getElementById('kiosk-auth-submit-btn').innerText = 'Confirm Sign Out';
+        document.getElementById('kiosk-auth-password').value = '';
+        document.getElementById('kiosk-pass-wrapper').classList.toggle('hidden', vivaBypassUnlocked);
+        document.getElementById('kiosk-auth-modal').classList.remove('hidden');
+        return;
+    }
+
+    animateStageTransition(() => {
+        returnToWelcomeScreenImmediate();
+        showToast('Signed out.');
+    });
+}
+
+function returnToWelcomeScreen() {
+    animateStageTransition(() => {
+        returnToWelcomeScreenImmediate();
+    });
+}
+
+function returnToWelcomeScreenImmediate() {
+    currentMode = 'gateway';
+    currentLoggedInUser = null;
+    hideAllMainViews();
+    closeProfilePopover();
+    closeCommDrawer();
+    setTopBarState('compact');
+    document.getElementById('comm-floating-Dock').classList.add('hidden');
+    document.getElementById('view-gateway').classList.remove('hidden');
+}
+
+// ============================================================================
+// 6. PROFILE PICTURE CHANGE REQUEST (PENCIL ICON -> SUPPORT TEAM APPROVAL)
 // ============================================================================
 async function submitAvatarChangeRequest(fileInput) {
     if (!currentLoggedInUser) return;
@@ -405,7 +501,7 @@ async function resolveAvatarRequest(commId, empId, decision) {
 }
 
 // ============================================================================
-// 6. ROLE-ISOLATED WORKSPACE NAVIGATION
+// 7. ROLE-ISOLATED WORKSPACE NAVIGATION (PATTERN ROOM KEPT ON KIOSK ONLY)
 // ============================================================================
 function buildRoleIsolatedTabs(emp) {
     const id = emp.employee_id.toUpperCase();
@@ -415,8 +511,7 @@ function buildRoleIsolatedTabs(emp) {
     if (id.startsWith('DH')) {
         tabs = [
             { key: 'dept-head', label: 'Overview' },
-            { key: 'reports', label: 'Reports' },
-            { key: 'tracker', label: 'Pattern Room' }
+            { key: 'reports', label: 'Reports' }
         ];
     } else if (id.startsWith('CSE') || id.startsWith('CS-')) {
         tabs = [
@@ -427,12 +522,11 @@ function buildRoleIsolatedTabs(emp) {
     } else if (id.startsWith('DDC') || id.startsWith('CAD')) {
         tabs = [
             { key: 'design-cad', label: 'Styles & CAD' },
-            { key: 'tracker', label: 'Pattern Room' }
+            { key: 'reports', label: 'Reports' }
         ];
     } else if (id.startsWith('PR-')) {
         tabs = [
             { key: 'design-cad', label: 'Register Items' },
-            { key: 'tracker', label: 'Pattern Room' },
             { key: 'reports', label: 'Reports' }
         ];
     } else if (id.startsWith('SDC') || id.startsWith('RMW')) {
@@ -461,21 +555,6 @@ function buildRoleIsolatedTabs(emp) {
     switchPortalView(tabs[0].key);
 }
 
-// ENTER DIGITAL PATTERN ROOM (TRIGGERS TOP BAR CORNER ANIMATION, NO PROFILE PICTURE)
-async function enterDigitalPatternRoom() {
-    await syncFromSupabase();
-    currentMode = 'terminal';
-    currentLoggedInUser = null;
-    document.getElementById('view-gateway').classList.add('hidden');
-    setTopBarState('expanded-terminal');
-    document.getElementById('comm-floating-Dock').classList.add('hidden');
-    document.getElementById('role-workspace-tabs').innerHTML = '';
-
-    hideAllMainViews();
-    document.getElementById('view-tracker').classList.remove('hidden');
-    renderPatternGrid();
-}
-
 function hideAllMainViews() {
     ['view-tracker', 'view-dept-head', 'view-supervisor', 'view-design-cad', 'view-supply', 'view-qc', 'view-admin', 'view-reports'].forEach(id => {
         document.getElementById(id).classList.add('hidden');
@@ -492,7 +571,10 @@ async function switchPortalView(viewKey) {
         activeBtn.className = 'role-tab px-3.5 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 text-white transition-all';
     }
 
-    document.getElementById(`view-${viewKey}`).classList.remove('hidden');
+    const targetEl = document.getElementById(`view-${viewKey}`);
+    targetEl.classList.remove('hidden');
+    targetEl.classList.add('fade-in');
+
     if (viewKey === 'tracker') renderPatternGrid();
     if (viewKey === 'dept-head') renderDeptHeadPortal();
     if (viewKey === 'supervisor') renderSupervisorPortal();
@@ -503,27 +585,8 @@ async function switchPortalView(viewKey) {
     if (viewKey === 'reports') { populateReportGroupFilter(); renderGroupedReport(); }
 }
 
-function triggerCredentialedLogout() {
-    if (currentMode === 'terminal' && !vivaBypassUnlocked) {
-        const pin = prompt('Enter Pattern Coordinator ID (PR-C-PC-01) to sign out terminal:', 'PR-C-PC-01');
-        if (!pin) return;
-    }
-    returnToWelcomeScreen();
-}
-
-function returnToWelcomeScreen() {
-    currentMode = 'gateway';
-    currentLoggedInUser = null;
-    hideAllMainViews();
-    closeProfilePopover();
-    closeCommDrawer();
-    setTopBarState('compact');
-    document.getElementById('comm-floating-Dock').classList.add('hidden');
-    document.getElementById('view-gateway').classList.remove('hidden');
-}
-
 // ============================================================================
-// 7. GOOGLE-STYLE PATTERN ROOM (ACTIVE TOP, NON-ACTIVE BELOW)
+// 8. GOOGLE-STYLE PATTERN ROOM (ACTIVE TOP, NON-ACTIVE BELOW)
 // ============================================================================
 function handlePatternSearch() {
     const q = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -566,7 +629,7 @@ function renderPatternCardHtml(p) {
             </div>
             <div class="px-4 py-2.5 bg-zinc-50 border-t border-zinc-100 flex justify-between items-center text-xs text-zinc-600">
                 <span>${p.storage_location}</span>
-                <span class="font-semibold text-zinc-900">View</span>
+                <span class="font-semibold text-zinc-900">Select</span>
             </div>
         </div>
     `;
@@ -601,20 +664,6 @@ function openScannerForAsset(assetId) {
     if (!asset) return;
     document.getElementById('verify-modal').classList.remove('hidden');
     const area = document.getElementById('modal-dynamic-area');
-
-    if (currentLoggedInUser && currentLoggedInUser.employee_id.startsWith('DH')) {
-        area.innerHTML = `
-            <div class="space-y-4">
-                <img src="${asset.image_url}" class="w-full h-48 object-cover rounded-xl border border-zinc-200">
-                <div>
-                    <span class="text-xs font-semibold text-zinc-500 uppercase">${asset.brand_buyer} / ${asset.tooling_type}</span>
-                    <h4 class="text-lg font-bold text-zinc-900">${asset.model_name} (${asset.asset_id})</h4>
-                    <p class="text-xs text-zinc-500 mt-1">Location: ${asset.storage_location} / Size: ${asset.size_category} / Status: <strong>${asset.operational_status}</strong></p>
-                </div>
-            </div>
-        `;
-        return;
-    }
 
     if (['Inspection Flagged', 'Decommissioned', 'Pending Removal'].includes(asset.operational_status)) {
         area.innerHTML = `
@@ -784,7 +833,7 @@ function dismissMutexBar() {
 }
 
 // ============================================================================
-// 8. DEPARTMENT HEAD READ-ONLY OVERSIGHT PORTAL
+// 9. DEPARTMENT HEAD READ-ONLY OVERSIGHT PORTAL
 // ============================================================================
 async function renderDeptHeadPortal() {
     await syncFromSupabase();
@@ -840,7 +889,7 @@ async function renderDeptHeadPortal() {
 }
 
 // ============================================================================
-// 9. SUPERVISOR COMMAND & 7-DAY SHIFT MATRIX
+// 10. SUPERVISOR COMMAND & 7-DAY SHIFT MATRIX
 // ============================================================================
 async function renderSupervisorPortal() {
     await syncFromSupabase();
@@ -984,7 +1033,7 @@ async function resolveMutexTicket(reqId, decision) {
 }
 
 // ============================================================================
-// 10. DESIGN, CAD & PATTERN ROOM HUB
+// 11. DESIGN, CAD & PATTERN ROOM HUB
 // ============================================================================
 async function renderDesignCadPortal() {
     await syncFromSupabase();
@@ -1111,7 +1160,7 @@ async function registerNewPatternAsset() {
 }
 
 // ============================================================================
-// 11. SEWING ORDERS & RMW WAREHOUSE DISPATCH
+// 12. SEWING ORDERS & RMW WAREHOUSE DISPATCH
 // ============================================================================
 async function renderSupplyPortal() {
     await syncFromSupabase();
@@ -1176,7 +1225,7 @@ async function dispatchRmwMaterial(matCode) {
 }
 
 // ============================================================================
-// 12. FLOOR QUALITY CONTROL (QC)
+// 13. FLOOR QUALITY CONTROL (QC)
 // ============================================================================
 async function renderQcPortal() {
     await syncFromSupabase();
@@ -1247,7 +1296,7 @@ async function resolveQcLog(logId, assetId) {
 }
 
 // ============================================================================
-// 13. DIGITAL TEAM ADMIN, SUPPORT PHOTO APPROVALS & 400x100 LOGOS
+// 14. DIGITAL TEAM ADMIN, SUPPORT PHOTO APPROVALS & 400x100 LOGOS
 // ============================================================================
 async function renderAdminPortal() {
     await syncFromSupabase();
@@ -1435,7 +1484,7 @@ function applyCustomLogosFromDB() {
 }
 
 // ============================================================================
-// 14. PROTOCOL COMMUNICATOR & APPROVAL ENGINE
+// 15. PROTOCOL COMMUNICATOR & APPROVAL ENGINE
 // ============================================================================
 function updateCommUnreadBadge() {
     if (!currentLoggedInUser) return;
@@ -1642,7 +1691,7 @@ async function resolveCommItem(commId, decision) {
 }
 
 // ============================================================================
-// 15. SYSTEM-GENERATED FORMAL A4 REPORTS & VISUAL DATABASE
+// 16. SYSTEM-GENERATED FORMAL A4 REPORTS & VISUAL DATABASE
 // ============================================================================
 function switchReportMode(mode) {
     document.getElementById('reports-mgmt-container').classList.toggle('hidden', mode !== 'mgmt');

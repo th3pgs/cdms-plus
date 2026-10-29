@@ -1,35 +1,45 @@
-.fade-in { animation: fadeIn 0.18s ease-out forwards; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+/* Smooth Modal & Notification Entrance */
+.modal-pop {
+    animation: modalPopIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes modalPopIn {
+    from { opacity: 0; transform: scale(0.95) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
 
-/* Unified Morphing Top Bar States */
+.fade-in {
+    animation: fadeIn 0.22s ease-out forwards;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Smooth Login & Logout View Transitions */
+#stage-wrapper {
+    transition: opacity 0.26s cubic-bezier(0.22, 1, 0.36, 1), transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.view-stage-ready {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+.view-stage-switching {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+}
+
+/* Unified Morphing Top Bar States (MAS & Bodyline Only) */
 #top-bar-inner {
-    transition: max-width 0.55s cubic-bezier(0.22, 1, 0.36, 1), padding 0.45s ease, border-radius 0.45s ease;
+    transition: max-width 0.55s cubic-bezier(0.22, 1, 0.36, 1), padding 0.45s ease, box-shadow 0.45s ease;
 }
 
 #top-bar-inner.compact-bar {
-    max-width: 380px;
+    max-width: 360px;
 }
 
 #top-bar-inner.expanded-bar {
     max-width: 1280px;
     width: 100%;
-}
-
-#top-bar-center-logo {
-    transition: max-width 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.center-logo-collapsed {
-    max-width: 0px;
-    opacity: 0;
-    transform: scale(0.75);
-    pointer-events: none;
-}
-
-.center-logo-expanded {
-    max-width: 220px;
-    opacity: 1;
-    transform: scale(1);
 }
 
 .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -38,7 +48,7 @@
 .custom-scroll::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
 
 .product-card {
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
 }
 .product-card:hover {
     transform: translateY(-2px);
