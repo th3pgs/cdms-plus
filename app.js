@@ -1,9 +1,39 @@
 // ============================================================================
-// CDMS+ ENTERPRISE ENGINE (ANIMATED LOGOS + KIOSK AUTH + ZERO BROWSER POPUPS)
+// CDMS+ ENTERPRISE ENGINE (NO-DATA PLACEHOLDERS + EMPTY HEAD + DIRECT TRANSITION)
 // ============================================================================
 const SUPABASE_URL = 'https://uvfmircbplfqkgkmzssb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_NZNswR7y9y-oSJIC-unRvw_wioNx760';
 const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// CLEAN SVG PLACEHOLDERS (EMPTY HEAD AVATAR & "NO DATA" ITEM PLACEHOLDER)
+const DEFAULT_AVATAR_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <rect width="120" height="120" fill="#E4E4E7"/>
+  <circle cx="60" cy="44" r="22" fill="#A1A1AA"/>
+  <path d="M20 112C20 88.804 37.9086 72 60 72C82.0914 72 100 88.804 100 112" fill="#A1A1AA"/>
+</svg>`);
+
+const NO_DATA_IMAGE_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260" fill="none">
+  <rect width="400" height="260" fill="#F4F4F5"/>
+  <rect x="150" y="78" width="100" height="68" rx="8" stroke="#A1A1AA" stroke-width="2" stroke-dasharray="4 4"/>
+  <line x1="166" y1="130" x2="234" y2="94" stroke="#D4D4D8" stroke-width="2"/>
+  <text x="200" y="176" text-anchor="middle" fill="#71717A" font-family="monospace, sans-serif" font-size="13" font-weight="bold" letter-spacing="2">NO DATA</text>
+</svg>`);
+
+function getAvatarUrl(url) {
+    if (!url || url.includes('unsplash.com') || url.includes('placehold.co')) {
+        return DEFAULT_AVATAR_SVG;
+    }
+    return url;
+}
+
+function getItemImageUrl(url) {
+    if (!url || url.includes('unsplash.com') || url.includes('placehold.co')) {
+        return NO_DATA_IMAGE_SVG;
+    }
+    return url;
+}
 
 let DB = {
     employees: [],
@@ -30,7 +60,7 @@ let activeCommTab = 'inbox';
 let mutexPollInterval = null;
 
 // ============================================================================
-// 1. TOP BAR & STAGE TRANSITION ANIMATION CONTROLLERS
+// 1. TOP BAR & DIRECT MODAL-TO-VIEW TRANSITION CONTROLLERS
 // ============================================================================
 function setTopBarState(state) {
     const inner = document.getElementById('top-bar-inner');
@@ -72,6 +102,35 @@ function setTopBarState(state) {
     }
 }
 
+// Swaps the underlying view FIRST, then smoothly dissolves the modal over the new screen
+function dissolveModalIntoView(modalId, setupNewViewFn) {
+    const modal = document.getElementById(modalId);
+    const stage = document.getElementById('stage-wrapper');
+
+    // 1. Prepare and display the new destination view behind the modal immediately
+    if (stage) {
+        stage.classList.remove('view-stage-ready');
+        stage.classList.add('view-stage-switching');
+    }
+    setupNewViewFn();
+
+    // 2. Dissolve the modal out while bringing the new view into focus
+    if (modal && !modal.classList.contains('hidden')) {
+        modal.classList.add('modal-fade-out');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('modal-fade-out');
+        }, 140);
+    }
+
+    requestAnimationFrame(() => {
+        if (stage) {
+            stage.classList.remove('view-stage-switching');
+            stage.classList.add('view-stage-ready');
+        }
+    });
+}
+
 function animateStageTransition(callback) {
     const stage = document.getElementById('stage-wrapper');
     if (!stage) { callback(); return; }
@@ -81,7 +140,7 @@ function animateStageTransition(callback) {
         callback();
         stage.classList.remove('view-stage-switching');
         stage.classList.add('view-stage-ready');
-    }, 220);
+    }, 140);
 }
 
 // ============================================================================
@@ -154,6 +213,8 @@ async function writeImmutableAudit(actionVerb, targetEntity, targetId, snapshotO
 // ============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     setTopBarState('compact');
+    document.getElementById('header-user-avatar').src = DEFAULT_AVATAR_SVG;
+    document.getElementById('popover-user-avatar').src = DEFAULT_AVATAR_SVG;
     await syncFromSupabase();
 
     ['click', 'keydown', 'touchstart'].forEach(evt => {
@@ -176,7 +237,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             idleSecondsRemaining = 300;
 
             if (currentMode === 'terminal') {
-                // Pattern Room Kiosk stays signed in all day! Only close unfinished checkout pop-ups.
                 const verifyOpen = !document.getElementById('verify-modal').classList.contains('hidden');
                 if (verifyOpen) {
                     closeVerifyModal();
@@ -184,7 +244,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     showToast('Unfinished checkout procedure reset due to inactivity.', 'error');
                 }
             } else if (currentMode === 'portal') {
-                // Regular user portals sign out on 5-minute idle
                 closeVerifyModal();
                 returnToWelcomeScreen();
                 showToast('Session signed out due to 5 minutes of inactivity.', 'error');
@@ -337,8 +396,7 @@ function morphDepartmentIconOnType(rawId) {
 }
 
 function updateProfileUI(emp) {
-    const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
-    const av = emp.avatar_url || defaultAvatar;
+    const av = getAvatarUrl(emp.avatar_url);
     document.getElementById('header-user-name').innerText = emp.full_name;
     document.getElementById('header-user-role').innerText = emp.role_designation;
     document.getElementById('header-user-avatar').src = av;
@@ -360,9 +418,8 @@ async function executeDepartmentLogin() {
     if (!emp) return showToast('Employee ID not found.', 'error');
     if (!vivaBypassUnlocked && !pass) return showToast('Please enter your password.', 'error');
 
-    closeModal('user-login-modal');
-
-    animateStageTransition(async () => {
+    // Swap view behind the modal FIRST, then dissolve modal directly into workspace
+    dissolveModalIntoView('user-login-modal', () => {
         currentLoggedInUser = emp;
         currentMode = 'portal';
         document.getElementById('view-gateway').classList.add('hidden');
@@ -370,13 +427,14 @@ async function executeDepartmentLogin() {
         document.getElementById('comm-floating-Dock').classList.remove('hidden');
         updateProfileUI(emp);
         buildRoleIsolatedTabs(emp);
-        await writeImmutableAudit('USER_LOGIN', 'Employees', emp.employee_id, { name: emp.full_name, role: emp.role_designation });
-        showToast(`Signed in as ${emp.full_name}`);
     });
+
+    await writeImmutableAudit('USER_LOGIN', 'Employees', emp.employee_id, { name: emp.full_name, role: emp.role_designation });
+    showToast(`Signed in as ${emp.full_name}`);
 }
 
 // ============================================================================
-// 5. PATTERN ROOM KIOSK PASSWORD LOCK / UNLOCK (INTERNAL MODAL ONLY)
+// 5. PATTERN ROOM KIOSK PASSWORD LOCK / UNLOCK (DIRECT TRANSITION)
 // ============================================================================
 function promptPatternRoomAccess() {
     setTopBarState('expanded-auth');
@@ -394,11 +452,9 @@ async function executeKioskAuthAction() {
         return showToast('Please enter the Pattern Room password.', 'error');
     }
 
-    closeModal('kiosk-auth-modal');
-
     if (kioskAuthMode === 'unlock') {
         await syncFromSupabase();
-        animateStageTransition(async () => {
+        dissolveModalIntoView('kiosk-auth-modal', () => {
             currentMode = 'terminal';
             currentLoggedInUser = null;
             document.getElementById('view-gateway').classList.add('hidden');
@@ -408,21 +464,20 @@ async function executeKioskAuthAction() {
             hideAllMainViews();
             document.getElementById('view-tracker').classList.remove('hidden');
             renderPatternGrid();
-            await writeImmutableAudit('KIOSK_UNLOCKED', 'Pattern_Room', 'TERMINAL', { status: 'Unlocked for Shift' });
-            showToast('Pattern Room Kiosk unlocked.');
         });
+        await writeImmutableAudit('KIOSK_UNLOCKED', 'Pattern_Room', 'TERMINAL', { status: 'Unlocked for Shift' });
+        showToast('Pattern Room Kiosk unlocked.');
     } else {
-        animateStageTransition(async () => {
-            await writeImmutableAudit('KIOSK_SIGNED_OUT', 'Pattern_Room', 'TERMINAL', { status: 'Signed Out' });
+        dissolveModalIntoView('kiosk-auth-modal', () => {
             returnToWelcomeScreenImmediate();
-            showToast('Pattern Room Kiosk signed out.');
         });
+        await writeImmutableAudit('KIOSK_SIGNED_OUT', 'Pattern_Room', 'TERMINAL', { status: 'Signed Out' });
+        showToast('Pattern Room Kiosk signed out.');
     }
 }
 
 function triggerCredentialedLogout() {
     if (currentMode === 'terminal') {
-        // Open internal website modal to verify Pattern Room password before signing out
         kioskAuthMode = 'logout';
         document.getElementById('kiosk-auth-title').innerText = 'Sign Out Pattern Room Kiosk';
         document.getElementById('kiosk-auth-submit-btn').innerText = 'Confirm Sign Out';
@@ -501,7 +556,7 @@ async function resolveAvatarRequest(commId, empId, decision) {
 }
 
 // ============================================================================
-// 7. ROLE-ISOLATED WORKSPACE NAVIGATION (PATTERN ROOM KEPT ON KIOSK ONLY)
+// 7. ROLE-ISOLATED WORKSPACE NAVIGATION
 // ============================================================================
 function buildRoleIsolatedTabs(emp) {
     const id = emp.employee_id.toUpperCase();
@@ -586,7 +641,7 @@ async function switchPortalView(viewKey) {
 }
 
 // ============================================================================
-// 8. GOOGLE-STYLE PATTERN ROOM (ACTIVE TOP, NON-ACTIVE BELOW)
+// 8. GOOGLE-STYLE PATTERN ROOM (NO-DATA PLACEHOLDERS UNLESS UPLOADED)
 // ============================================================================
 function handlePatternSearch() {
     const q = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -611,7 +666,7 @@ function renderPatternCardHtml(p) {
         <div onclick="openScannerForAsset('${p.asset_id}')" class="product-card bg-white rounded-2xl border border-zinc-200 overflow-hidden cursor-pointer flex flex-col justify-between">
             <div>
                 <div class="h-40 w-full bg-zinc-100 relative overflow-hidden border-b border-zinc-100">
-                    <img src="${p.image_url || 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=400&auto=format&fit=crop&q=80'}" class="w-full h-full object-cover" alt="${p.model_name}">
+                    <img src="${getItemImageUrl(p.image_url)}" class="w-full h-full object-cover" alt="${p.model_name}">
                     <span class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white/95 text-zinc-800 border border-zinc-200">${p.tooling_type}</span>
                     <span class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${badgeStyle(p.operational_status)}">${p.operational_status}</span>
                 </div>
@@ -664,11 +719,12 @@ function openScannerForAsset(assetId) {
     if (!asset) return;
     document.getElementById('verify-modal').classList.remove('hidden');
     const area = document.getElementById('modal-dynamic-area');
+    const itemImg = getItemImageUrl(asset.image_url);
 
     if (['Inspection Flagged', 'Decommissioned', 'Pending Removal'].includes(asset.operational_status)) {
         area.innerHTML = `
             <div class="text-center py-6 space-y-3">
-                <img src="${asset.image_url}" class="w-32 h-32 object-cover rounded-xl mx-auto border">
+                <img src="${itemImg}" class="w-40 h-28 object-cover rounded-xl mx-auto border">
                 <h4 class="text-base font-bold text-rose-600 uppercase">Item Restricted (${asset.operational_status})</h4>
                 <p class="text-xs text-zinc-600">${asset.asset_id} (${asset.model_name}) cannot be checked out.</p>
             </div>
@@ -679,7 +735,7 @@ function openScannerForAsset(assetId) {
     if (asset.operational_status === 'Active on Line') {
         area.innerHTML = `
             <div class="space-y-4 text-center">
-                <img src="${asset.image_url}" class="w-full h-44 object-cover rounded-xl border">
+                <img src="${itemImg}" class="w-full h-44 object-cover rounded-xl border">
                 <h4 class="text-lg font-bold text-zinc-900">${asset.asset_id} (${asset.model_name})</h4>
                 <p class="text-xs text-zinc-600">Checked out by: <strong>${asset.borrowed_by_id || 'Floor Staff'}</strong></p>
                 <button type="button" onclick="executeAssetReturn('${asset.asset_id}')" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-3 rounded-xl text-xs uppercase tracking-wider">
@@ -696,7 +752,7 @@ function openScannerForAsset(assetId) {
     area.innerHTML = `
         <div class="space-y-4">
             <div class="flex gap-3 items-center p-3 rounded-xl bg-zinc-50 border border-zinc-200">
-                <img src="${asset.image_url}" class="w-16 h-16 rounded-lg object-cover border">
+                <img src="${itemImg}" class="w-20 h-14 rounded-lg object-cover border">
                 <div>
                     <p class="text-xs font-medium text-zinc-500">${asset.brand_buyer} (${asset.style_code})</p>
                     <h4 class="text-base font-bold text-zinc-900">${asset.model_name} (${asset.asset_id})</h4>
@@ -719,7 +775,7 @@ function openScannerForAsset(assetId) {
                         return `
                             <button type="button" onclick="executeAssetBorrow('${asset.asset_id}', '${op.employee_id}')" class="w-full text-left p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-xs flex justify-between items-center transition-colors">
                                 <span class="flex items-center gap-2">
-                                    <img src="${op.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}" class="w-7 h-7 rounded-full object-cover">
+                                    <img src="${getAvatarUrl(op.avatar_url)}" class="w-7 h-7 rounded-full object-cover border border-zinc-300">
                                     <span><strong class="text-zinc-900">${op.full_name}</strong> <span class="text-zinc-400">(${op.employee_id})</span></span>
                                 </span>
                                 <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isSched ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${isSched ? 'Scheduled' : '15m Lock'}</span>
@@ -866,7 +922,7 @@ async function renderDeptHeadPortal() {
         const worker = DB.employees.find(e => e.employee_id === a.borrowed_by_id);
         return `
             <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-3 text-xs">
-                <img src="${a.image_url}" class="w-10 h-10 rounded-lg object-cover border">
+                <img src="${getItemImageUrl(a.image_url)}" class="w-12 h-9 rounded-lg object-cover border">
                 <div class="flex-1">
                     <p class="font-bold text-zinc-900">${a.model_name} (${a.asset_id})</p>
                     <p class="text-zinc-500">${worker ? worker.full_name : (a.borrowed_by_id || 'Assigned')} / ${a.shift_checkout || 'Morning'}</p>
@@ -932,7 +988,7 @@ async function renderSupervisorPortal() {
         const locked = selectedOperatorForAssign === op.employee_id;
         return `
             <div onclick="lockOperatorForCalendar('${op.employee_id}')" class="p-2 rounded-xl border ${locked ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-900'} cursor-pointer flex items-center gap-2 text-xs">
-                <img src="${op.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80'}" class="w-7 h-7 rounded-full object-cover shrink-0">
+                <img src="${getAvatarUrl(op.avatar_url)}" class="w-7 h-7 rounded-full object-cover shrink-0 border border-zinc-300">
                 <div class="truncate">
                     <p class="font-bold truncate">${op.full_name}</p>
                     <p class="text-[10px] opacity-70">${op.work_location_zone}</p>
@@ -1033,7 +1089,7 @@ async function resolveMutexTicket(reqId, decision) {
 }
 
 // ============================================================================
-// 11. DESIGN, CAD & PATTERN ROOM HUB
+// 11. DESIGN, CAD & PATTERN ROOM HUB (NO-DATA PLACEHOLDERS UNLESS UPLOADED)
 // ============================================================================
 async function renderDesignCadPortal() {
     await syncFromSupabase();
@@ -1048,7 +1104,7 @@ async function renderDesignCadPortal() {
 
     document.getElementById('cad-markers-mini-list').innerHTML = DB.cad_markers.map(m => `
         <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-3 text-xs">
-            <img src="${m.sketch_url || 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=120'}" class="w-12 h-12 rounded-lg object-cover border">
+            <img src="${getItemImageUrl(m.sketch_url)}" class="w-14 h-10 rounded-lg object-cover border">
             <div class="flex-1">
                 <p class="font-bold text-zinc-900">${m.model_name} (${m.style_code})</p>
                 <p class="text-[11px] text-zinc-500">${m.brand_buyer} / ${m.cad_marker_id} / ${m.cutting_floor_fabric_code}</p>
@@ -1087,7 +1143,7 @@ async function createStyleAndMarker() {
         cad_tooling_material_code: toolMat,
         cutting_floor_fabric_code: fabCode,
         marker_status: 'Approved',
-        sketch_url: uploadedImg || 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=400&auto=format&fit=crop&q=80'
+        sketch_url: uploadedImg || ''
     };
 
     const { error } = await supa.from('cad_markers').insert([newRow]);
@@ -1140,9 +1196,7 @@ async function registerNewPatternAsset() {
         size_category: size,
         storage_location: loc,
         operational_status: 'Available in Room',
-        image_url: uploadedImg || (type === 'Pattern Mold'
-            ? 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400&auto=format&fit=crop&q=80'
-            : 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=400&auto=format&fit=crop&q=80')
+        image_url: uploadedImg || ''
     };
 
     const { error } = await supa.from('pattern_assets').insert([newAsset]);
@@ -1309,7 +1363,7 @@ async function renderAdminPortal() {
     document.getElementById('support-avatar-requests-list').innerHTML = avatarReqs.map(r => `
         <div class="p-3 rounded-xl bg-white border border-zinc-200 flex items-center justify-between gap-3 text-xs">
             <div class="flex items-center gap-2.5">
-                <img src="${r.resolution_note}" class="w-10 h-10 rounded-full object-cover border border-zinc-300">
+                <img src="${getAvatarUrl(r.resolution_note)}" class="w-10 h-10 rounded-full object-cover border border-zinc-300">
                 <div>
                     <p class="font-bold text-zinc-900">${r.sender_name}</p>
                     <p class="text-[10px] text-zinc-500">${r.sender_id} / ${r.sender_role}</p>
@@ -1325,7 +1379,7 @@ async function renderAdminPortal() {
     document.getElementById('admin-emp-tbody').innerHTML = DB.employees.map(e => `
         <tr class="hover:bg-zinc-50">
             <td class="p-2.5 flex items-center gap-2.5">
-                <img src="${e.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80'}" class="w-7 h-7 rounded-full object-cover border">
+                <img src="${getAvatarUrl(e.avatar_url)}" class="w-7 h-7 rounded-full object-cover border border-zinc-300">
                 <div>
                     <p class="font-bold text-zinc-900">${e.full_name}</p>
                     <p class="text-[10px] text-zinc-500">${e.role_designation}</p>
@@ -1388,7 +1442,7 @@ async function registerNewEmployee() {
         role_designation: role,
         work_location_zone: zone,
         active_checkout_count: 0,
-        avatar_url: avatarData || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+        avatar_url: avatarData || ''
     };
 
     const { error } = await supa.from('employees').insert([newEmp]);
