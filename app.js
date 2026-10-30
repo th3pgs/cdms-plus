@@ -2,26 +2,11 @@
   Project: CDMS+ Application Script
   Version: v12
 
-  v12 Code Architecture & Sections:
-  - Section 1: Database Connection & Sandbox Mode (1 = Live DB, 0 = Sandbox Memory)
-  - Section 2: Placeholder Graphics & Logo Detector
-  - Section 3: Custom In-Site Dropdown Engine (Replaces Native OS Select Popups)
-  - Section 4: Top Bar Layout Controller (Responsive Header & Tab Visibility)
-  - Section 5: Supabase Data Sync & Audit Logging
-  - Section 6: Initialization, Notifications & Idle Reset
-  - Section 7: Lock / Unlock Quick Login Toggle & Authentication
-  - Section 8: Auto-ID Generators (Employees, Patterns, Orders, QC)
-  - Section 9: Photo Upload Handlers (Single & Bulk)
-  - Section 10: Role-Based Workspace Navigation
-  - Section 11: Pattern Room Catalog, Filters & QR Camera Scanner
-  - Section 12: Department Head Overview Portal
-  - Section 13: Supervisor Shift Matrix & Clearance Queue
-  - Section 14: Design, CAD & Pattern Room Hub
-  - Section 15: Sewing Cutting Orders & RMW Warehouse Dispatch
-  - Section 16: Quality Control (QC) Inspector Portal
-  - Section 17: Digital Team Admin & Support Console
-  - Section 18: Task & Approval Communicator Drawer
-  - Section 19: System Reports (A4 Print Engine) & Visual Database Explorer
+  v12 Changelog & Recent Additions:
+  - Added custom in-app dropdown menu engine (Section 3) so mobile/desktop never open browser OS select popups
+  - Fixed mobile/tablet top bar state switching (Section 4) so tabs never duplicate or clash on scroll
+  - Added Sandbox mode (1 = Live DB, 0 = Temporary Test Storage) in Section 1
+  - Added Lock / Unlock quick login toggle (authLockOpen) in Section 7
 */
 
 
@@ -144,7 +129,7 @@ const supa = {
     }
 };
 
-// Updates bottom-right status text: Mode 0 -> "Sandbox Online", Mode 1 + Locked -> "Online Secured", Mode 1 + Unlocked -> "Online Only"
+// Updates the bottom-right status text based on Padlock and 1/0 Sandbox state
 function updateGatewayStatusLabel() {
     const statusLbl = document.getElementById('db-status-label');
     if (!statusLbl) return;
@@ -175,7 +160,8 @@ function updateModeButtonUI() {
     updateGatewayStatusLabel();
 }
 
-async function toggleSystemTestingMode() {
+// Toggles between '1' (Live System) and '0' (Temporary Sandbox)
+async function toggleSandboxMode() {
     if (sandboxMode === '1') {
         await fetchLiveSupabaseIntoDB();
         sandboxMode = '0';
@@ -278,6 +264,7 @@ let activeCustomSelectEl = null;
 
 function refreshAllCustomSelects() {
     document.querySelectorAll('select').forEach(sel => {
+        // Hide the default browser select element
         sel.classList.add('c-select-hidden');
 
         let btn = sel.nextElementSibling;
@@ -335,6 +322,7 @@ function openCustomSelectMenu(selectEl, triggerBtn) {
     const isMobile = window.innerWidth < 640;
 
     if (isMobile) {
+        // Centered floating sheet on mobile phones so text is never cramped
         menu.style.left = '16px';
         menu.style.right = '16px';
         menu.style.width = 'auto';
@@ -345,6 +333,7 @@ function openCustomSelectMenu(selectEl, triggerBtn) {
             menu.style.top = `${Math.max(72, rect.top - 220)}px`;
         }
     } else {
+        // Anchored directly below the field on tablet/desktop
         const menuWidth = Math.max(rect.width, 220);
         const leftPos = Math.min(rect.left, window.innerWidth - menuWidth - 16);
         menu.style.width = `${menuWidth}px`;
@@ -379,7 +368,7 @@ function closeCustomSelectMenu() {
 
 
 // ============================================================================
-// SECTION 4: TOP BAR LAYOUT CONTROLLER (RESPONSIVE HEADER & TAB VISIBILITY)
+// SECTION 4: TOP BAR LAYOUT CONTROLLER
 // ============================================================================
 
 function setTopBarState(state) {
@@ -666,6 +655,7 @@ function readAndCompressImage(fileInput, maxWidth = 360) {
 // SECTION 7: LOCK / UNLOCK QUICK LOGIN TOGGLE & AUTHENTICATION
 // ============================================================================
 
+// Toggles the Padlock button on the Welcome screen (Locked vs Unlocked quick login)
 function toggleAuthLock() {
     authLockOpen = !authLockOpen;
     const icon = document.getElementById('auth-lock-icon');
@@ -1881,7 +1871,7 @@ async function resolveMutexTicket(reqId, decision) {
 
 
 // ============================================================================
-// SECTION 14: DESIGN, CAD & PATTERN ROOM HUB
+// SECTION 14: DESIGN, CAD & PATTERN ROOM REGISTRATION
 // ============================================================================
 
 async function renderDesignCadPortal() {
@@ -2016,7 +2006,7 @@ async function registerNewPatternAsset() {
 
 
 // ============================================================================
-// SECTION 15: SEWING ORDERS & RMW WAREHOUSE DISPATCH
+// SECTION 15: SEWING CUTTING ORDERS & RMW WAREHOUSE DISPATCH
 // ============================================================================
 
 async function renderSupplyPortal() {
@@ -2091,7 +2081,7 @@ async function dispatchRmwMaterial(matCode) {
 
 
 // ============================================================================
-// SECTION 16: QUALITY CONTROL (QC) INSPECTOR PORTAL
+// SECTION 16: QUALITY CONTROL DEFECT LOGGING
 // ============================================================================
 
 async function renderQcPortal() {

@@ -1,22 +1,14 @@
 <!--
   Project: CDMS+ (Cutting Department Management System)
   Organization: Bodyline (Pvt) Ltd - Horana Plant 1
-  Version: v12 (Production Release)
+  Version: v12
   
-  Code Architecture & Sections:
-  - Section 1: Notifications & In-App Custom Dropdown Engine
-  - Section 2: Sticky Top Bar (MAS & Bodyline Logos + Google-Style Account Popover)
-  - Section 3: Main View Stage & Welcome Gateway (Padlock Auth & 1/0 Sandbox Switch)
-  - Section 4: Pattern Room Kiosk & In-App Camera QR Scanner
-  - Section 5: Department Head Read-Only Oversight Portal
-  - Section 6: Supervisor Shift Matrix & 15-Min Clearance Queue (Full-Screen Support)
-  - Section 7: Design, CAD & Pattern Room Hub (Auto-ID & Photo Manager)
-  - Section 8: Sewing Orders & RMW Warehouse Dispatch
-  - Section 9: Floor Quality Control (QC) Inspector Portal & Severity Tiers
-  - Section 10: Digital Team Admin, Staff Directory, Bulk Photos & Trash Vault
-  - Section 11: System Reports (A4 Print Engine) & Visual Database Explorer
-  - Section 12: Task & Approval Communicator Drawer
-  - Section 13: Authentication, Password Reset & Kiosk Security Modals
+  v12 Changelog & Recent Additions:
+  - Fixed mobile/tablet sticky header layout and removed duplicate mobile nav tabs
+  - Added solid backdrop to sticky header so scrolling cards do not clash with top bar
+  - Replaced default browser select popups with custom in-app dropdown menus
+  - Added centered Lock/Unlock quick login toggle and 1/0 Sandbox mode switch on home screen
+  - Scoped 15-minute lock bar and QR camera permission card to Pattern Room view
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -40,11 +32,11 @@
 
 
     <!-- ================================================================= -->
-    <!-- SECTION 1: NOTIFICATIONS & CUSTOM DROPDOWN LAYER                  -->
+    <!-- SECTION 1: INTERNAL NOTIFICATIONS & CUSTOM DROPDOWN LAYER         -->
     <!-- ================================================================= -->
     <div id="toast-container" class="fixed bottom-4 left-4 right-4 sm:right-auto z-[260] flex flex-col gap-2 sm:max-w-sm w-auto pointer-events-none"></div>
 
-    <!-- Custom In-Site Dropdown Menu Container (replaces native OS select popup) -->
+    <!-- Custom In-Site Dropdown Menu Container (replaces native browser select popup) -->
     <div id="custom-select-backdrop" onclick="closeCustomSelectMenu()" class="hidden fixed inset-0 z-[240] bg-zinc-900/20 backdrop-blur-[1px] sm:bg-transparent sm:backdrop-blur-none"></div>
     <div id="custom-select-menu" class="hidden fixed z-[245] bg-white border border-zinc-300 rounded-2xl shadow-2xl overflow-hidden flex-col max-h-[280px]"></div>
 
@@ -62,10 +54,10 @@
                 <span id="top-mas-fallback" class="font-black text-zinc-900 text-xs sm:text-sm tracking-tight uppercase">MAS HOLDINGS</span>
             </div>
 
-            <!-- Center Divider (shown on Welcome screen) -->
-            <div id="top-bar-compact-divider" class="h-4 sm:h-5 w-px bg-zinc-200 mx-2 sm:mx-4 shrink-0"></div>
+            <!-- Center Divider (only shown on Welcome screen when bar is compact) -->
+            <div id="top-bar-compact-divider" class="h-5 w-px bg-zinc-200 mx-2 sm:mx-4 shrink-0"></div>
 
-            <!-- Center Navigation Tabs (Desktop & Tablet Landscape) -->
+            <!-- Center Navigation Tabs (Desktop & Tablet Landscape only, hidden on phones via CSS) -->
             <nav id="desktop-workspace-tabs" class="items-center gap-1 bg-zinc-100 p-1 rounded-xl border border-zinc-200/80 mx-2 overflow-x-auto no-scrollbar"></nav>
 
             <!-- Right: Bodyline Logo + Profile Avatar / Kiosk Sign Out -->
@@ -75,7 +67,7 @@
                     <span id="top-bodyline-fallback" class="font-extrabold text-zinc-900 text-xs sm:text-sm tracking-widest uppercase">BODYLINE</span>
                 </div>
 
-                <!-- Session Controls -->
+                <!-- Session Controls (Shown when logged in or inside Pattern Room) -->
                 <div id="top-bar-session-controls" class="hidden items-center gap-2 pl-2.5 border-l border-zinc-200 shrink-0">
                     
                     <!-- User Profile Avatar Button & Popover Window -->
@@ -121,7 +113,7 @@
             </div>
         </div>
 
-        <!-- Mobile-Only Workspace Tab Strip -->
+        <!-- Mobile-Only Workspace Tab Strip (Shown only on phones when logged in) -->
         <div id="portal-subnav-bar" class="max-w-7xl mx-auto mt-2">
             <nav id="role-workspace-tabs" class="bg-white border border-zinc-200 rounded-xl p-1 flex items-center gap-1 overflow-x-auto no-scrollbar shadow-sm"></nav>
         </div>
@@ -130,13 +122,17 @@
 
 
     <!-- ================================================================= -->
-    <!-- SECTION 3: MAIN VIEW STAGE & WELCOME GATEWAY                      -->
+    <!-- SECTION 3: MAIN VIEW CONTAINER                                    -->
     <!-- ================================================================= -->
     <div id="stage-wrapper" class="flex-1 flex flex-col w-full max-w-[100vw] overflow-x-hidden">
 
-        <!-- WELCOME SCREEN (GATEWAY) -->
+
+        <!-- ------------------------------------------------------------- -->
+        <!-- VIEW 3.1: WELCOME SCREEN (HOME GATEWAY)                       -->
+        <!-- Contains Lock/Unlock button and 1/0 Sandbox toggle            -->
+        <!-- ------------------------------------------------------------- -->
         <main id="view-gateway" class="flex-1 flex flex-col justify-between p-4 sm:p-8 bg-zinc-50">
-            <div class="max-w-xl mx-auto w-full my-auto py-6 sm:py-12 text-center">
+            <div class="max-w-xl mx-auto w-full my-auto py-8 sm:py-12 text-center">
                 <p class="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Bodyline (Pvt) Ltd</p>
                 <h1 class="text-5xl sm:text-7xl font-black tracking-tighter text-zinc-900 mb-8 sm:mb-10 select-none">
                     CDMS<span class="text-red-600 font-black">+</span>
@@ -154,19 +150,19 @@
                     </button>
                 </div>
 
-                <!-- Padlock & 1/0 Sandbox Switch (Centered below main entry buttons) -->
+                <!-- Lock/Unlock Button & 1/0 Sandbox Switch (Centered below main buttons) -->
                 <div class="mt-6 sm:mt-7 flex items-center justify-center gap-3">
                     <button type="button" id="auth-lock-btn" onclick="toggleAuthLock()" title="Lock / Unlock Quick Login" class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-all ctrl-btn-minimal-light select-none">
                         <i id="auth-lock-icon" class="ph-fill ph-lock-key text-xl"></i>
                     </button>
 
-                    <button type="button" id="mode-switch-btn" onclick="toggleSystemTestingMode()" title="Switch Live System (1) / Testing Sandbox (0)" class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-mono font-bold text-lg flex items-center justify-center transition-all ctrl-btn-minimal-light select-none">
+                    <button type="button" id="mode-switch-btn" onclick="toggleSandboxMode()" title="Switch Live System (1) / Testing Sandbox (0)" class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-mono font-bold text-lg flex items-center justify-center transition-all ctrl-btn-minimal-light select-none">
                         <span id="mode-switch-letter">1</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Bottom-Right Status Label -->
+            <!-- Bottom-Right Connection & Security Status Label -->
             <div class="max-w-6xl mx-auto w-full flex justify-end items-center pt-2">
                 <span id="db-status-label" class="text-xs text-zinc-500 font-mono font-medium tracking-wide">Online Secured</span>
             </div>
@@ -174,9 +170,9 @@
 
 
 
-        <!-- ================================================================= -->
-        <!-- SECTION 4: PATTERN ROOM KIOSK (GOOGLE-STYLE SEARCH & QR SCANNER)  -->
-        <!-- ================================================================= -->
+        <!-- ------------------------------------------------------------- -->
+        <!-- VIEW 3.2: PATTERN ROOM KIOSK                                  -->
+        <!-- ------------------------------------------------------------- -->
         <main id="view-tracker" class="hidden flex-1 flex-col p-4 sm:p-8 max-w-6xl mx-auto w-full pb-28 relative">
             <div class="max-w-xl mx-auto w-full text-center mt-2 mb-8 sm:mb-10 relative">
                 <p class="text-xs font-black uppercase tracking-widest text-zinc-900">CDMS<span class="text-red-600">+</span></p>
@@ -264,9 +260,9 @@
 
 
 
-        <!-- ================================================================= -->
-        <!-- SECTION 5: DEPARTMENT HEAD OVERVIEW PORTAL                        -->
-        <!-- ================================================================= -->
+        <!-- ------------------------------------------------------------- -->
+        <!-- VIEW 3.3: DEPARTMENT HEAD OVERVIEW                            -->
+        <!-- ------------------------------------------------------------- -->
         <main id="view-dept-head" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 mb-5 flex flex-wrap justify-between items-center gap-3">
                 <div>
@@ -324,9 +320,9 @@
 
 
 
-        <!-- ================================================================= -->
-        <!-- SECTION 6: SUPERVISOR SHIFT MATRIX & CLEARANCES                   -->
-        <!-- ================================================================= -->
+        <!-- ------------------------------------------------------------- -->
+        <!-- VIEW 3.4: SUPERVISOR SHIFT MATRIX & CLEARANCES                -->
+        <!-- ------------------------------------------------------------- -->
         <main id="view-supervisor" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
                 <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col h-72">
@@ -362,7 +358,7 @@
 
             <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200">
                 <div class="flex flex-wrap justify-between items-center gap-2 mb-4 border-b border-zinc-100 pb-3">
-                    <h3 class="text-sm font-bold text-zinc-900">Weekly Shift Assignment</h3>
+                    <h3 class="text-sm font-bold text-zinc-900">Weekly Shift Assignment Matrix</h3>
                     <span class="text-xs text-zinc-400">Select an operator above, then tap any shift slot below</span>
                 </div>
                 <div id="calendar-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3"></div>
@@ -371,9 +367,9 @@
 
 
 
-        <!-- ================================================================= -->
-        <!-- SECTION 7: DESIGN, CAD & PATTERN ROOM HUB                         -->
-        <!-- ================================================================= -->
+        <!-- ------------------------------------------------------------- -->
+        <!-- VIEW 3.5: DESIGN, CAD & PATTERN ROOM REGISTRATION             -->
+        <!-- ------------------------------------------------------------- -->
         <main id="view-design-cad" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
@@ -462,9 +458,9 @@
 
 
 
-        <!-- ================================================================= -->
-        <!-- SECTION 8: SEWING ORDERS & RMW WAREHOUSE DISPATCH                 -->
-        <!-- ================================================================= -->
+        <!-- ------------------------------------------------------------- -->
+        <!-- VIEW 3.6: SEWING ORDERS & RMW DISPATCH                        -->
+        <!-- ------------------------------------------------------------- -->
         <main id="view-supply" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-4">
@@ -496,9 +492,9 @@
 
 
 
-        <!-- ================================================================= -->
-        <!-- SECTION 9: QUALITY CONTROL (QC) INSPECTOR PORTAL                  -->
-        <!-- ================================================================= -->
+        <!-- ------------------------------------------------------------- -->
+        <!-- VIEW 3.7: QUALITY CONTROL DEFECT LOGGING                      -->
+        <!-- ------------------------------------------------------------- -->
         <main id="view-qc" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
@@ -538,9 +534,9 @@
 
 
 
-        <!-- ================================================================= -->
-        <!-- SECTION 10: DIGITAL TEAM ADMIN & SUPPORT CONSOLE                  -->
-        <!-- ================================================================= -->
+        <!-- ------------------------------------------------------------- -->
+        <!-- VIEW 3.8: DIGITAL TEAM ADMIN & SUPPORT CONSOLE                -->
+        <!-- ------------------------------------------------------------- -->
         <main id="view-admin" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 mb-6">
                 <div class="flex flex-wrap gap-2 border-b border-zinc-200 pb-3 mb-5 text-xs font-semibold">
@@ -661,9 +657,9 @@
 
 
 
-        <!-- ================================================================= -->
-        <!-- SECTION 11: SYSTEM REPORTS & DATABASE EXPLORER                    -->
-        <!-- ================================================================= -->
+        <!-- ------------------------------------------------------------- -->
+        <!-- VIEW 3.9: SYSTEM REPORTS & DATABASE EXPLORER                  -->
+        <!-- ------------------------------------------------------------- -->
         <main id="view-reports" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="bg-white p-4 rounded-2xl border border-zinc-200 mb-5 flex flex-wrap justify-between items-center gap-3 no-print">
                 <div class="flex flex-wrap gap-2 text-xs font-semibold">
@@ -726,15 +722,44 @@
 
     </div>
 
-
-
-    <!-- ================================================================= -->
-    <!-- SECTION 12: MODALS & HIDDEN FILE INPUTS                           -->
-    <!-- ================================================================= -->
-
     <input id="single-row-photo-input" type="file" accept="image/*" class="hidden">
 
-    <!-- Modal 12.1: Staff Login Modal -->
+
+
+    <!-- ================================================================= -->
+    <!-- SECTION 4: REQUESTS & APPROVALS COMMUNICATOR DRAWER               -->
+    <!-- ================================================================= -->
+    <div id="comm-floating-Dock" class="hidden fixed bottom-4 right-4 z-[120]">
+        <button type="button" onclick="toggleCommDrawer()" id="comm-launcher-btn" class="bg-zinc-900 hover:bg-zinc-800 text-white px-4 py-3 rounded-full shadow-xl flex items-center gap-2 text-xs font-semibold transition-all">
+            <i class="ph-bold ph-chat-teardrop-text text-base"></i>
+            <span>Requests</span>
+            <span id="comm-unread-badge" class="px-2 py-0.5 rounded-full bg-zinc-700 text-white text-[10px]">0</span>
+        </button>
+
+        <div id="comm-drawer-window" class="hidden fixed inset-0 sm:inset-auto sm:bottom-4 sm:right-4 sm:w-[400px] sm:h-[520px] bg-white sm:rounded-2xl border border-zinc-300 shadow-2xl flex flex-col overflow-hidden z-[220]">
+            <div class="bg-zinc-900 text-white px-4 py-3.5 flex justify-between items-center shrink-0">
+                <h4 class="text-xs font-bold uppercase tracking-wider">Task & Approval Communicator</h4>
+                <button type="button" onclick="closeCommDrawer()" class="text-zinc-400 hover:text-white p-1"><i class="ph-bold ph-x text-lg"></i></button>
+            </div>
+
+            <div class="grid grid-cols-4 bg-zinc-100 border-b border-zinc-200 text-[11px] font-bold text-zinc-600 shrink-0">
+                <button type="button" onclick="switchCommTab('inbox')" id="comm-tab-inbox" class="py-2.5 border-b-2 border-zinc-900 text-zinc-900 bg-white">Inbox</button>
+                <button type="button" onclick="switchCommTab('compose')" id="comm-tab-compose" class="py-2.5 border-b-2 border-transparent hover:text-zinc-900">New</button>
+                <button type="button" onclick="switchCommTab('drafts')" id="comm-tab-drafts" class="py-2.5 border-b-2 border-transparent hover:text-zinc-900">Drafts</button>
+                <button type="button" onclick="switchCommTab('history')" id="comm-tab-history" class="py-2.5 border-b-2 border-transparent hover:text-zinc-900">History</button>
+            </div>
+
+            <div id="comm-body-content" class="flex-1 overflow-y-auto p-4 custom-scroll bg-zinc-50 text-xs"></div>
+        </div>
+    </div>
+
+
+
+    <!-- ================================================================= -->
+    <!-- SECTION 5: AUTHENTICATION & QR VERIFICATION MODALS                -->
+    <!-- ================================================================= -->
+
+    <!-- Modal 5.1: Staff Login Modal -->
     <div id="user-login-modal" onclick="if(event.target===this) closeLoginModal()" class="fixed inset-0 bg-zinc-900/40 backdrop-blur-md z-[210] flex items-center justify-center hidden p-3 sm:p-4">
         <div class="bg-white w-full max-w-md max-h-[88dvh] overflow-y-auto custom-scroll rounded-2xl border border-zinc-200 p-5 sm:p-7 shadow-2xl relative">
             <button type="button" onclick="closeLoginModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 p-1"><i class="ph-bold ph-x text-lg"></i></button>
@@ -749,6 +774,7 @@
                 <h3 id="login-dynamic-title" class="font-bold text-lg sm:text-xl text-zinc-900 mt-1">Staff Portal Sign In</h3>
             </div>
 
+            <!-- Quick Role Dropdown (Shown when Padlock on home screen is unlocked) -->
             <div id="quick-role-box" class="hidden mb-4">
                 <label class="text-xs font-semibold text-zinc-600 block mb-1.5">Select Position</label>
                 <select id="quick-role-select" onchange="onQuickRoleChange()" class="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold text-zinc-900 outline-none focus:border-zinc-900">
@@ -766,6 +792,7 @@
                 </select>
             </div>
 
+            <!-- Standard ID & Password Inputs -->
             <div id="standard-login-inputs" class="space-y-3">
                 <div>
                     <label class="text-xs font-semibold text-zinc-600 block mb-1">Employee ID</label>
@@ -783,7 +810,7 @@
         </div>
     </div>
 
-    <!-- Modal 12.2: Pattern Room Kiosk Password Modal -->
+    <!-- Modal 5.2: Pattern Room Kiosk Password Modal -->
     <div id="kiosk-auth-modal" onclick="if(event.target===this) closeKioskAuthModal()" class="fixed inset-0 bg-zinc-900/40 backdrop-blur-md z-[210] flex items-center justify-center hidden p-3 sm:p-4">
         <div class="bg-white w-full max-w-sm max-h-[88dvh] overflow-y-auto custom-scroll rounded-2xl border border-zinc-200 p-5 sm:p-7 shadow-2xl relative">
             <button type="button" onclick="closeKioskAuthModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 p-1"><i class="ph-bold ph-x text-lg"></i></button>
@@ -807,7 +834,7 @@
         </div>
     </div>
 
-    <!-- Modal 12.3: Item Details & QR Verification Modal -->
+    <!-- Modal 5.3: Item Details & QR Verification Modal -->
     <div id="verify-modal" onclick="if(event.target===this) closeVerifyModal()" class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-[210] flex items-center justify-center hidden p-3 sm:p-4">
         <div class="bg-white border border-zinc-200 w-full max-w-lg rounded-2xl flex flex-col overflow-hidden max-h-[88dvh] shadow-2xl">
             <div class="bg-zinc-50 px-5 py-3.5 border-b border-zinc-200 flex justify-between items-center shrink-0">
