@@ -3,7 +3,7 @@
   Version: v12
   
   v12 Changes:
-  - Fixed responsive header rules so desktop and mobile tab bars never appear together
+  - Fixed mobile/tablet sticky header layout and removed duplicate mobile nav tabs
   - Added styling for custom in-site dropdown menus (.c-select-btn & #custom-select-menu)
   - Styled Lock/Unlock and 1/0 Sandbox toggle buttons (.ctrl-btn-minimal-light / dark)
 */
@@ -46,7 +46,7 @@ html, body {
 }
 
 #top-bar-inner.compact-bar {
-    max-width: 420px;
+    max-width: 380px;
     width: 100%;
 }
 
