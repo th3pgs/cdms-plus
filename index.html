@@ -1,14 +1,17 @@
 <!--
   Project: CDMS+ (Cutting Department Management System)
   Organization: Bodyline (Pvt) Ltd - Horana Plant 1
-  Version: v12
+  Version: v13
   
-  v12 Changelog & Recent Additions:
-  - Fixed mobile/tablet sticky header layout and removed duplicate mobile nav tabs
-  - Added solid backdrop to sticky header so scrolling cards do not clash with top bar
-  - Replaced default browser select popups with custom in-app dropdown menus
-  - Added centered Lock/Unlock quick login toggle and 1/0 Sandbox mode switch on home screen
-  - Scoped 15-minute lock bar and QR camera permission card to Pattern Room view
+  v13 Changelog & Architectural Upgrades:
+  - Added Eye icon password reveal toggles across all password fields
+  - Added Forgot Password verification flow, Temp Password forced reset modal, and Admin Break-Glass recovery
+  - Separated Design (DDC), CAD (CADC), and Pattern Coordinator (PR) into distinct role-specific workspaces
+  - Separated Sewing Coordinator (SDC) and Raw Material Warehouse (RMW) into dedicated workspaces
+  - Separated Cutting Senior Executive (CSE) calendar oversight/challenge & order command routing from Supervisor (CS) shift assignment
+  - Added Full-Screen expand/minimize buttons to Clearance Tickets, Borrowed Items, Operator Pool, and Weekly Shift Assignment
+  - Added QC Inspector (QCI-C-01) login, QR pattern scanner, 3-tier difficulty selector (Minimum / Medium / High), and Executive receipt tracking
+  - Added Discard Vault (Soft-Delete & Restore) and separated Photo Editor from Admin Suspension/Removal & Dept Head Replacement
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -36,10 +39,12 @@
     <!-- ================================================================= -->
     <div id="toast-container" class="fixed bottom-4 left-4 right-4 sm:right-auto z-[260] flex flex-col gap-2 sm:max-w-sm w-auto pointer-events-none"></div>
 
-    <!-- Custom In-Site Dropdown Menu Container (replaces native browser select popup) -->
+    <!-- Custom In-Site Dropdown Menu Container -->
     <div id="custom-select-backdrop" onclick="closeCustomSelectMenu()" class="hidden fixed inset-0 z-[240] bg-zinc-900/20 backdrop-blur-[1px] sm:bg-transparent sm:backdrop-blur-none"></div>
     <div id="custom-select-menu" class="hidden fixed z-[245] bg-white border border-zinc-300 rounded-2xl shadow-2xl overflow-hidden flex-col max-h-[280px]"></div>
 
+    <!-- Backdrop for Fullscreen Expanded Panels -->
+    <div id="fullscreen-panel-backdrop" onclick="closeAllFullscreenPanels()" class="hidden fixed inset-0 z-[200] bg-zinc-900/50 backdrop-blur-xs"></div>
 
 
     <!-- ================================================================= -->
@@ -57,7 +62,7 @@
             <!-- Center Divider (only shown on Welcome screen when bar is compact) -->
             <div id="top-bar-compact-divider" class="h-5 w-px bg-zinc-200 mx-2 sm:mx-4 shrink-0"></div>
 
-            <!-- Center Navigation Tabs (Desktop & Tablet Landscape only, hidden on phones via CSS) -->
+            <!-- Center Navigation Tabs (Desktop & Tablet Landscape only) -->
             <nav id="desktop-workspace-tabs" class="items-center gap-1 bg-zinc-100 p-1 rounded-xl border border-zinc-200/80 mx-2 overflow-x-auto no-scrollbar"></nav>
 
             <!-- Right: Bodyline Logo + Profile Avatar / Kiosk Sign Out -->
@@ -67,7 +72,7 @@
                     <span id="top-bodyline-fallback" class="font-extrabold text-zinc-900 text-xs sm:text-sm tracking-widest uppercase">BODYLINE</span>
                 </div>
 
-                <!-- Session Controls (Shown when logged in or inside Pattern Room) -->
+                <!-- Session Controls -->
                 <div id="top-bar-session-controls" class="hidden items-center gap-2 pl-2.5 border-l border-zinc-200 shrink-0">
                     
                     <!-- User Profile Avatar Button & Popover Window -->
@@ -77,7 +82,7 @@
                         </button>
 
                         <!-- Account Popover Window -->
-                        <div id="profile-popover-menu" onclick="event.stopPropagation()" class="hidden fixed sm:absolute right-3 sm:right-0 top-[68px] sm:top-13 w-[calc(100vw-1.5rem)] max-w-[290px] bg-zinc-100 rounded-3xl border border-zinc-300 shadow-2xl p-4 z-[230]">
+                        <div id="profile-popover-menu" onclick="event.stopPropagation()" class="hidden fixed sm:absolute right-3 sm:right-0 top-[68px] sm:top-13 w-[calc(100vw-1.5rem)] max-w-[300px] bg-zinc-100 rounded-3xl border border-zinc-300 shadow-2xl p-4 z-[230]">
                             <div class="flex justify-between items-center mb-2.5 px-1">
                                 <span id="popover-user-id" class="font-mono text-xs font-bold text-zinc-600"></span>
                                 <button type="button" onclick="closeProfilePopover()" class="w-7 h-7 rounded-full hover:bg-zinc-200 text-zinc-600 flex items-center justify-center">
@@ -85,7 +90,7 @@
                                 </button>
                             </div>
 
-                            <div class="bg-white rounded-2xl p-4 flex flex-col items-center text-center border border-zinc-200/80 mb-3">
+                            <div class="bg-white rounded-2xl p-4 flex flex-col items-center text-center border border-zinc-200/80 mb-2.5">
                                 <div class="relative mb-2.5">
                                     <img id="popover-user-avatar" src="" class="w-16 h-16 rounded-full object-cover border border-zinc-300" alt="Profile">
                                     <label for="popover-avatar-input" title="Update Profile Photo" class="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-300 flex items-center justify-center cursor-pointer shadow-sm">
@@ -95,12 +100,19 @@
                                 </div>
                                 <p id="popover-user-name" class="text-sm font-bold text-zinc-900"></p>
                                 <p id="popover-user-role" class="text-xs text-zinc-500 mt-0.5"></p>
+                                <button type="button" onclick="requestOwnAvatarRemoval()" class="mt-2 text-[10px] font-semibold text-rose-600 hover:underline">Remove Current Profile Photo</button>
                             </div>
 
-                            <button type="button" onclick="triggerCredentialedLogout()" class="w-full bg-white hover:bg-zinc-200/70 text-zinc-900 border border-zinc-300 py-2.5 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm">
-                                <i class="ph-bold ph-sign-out text-base"></i>
-                                <span>Sign Out</span>
-                            </button>
+                            <div class="space-y-2">
+                                <button type="button" onclick="openPasswordChangeModal(false)" class="w-full bg-white hover:bg-zinc-200/70 text-zinc-900 border border-zinc-300 py-2 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm">
+                                    <i class="ph-bold ph-key text-sm"></i>
+                                    <span>Change My Password</span>
+                                </button>
+                                <button type="button" onclick="triggerCredentialedLogout()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white py-2.5 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm">
+                                    <i class="ph-bold ph-sign-out text-base"></i>
+                                    <span>Sign Out</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -113,7 +125,7 @@
             </div>
         </div>
 
-        <!-- Mobile-Only Workspace Tab Strip (Shown only on phones when logged in) -->
+        <!-- Mobile-Only Workspace Tab Strip -->
         <div id="portal-subnav-bar" class="max-w-7xl mx-auto mt-2">
             <nav id="role-workspace-tabs" class="bg-white border border-zinc-200 rounded-xl p-1 flex items-center gap-1 overflow-x-auto no-scrollbar shadow-sm"></nav>
         </div>
@@ -129,7 +141,6 @@
 
         <!-- ------------------------------------------------------------- -->
         <!-- VIEW 3.1: WELCOME SCREEN (HOME GATEWAY)                       -->
-        <!-- Contains Lock/Unlock button and 1/0 Sandbox toggle            -->
         <!-- ------------------------------------------------------------- -->
         <main id="view-gateway" class="flex-1 flex flex-col justify-between p-4 sm:p-8 bg-zinc-50">
             <div class="max-w-xl mx-auto w-full my-auto py-8 sm:py-12 text-center">
@@ -150,7 +161,7 @@
                     </button>
                 </div>
 
-                <!-- Lock/Unlock Button & 1/0 Sandbox Switch (Centered below main buttons) -->
+                <!-- Lock/Unlock Button & 1/0 Sandbox Switch -->
                 <div class="mt-6 sm:mt-7 flex items-center justify-center gap-3">
                     <button type="button" id="auth-lock-btn" onclick="toggleAuthLock()" title="Lock / Unlock Quick Login" class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-all ctrl-btn-minimal-light select-none">
                         <i id="auth-lock-icon" class="ph-fill ph-lock-key text-xl"></i>
@@ -181,7 +192,7 @@
                 <!-- Search Bar with Filter & QR Scan Icons -->
                 <div class="relative flex items-center w-full rounded-full bg-white border border-zinc-300 shadow-sm focus-within:border-zinc-900 focus-within:shadow-md transition-all">
                     <i class="ph-bold ph-magnifying-glass absolute left-4 sm:left-5 text-lg text-zinc-400"></i>
-                    <input type="text" id="searchInput" oninput="handlePatternSearch()" autocomplete="off" placeholder="" class="w-full py-3 sm:py-3.5 pl-11 sm:pl-12 pr-28 bg-transparent outline-none text-zinc-900 text-sm rounded-full">
+                    <input type="text" id="searchInput" oninput="handlePatternSearch()" autocomplete="off" placeholder="Search by Asset ID, Brand, Style or Rack..." class="w-full py-3 sm:py-3.5 pl-11 sm:pl-12 pr-28 bg-transparent outline-none text-zinc-900 text-sm rounded-full">
                     
                     <div class="absolute right-2.5 sm:right-3 flex items-center gap-1">
                         <button type="button" onclick="clearSearch()" id="clearBtn" title="Clear Search" class="w-8 h-8 rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 flex items-center justify-center hidden">
@@ -244,7 +255,7 @@
                 <i class="ph-bold ph-qr-code text-2xl"></i>
             </button>
 
-            <!-- 15-Minute Lock Status Bar (Pattern Room only) -->
+            <!-- 15-Minute Lock Status Bar -->
             <div id="mutex-bar" class="hidden fixed bottom-0 left-0 w-full bg-zinc-900 border-t border-zinc-700 text-white px-4 py-3 text-xs font-mono flex flex-wrap justify-between items-center gap-2 z-[140] shadow-2xl">
                 <div class="flex items-center gap-2">
                     <i class="ph-bold ph-spinner animate-spin text-zinc-300 text-base"></i>
@@ -267,9 +278,12 @@
             <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 mb-5 flex flex-wrap justify-between items-center gap-3">
                 <div>
                     <h2 class="text-base sm:text-lg font-bold text-zinc-900">Department Head Overview</h2>
-                    <p class="text-xs text-zinc-500">Live operational telemetry, active floor shifts, defect alerts, and approval requests.</p>
+                    <p class="text-xs text-zinc-500">Live operational telemetry, staff status reports from CDMS Admin, defect alerts, and executive approvals.</p>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" onclick="openDiscardVaultModal()" class="bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5">
+                        <i class="ph-bold ph-archive-box"></i> Discard Vault
+                    </button>
                     <button type="button" onclick="openCommDrawer('compose')" class="bg-zinc-900 hover:bg-zinc-800 text-white px-3.5 py-2 rounded-xl text-xs font-semibold">
                         Send Directive
                     </button>
@@ -297,14 +311,14 @@
                     <p id="dh-kpi-flagged" class="text-xl sm:text-2xl font-bold text-zinc-900 mt-1">0</p>
                 </div>
                 <div class="bg-white p-3.5 sm:p-4 rounded-xl border border-zinc-200 col-span-2 lg:col-span-1">
-                    <p class="text-[11px] sm:text-xs text-zinc-500">Pending Approvals</p>
+                    <p class="text-[11px] sm:text-xs text-zinc-500">Pending Approvals & Reports</p>
                     <p id="dh-kpi-approvals" class="text-xl sm:text-2xl font-bold text-zinc-900 mt-1">0</p>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-3 mb-3">Approval Queue</h3>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-3 mb-3">Approval Queue & Admin Reports</h3>
                     <div id="dh-approvals-list" class="space-y-3 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
                 </div>
                 <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col">
@@ -321,123 +335,249 @@
 
 
         <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.4: SUPERVISOR SHIFT MATRIX & CLEARANCES                -->
+        <!-- VIEW 3.4: SUPERVISOR vs SENIOR EXECUTIVE WORKSPACE            -->
         <!-- ------------------------------------------------------------- -->
         <main id="view-supervisor" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
+            
+            <!-- Role Mode Banner (Dynamically switches between Senior Executive Oversight vs Supervisor Execution) -->
+            <div id="sup-exec-mode-banner" class="bg-white p-4 rounded-2xl border border-zinc-200 mb-5 flex flex-wrap justify-between items-center gap-3"></div>
+
+            <!-- Senior Executive Order Verification & Command Forwarding Hub (Shown for CSE-01) -->
+            <div id="cse-command-hub" class="hidden bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 mb-6">
+                <div class="flex flex-wrap justify-between items-center gap-2 border-b border-zinc-100 pb-3 mb-4">
+                    <div>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-900">Senior Executive: Verify Sewing Cut Orders & Forward Commands to Supervisors</h3>
+                        <p class="text-[11px] text-zinc-500">Communicate with Sewing Coordinators, verify design/pattern readiness, and dispatch execution commands to Line Supervisors.</p>
+                    </div>
+                    <button type="button" onclick="openCommDrawer('compose', 'SDC-C-01', 'Line Directive')" class="bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 px-3 py-1.5 rounded-xl text-xs font-semibold">
+                        Message Sewing Coordinator
+                    </button>
+                </div>
+                <div id="cse-orders-verification-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto custom-scroll pr-1"></div>
+            </div>
+
+            <!-- Supervisor Cut Order Execution & Pattern Box Permission Hub (Shown for CS-L1-01) -->
+            <div id="sup-order-execution-hub" class="hidden bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 mb-6">
+                <div class="flex flex-wrap justify-between items-center gap-2 border-b border-zinc-100 pb-3 mb-4">
+                    <div>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-900">Supervisor Cut Command Execution & Pattern Box Clearance</h3>
+                        <p class="text-[11px] text-zinc-500">Schedule forwarded Senior Executive cut orders, assign operators, and tick Pattern Room Box Permission so workers are pre-cleared.</p>
+                    </div>
+                </div>
+                <div id="sup-forwarded-orders-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto custom-scroll pr-1"></div>
+            </div>
+
+            <!-- Top 3 Cards with Full-Screen Expand Buttons -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
-                <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col h-72">
-                    <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider border-b border-zinc-100 pb-2.5 mb-3 flex justify-between items-center">
-                        <span>15-Min Lock Clearance Tickets</span>
-                        <span id="ticket-count-badge" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 text-[11px]">0</span>
-                    </h3>
+                
+                <!-- Card 1: 15-Min Lock Clearance Tickets -->
+                <div id="panel-clearance-tickets" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col h-72 transition-all">
+                    <div class="border-b border-zinc-100 pb-2.5 mb-3 flex justify-between items-center gap-2">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider">15-Min Lock Clearance Tickets</h3>
+                            <span id="ticket-count-badge" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 text-[11px] font-bold">0</span>
+                        </div>
+                        <button type="button" onclick="togglePanelFullscreen('panel-clearance-tickets')" title="Full Screen / Minimize" class="w-7 h-7 rounded-lg bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-700 flex items-center justify-center transition-colors">
+                            <i class="ph-bold ph-corners-out text-sm"></i>
+                        </button>
+                    </div>
                     <div id="supervisor-queue-list" class="space-y-2.5 overflow-y-auto flex-1 pr-1 custom-scroll"></div>
                 </div>
 
-                <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col h-72">
-                    <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider border-b border-zinc-100 pb-2.5 mb-3 flex justify-between items-center">
-                        <span>Active Borrowed Items</span>
-                        <span id="active-deploy-badge" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 text-[11px]">0</span>
-                    </h3>
+                <!-- Card 2: Active Borrowed Items -->
+                <div id="panel-borrowed-items" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col h-72 transition-all">
+                    <div class="border-b border-zinc-100 pb-2.5 mb-3 flex justify-between items-center gap-2">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Active Borrowed Items</h3>
+                            <span id="active-deploy-badge" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 text-[11px] font-bold">0</span>
+                        </div>
+                        <button type="button" onclick="togglePanelFullscreen('panel-borrowed-items')" title="Full Screen / Minimize" class="w-7 h-7 rounded-lg bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-700 flex items-center justify-center transition-colors">
+                            <i class="ph-bold ph-corners-out text-sm"></i>
+                        </button>
+                    </div>
                     <div id="supervisor-active-list" class="space-y-2.5 overflow-y-auto flex-1 pr-1 custom-scroll"></div>
                 </div>
 
-                <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col h-72">
-                    <div class="flex justify-between items-center border-b border-zinc-100 pb-2 mb-2.5">
+                <!-- Card 3: Operator Pool -->
+                <div id="panel-operator-pool" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col h-72 transition-all">
+                    <div class="flex justify-between items-center border-b border-zinc-100 pb-2 mb-2.5 gap-2">
                         <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Operator Pool</span>
-                        <div class="flex gap-1 text-[10px] font-semibold">
-                            <button type="button" onclick="filterSupervisorPool('ALL')" class="px-2 py-0.5 rounded bg-zinc-900 text-white">All</button>
-                            <button type="button" onclick="filterSupervisorPool('Line 1')" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">L1</button>
-                            <button type="button" onclick="filterSupervisorPool('Line 2')" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">L2</button>
-                            <button type="button" onclick="filterSupervisorPool('Line 3')" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">L3</button>
+                        <div class="flex items-center gap-1">
+                            <div class="flex gap-1 text-[10px] font-semibold">
+                                <button type="button" onclick="filterSupervisorPool('ALL')" id="pool-filter-ALL" class="px-2 py-0.5 rounded bg-zinc-900 text-white">All</button>
+                                <button type="button" onclick="filterSupervisorPool('Line 1')" id="pool-filter-L1" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">L1</button>
+                                <button type="button" onclick="filterSupervisorPool('Line 2')" id="pool-filter-L2" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">L2</button>
+                                <button type="button" onclick="filterSupervisorPool('Line 3')" id="pool-filter-L3" class="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">L3</button>
+                            </div>
+                            <button type="button" onclick="togglePanelFullscreen('panel-operator-pool')" title="Full Screen / Minimize" class="w-7 h-7 rounded-lg bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-700 flex items-center justify-center transition-colors ml-1">
+                                <i class="ph-bold ph-corners-out text-sm"></i>
+                            </button>
                         </div>
                     </div>
-                    <p id="selected-op-indicator" class="text-[11px] text-zinc-400 mb-2">Tap Worker to Select</p>
+                    <p id="selected-op-indicator" class="text-[11px] text-zinc-500 font-medium mb-2">Tap Worker to Select</p>
                     <div id="operator-pool" class="grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto flex-1 pr-1 custom-scroll content-start"></div>
                 </div>
             </div>
 
-            <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200">
+            <!-- Weekly Shift Assignment Card (Shortened Title + Full-Screen Button) -->
+            <div id="panel-shift-calendar" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 transition-all">
                 <div class="flex flex-wrap justify-between items-center gap-2 mb-4 border-b border-zinc-100 pb-3">
-                    <h3 class="text-sm font-bold text-zinc-900">Weekly Shift Assignment Matrix</h3>
-                    <span class="text-xs text-zinc-400">Select an operator above, then tap any shift slot below</span>
+                    <div>
+                        <h3 class="text-sm font-bold text-zinc-900">Weekly Shift Assignment</h3>
+                        <p id="calendar-helper-subtitle" class="text-xs text-zinc-500">Past shifts are automatically locked. Tap a slot to assign or toggle off; tap the red trash button to remove.</p>
+                    </div>
+                    <button type="button" onclick="togglePanelFullscreen('panel-shift-calendar')" title="Full Screen / Minimize" class="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-800 text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                        <i class="ph-bold ph-corners-out text-sm"></i>
+                        <span>Full Screen</span>
+                    </button>
                 </div>
-                <div id="calendar-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3"></div>
+                <div id="calendar-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3 overflow-y-auto custom-scroll"></div>
             </div>
         </main>
 
 
 
         <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.5: DESIGN, CAD & PATTERN ROOM REGISTRATION             -->
+        <!-- VIEW 3.5: ROLE-ISOLATED DESIGN (DDC), CAD (CADC) & PATTERN (PR)-->
         <!-- ------------------------------------------------------------- -->
         <main id="view-design-cad" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
+            
+            <!-- Role Workflow Stage Banner -->
+            <div id="design-cad-role-banner" class="bg-white p-4 rounded-2xl border border-zinc-200 mb-5 flex flex-wrap justify-between items-center gap-3"></div>
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
+                
+                <!-- STAGE 1 PANEL: DESIGN DEPARTMENT COORDINATOR (DDC-C-01) -->
+                <div id="panel-role-design" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Style & CAD Marker</h3>
+                        <div>
+                            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-900 text-white">Stage 1: Design Dept</span>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-800 mt-1">Create Style Concept & Send to CAD</h3>
+                        </div>
                         <span id="next-cad-id-badge" class="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-100 text-zinc-800">CAD-MK-17</span>
                     </div>
+
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <select id="cad-brand-select" onchange="autoSuggestStyleCode()" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
-                        <input id="cad-style-code" type="text" placeholder="Style Code" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-mono">
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Buyer Brand</label>
+                            <select id="cad-brand-select" onchange="autoSuggestStyleCode()" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Style Code</label>
+                            <input id="cad-style-code" type="text" placeholder="e.g. TR-NEW-05" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-mono">
+                        </div>
                     </div>
-                    <input id="cad-model-name" type="text" placeholder="Model Name (e.g. Sculpt Contour Bra)" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <select id="cad-tooling-mat" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
-                            <option value="MAT-CRD-01">MAT-CRD-01 (Cardboard)</option>
-                            <option value="MAT-PLS-01">MAT-PLS-01 (3D Plastic)</option>
-                        </select>
-                        <select id="cad-fabric-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
-                    </div>
+
                     <div>
-                        <label class="text-[11px] font-semibold text-zinc-500 block mb-1">CAD / Style Picture (Optional)</label>
+                        <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Garment Model Name</label>
+                        <input id="cad-model-name" type="text" placeholder="e.g. Sculpt Contour Bra" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Target Tooling Material</label>
+                            <select id="cad-tooling-mat" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                                <option value="MAT-CRD-01">MAT-CRD-01 (Cardboard Block)</option>
+                                <option value="MAT-PLS-01">MAT-PLS-01 (3D Plastic Mold)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Cutting Floor Fabric ID</label>
+                            <select id="cad-fabric-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-[11px] font-semibold text-zinc-500 block mb-1">Design Sketch / Reference Photo (Optional)</label>
                         <input id="cad-sketch-file" type="file" accept="image/*" class="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-800">
                     </div>
+
                     <button type="button" onclick="createStyleAndMarker()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
-                        Save Style & CAD Marker
+                        Push Style Brief to CAD Department
                     </button>
 
-                    <div class="border-t border-zinc-100 pt-3 mt-1">
-                        <p class="text-xs font-bold text-zinc-700 mb-2">Add New Cloth Fabric Type</p>
-                        <div class="flex gap-2 mb-2">
-                            <input id="new-fabric-code" type="text" placeholder="FAB-TR-03" class="w-1/3 p-2 bg-zinc-50 border border-zinc-300 rounded-lg text-xs font-mono">
-                            <input id="new-fabric-specs" type="text" placeholder="Fabric Composition" class="flex-1 p-2 bg-zinc-50 border border-zinc-300 rounded-lg text-xs">
+                    <!-- Clear Explanation Box for Fabric ID & Catalog -->
+                    <div class="border-t border-zinc-200 pt-3 mt-1 bg-zinc-50/70 p-3 rounded-xl space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                            <p class="text-xs font-bold text-zinc-800">Register New Cloth Fabric Specification</p>
+                            <span class="px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-700 font-mono text-[9px]">RMW Catalog</span>
                         </div>
-                        <button type="button" onclick="designAddFabricDirect()" class="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-300 text-xs font-semibold py-2 rounded-lg">
-                            Add Fabric to Catalog
+                        <p class="text-[11px] text-zinc-500 leading-relaxed">
+                            <strong>How Fabric IDs work:</strong> <code class="font-mono bg-white px-1 border rounded">FAB-LL-01</code> means <strong>FAB</strong> (Fabric) + <strong>LL</strong> (Brand Prefix: LL=Lululemon, TR=Triumph, VS=Victoria's Secret) + <strong>01</strong> (Lot #). Entering a composition and clicking below adds the fabric roll type to the warehouse catalog for style linking.
+                        </p>
+                        <div class="flex gap-2">
+                            <input id="new-fabric-code" type="text" placeholder="e.g. FAB-LL-02" class="w-2/5 p-2 bg-white border border-zinc-300 rounded-lg text-xs font-mono uppercase">
+                            <input id="new-fabric-specs" type="text" placeholder="e.g. 80% Nylon / 20% Elastane" class="flex-1 p-2 bg-white border border-zinc-300 rounded-lg text-xs">
+                        </div>
+                        <button type="button" onclick="designAddFabricDirect()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2 rounded-lg">
+                            Add Fabric Specification to RMW Catalog
                         </button>
                     </div>
 
-                    <div class="border-t border-zinc-100 pt-3">
-                        <button type="button" onclick="openCommDrawer('compose', 'DT-C-CA-01', 'Parameter Request')" class="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 py-2 rounded-lg text-xs font-semibold">
-                            Request New Brand / Parameter from Admin
+                    <!-- Clear Explanation for Admin Parameter Request -->
+                    <div class="border-t border-zinc-100 pt-2">
+                        <p class="text-[11px] text-zinc-500 mb-1.5">Need a new Buyer Brand, Garment Size, or Rack added to the system dropdowns? Send a structured ticket to the Digital Team:</p>
+                        <button type="button" onclick="openParameterRequestHelper()" class="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 py-2 rounded-lg text-xs font-semibold">
+                            Request New Brand / Size / Rack from Admin
                         </button>
                     </div>
                 </div>
 
-                <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
+                <!-- STAGE 2 PANEL: CAD COORDINATOR QUEUE & MARKER PROCESSING (CADC-C-01) -->
+                <div id="panel-role-cad" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Register Pattern Block or 3D Mold</h3>
-                        <span class="text-[10px] text-zinc-400">Auto-ID Enabled</span>
+                        <div>
+                            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-900 text-white">Stage 2: CAD Room</span>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-800 mt-1">Process Design Briefs & Push to Pattern Room</h3>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-zinc-500">Verify incoming style briefs from the Design Department, finalize CAD marker plotting, and release approved markers to the Pattern Room for physical block/mold tagging.</p>
+                    <div id="cad-stage-pipeline-list" class="space-y-2.5 overflow-y-auto max-h-[520px] pr-1 custom-scroll flex-1"></div>
+                </div>
+
+                <!-- STAGE 3 PANEL: PATTERN ROOM COORDINATOR (PR-C-PC-01) -->
+                <div id="panel-role-pattern" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
+                    <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-900 text-white">Stage 3: Pattern Room</span>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-800 mt-1">Tag Pattern Block / 3D Mold for Line Workers</h3>
+                        </div>
+                        <span class="text-[10px] text-zinc-400 font-mono">Auto-ID</span>
+                    </div>
+                    <p class="text-[11px] text-zinc-500">Select an Approved CAD Marker below to register physical Pattern Blocks (PB) or 3D Molds (PM) into Pattern Room storage racks so cutting floor workers can borrow them.</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Approved CAD Style</label>
+                            <select id="pat-style-select" onchange="autoGeneratePatternAssetId()" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Tooling Type</label>
+                            <select id="pat-tooling-type" onchange="autoGeneratePatternAssetId()" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                                <option value="Pattern Block">Pattern Block (PB)</option>
+                                <option value="Pattern Mold">Pattern Mold (PM)</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <select id="pat-style-select" onchange="autoGeneratePatternAssetId()" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
-                        <select id="pat-tooling-type" onchange="autoGeneratePatternAssetId()" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
-                            <option value="Pattern Block">Pattern Block (PB)</option>
-                            <option value="Pattern Mold">Pattern Mold (PM)</option>
-                        </select>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Generated Asset ID</label>
+                            <input id="pat-asset-id" type="text" placeholder="Auto Asset ID" class="w-full p-2.5 bg-zinc-100 border border-zinc-300 rounded-xl text-xs font-mono font-bold text-zinc-900">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Garment Size</label>
+                            <select id="pat-size-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <input id="pat-asset-id" type="text" placeholder="Auto Asset ID" class="w-full p-2.5 bg-zinc-100 border border-zinc-300 rounded-xl text-xs font-mono font-bold text-zinc-900">
-                        <select id="pat-size-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
-                    </div>
-                    <select id="pat-rack-loc" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
                     <div>
-                        <label class="text-[11px] font-semibold text-zinc-500 block mb-1">Item Photo (Optional)</label>
+                        <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Pattern Room Storage Rack</label>
+                        <select id="pat-rack-loc" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-semibold text-zinc-500 block mb-1">Physical Tooling Photo (Optional)</label>
                         <input id="pat-photo-file" type="file" accept="image/*" class="w-full text-xs text-zinc-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-800">
                     </div>
                     <button type="button" onclick="registerNewPatternAsset()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
-                        Register Item & Generate QR
+                        Register Pattern Room Item & Generate QR
                     </button>
 
                     <div id="pattern-qr-preview-box" class="hidden p-3 bg-zinc-50 border border-zinc-200 rounded-xl flex items-center justify-between">
@@ -449,8 +589,14 @@
                     </div>
                 </div>
 
-                <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Pattern & CAD Inventory (Click Photo to Update)</h3>
+                <!-- INVENTORY & PHOTO / DISCARD MANAGER -->
+                <div id="panel-pattern-inventory-list" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
+                    <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Pattern Room Inventory & Photo Manager</h3>
+                        <button type="button" onclick="openDiscardVaultModal()" class="text-[11px] font-bold text-zinc-700 hover:text-zinc-900 underline flex items-center gap-1">
+                            <i class="ph-bold ph-archive-box"></i> Discard Vault
+                        </button>
+                    </div>
                     <div id="cad-markers-mini-list" class="space-y-2 overflow-y-auto max-h-[500px] pr-1 custom-scroll"></div>
                 </div>
             </div>
@@ -459,32 +605,73 @@
 
 
         <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.6: SEWING ORDERS & RMW DISPATCH                        -->
+        <!-- VIEW 3.6: ROLE-ISOLATED SEWING ORDERS vs RMW WAREHOUSE        -->
         <!-- ------------------------------------------------------------- -->
         <main id="view-supply" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-4">
+            
+            <!-- Supply Role Banner -->
+            <div id="supply-role-banner" class="bg-white p-4 rounded-2xl border border-zinc-200 mb-5 flex flex-wrap justify-between items-center gap-3"></div>
+
+            <div id="supply-grid-wrapper" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                
+                <!-- SEWING DEPARTMENT COORDINATOR WORKSPACE (SDC-C-01) -->
+                <div id="panel-sewing-workspace" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-4">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Sewing Department Cutting Orders</h3>
+                        <div>
+                            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-900 text-white">Sewing Department</span>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-800 mt-1">Request Cut Orders & Receive Cut Bundles</h3>
+                        </div>
                         <span id="next-order-id-badge" class="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-100 text-zinc-800">Next: ORD-001</span>
                     </div>
+                    <p class="text-[11px] text-zinc-500">Coordinate new designs with the Design Department, submit cut requests to the Cutting Senior Executive (`CSE-01`), and confirm receipt of bundled garment parts from the Cutting Bundling Unit.</p>
+                    
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <select id="sew-style-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
-                        <select id="sew-size" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
-                        <input id="sew-qty" type="number" placeholder="Bundle Qty (1200)" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
-                        <select id="sew-priority" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
-                            <option value="Normal">Normal Priority</option>
-                            <option value="Urgent">Urgent Priority</option>
-                        </select>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Approved Garment Style</label>
+                            <select id="sew-style-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Target Size</label>
+                            <select id="sew-size" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Bundle Quantity (Pieces)</label>
+                            <input id="sew-qty" type="number" placeholder="e.g. 1200" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Order Priority</label>
+                            <select id="sew-priority" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                                <option value="Normal">Normal Priority</option>
+                                <option value="Urgent">Urgent Priority</option>
+                            </select>
+                        </div>
                     </div>
-                    <button type="button" onclick="submitSewingOrder()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
-                        Submit Cutting Order
-                    </button>
-                    <div id="sewing-orders-list" class="space-y-2.5 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
+                    <input id="sew-order-notes" type="text" placeholder="Cut Specification Note for Senior Executive & Design (e.g. Match lace grain on front panel)" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button type="button" onclick="submitSewingOrder()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
+                            Send Cut Request to Senior Executive
+                        </button>
+                        <button type="button" onclick="openCommDrawer('compose', 'DDC-C-01', 'Line Directive')" class="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-300 text-xs font-semibold py-2.5 rounded-xl">
+                            Collaborate with Design Coordinator
+                        </button>
+                    </div>
+
+                    <div class="border-t border-zinc-100 pt-3">
+                        <h4 class="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">Active Cut Orders & Bundling Unit Delivery Pipeline</h4>
+                        <div id="sewing-orders-list" class="space-y-2.5 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
+                    </div>
                 </div>
 
-                <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-4">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5">Raw Material Warehouse (RMW) Dispatch</h3>
+                <!-- RAW MATERIAL WAREHOUSE COORDINATOR WORKSPACE (RMWC-C-01) -->
+                <div id="panel-rmw-workspace" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-4">
+                    <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-zinc-900 text-white">RMW Warehouse</span>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-800 mt-1">Raw Material Warehouse Lot Dispatch & Stock</h3>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-zinc-500">Exclusive control for RMW Warehouse Coordinator (`RMWC-C-01`): manage fabric rolls and CAD board lots, and dispatch materials to the Cutting Floor or CAD Room.</p>
                     <div id="rmw-materials-list" class="space-y-2.5 overflow-y-auto max-h-[460px] pr-1 custom-scroll"></div>
                 </div>
             </div>
@@ -493,41 +680,88 @@
 
 
         <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.7: QUALITY CONTROL DEFECT LOGGING                      -->
+        <!-- VIEW 3.7: QUALITY CONTROL (INSPECTOR vs EXECUTIVE)            -->
         <!-- ------------------------------------------------------------- -->
         <main id="view-qc" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
+            
+            <!-- QC Executive Line Inspection Command Dispatcher (Shown for CQCE-01, Banner shown for QCI-C-01) -->
+            <div id="qc-role-top-bar" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 mb-5"></div>
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                
+                <!-- Left Column: QC Inspector QR Scanner + Game-Difficulty Severity Selector -->
                 <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Log Floor Defect</h3>
+                        <div>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-800">Report Floor Defect</h3>
+                            <p class="text-[10px] text-zinc-500">Scan QR or pick item, choose severity tier, and submit to QC Executive</p>
+                        </div>
                         <span id="next-qc-id-badge" class="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-zinc-100 text-zinc-800">Next: QCL-001</span>
                     </div>
-                    <label class="text-xs font-semibold text-zinc-600">1. Target Item</label>
+
+                    <!-- Step 1: Scan Pattern QR or Select Manually -->
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-bold text-zinc-700">1. Target Pattern / Mold</label>
+                        <button type="button" onclick="toggleQcQrScanner()" class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-semibold flex items-center gap-1">
+                            <i class="ph-bold ph-qr-code"></i> Scan Pattern QR
+                        </button>
+                    </div>
+                    <div id="qc-qr-scanner-box" class="hidden p-3 rounded-xl bg-zinc-100 border border-zinc-300 space-y-2">
+                        <div id="qc-qr-camera-reader" class="w-full bg-zinc-900 rounded-xl overflow-hidden min-h-[150px] flex items-center justify-center text-xs text-zinc-400">Starting QR Scanner...</div>
+                        <button type="button" onclick="stopQcQrScanner()" class="w-full py-1.5 rounded-lg bg-zinc-200 text-zinc-800 text-xs font-semibold">Close Scanner</button>
+                    </div>
                     <select id="qc-asset-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
 
-                    <label class="text-xs font-semibold text-zinc-600">2. Defect Code</label>
+                    <!-- Step 2: Game-Difficulty Style Defect Severity Selector -->
+                    <label class="text-xs font-bold text-zinc-700 mt-1">2. Select Defect Severity Level</label>
+                    <div class="grid grid-cols-3 gap-1.5" id="qc-severity-tier-buttons">
+                        <button type="button" onclick="selectQcSeverityTier('Minimum')" id="qc-tier-Minimum" class="p-2 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-700 text-center transition-all">
+                            <span class="block text-[11px] font-black uppercase">Minimum</span>
+                            <span class="block text-[9px] opacity-75">Minor Log</span>
+                        </button>
+                        <button type="button" onclick="selectQcSeverityTier('Medium')" id="qc-tier-Medium" class="p-2 rounded-xl border border-zinc-900 bg-zinc-900 text-white text-center transition-all">
+                            <span class="block text-[11px] font-black uppercase">Medium</span>
+                            <span class="block text-[9px] opacity-75">Inspect Flag</span>
+                        </button>
+                        <button type="button" onclick="selectQcSeverityTier('High')" id="qc-tier-High" class="p-2 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-700 text-center transition-all">
+                            <span class="block text-[11px] font-black uppercase">High</span>
+                            <span class="block text-[9px] opacity-75">Line Cut-Off</span>
+                        </button>
+                    </div>
+
+                    <label class="text-xs font-bold text-zinc-700">3. Matching Defect Code</label>
                     <select id="qc-defect-select" onchange="previewDefectAction()" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
 
                     <div id="qc-action-preview" class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-zinc-700 space-y-1"></div>
 
+                    <!-- Step 4: Line, Involved Employee, Plies & Details -->
+                    <label class="text-xs font-bold text-zinc-700">4. Production Line & Employee Details</label>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <select id="qc-line-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                             <option value="Line 1">Cutting Line 1</option>
                             <option value="Line 2">Cutting Line 2</option>
                             <option value="Line 3">Cutting Line 3</option>
                         </select>
-                        <input id="qc-ruined-plies" type="number" placeholder="Ruined Plies (25)" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
+                        <input id="qc-ruined-plies" type="number" placeholder="Ruined Plies (e.g. 25)" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
                     </div>
+
+                    <select id="qc-employee-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
+                    <textarea id="qc-inspector-notes" rows="2" placeholder="Add inspection details (e.g. Frayed edge on ply 12, blade tension drift)..." class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs outline-none focus:border-zinc-900"></textarea>
+
                     <button type="button" onclick="submitQcDefectFlag()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-3 rounded-xl">
-                        Submit Defect Log
+                        Submit Defect Report Immediately
                     </button>
                 </div>
 
+                <!-- Right Column: Live Defect Queue & Receipt Confirmation -->
                 <div class="lg:col-span-2 bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col">
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5 mb-3">
-                        Logged QC Defect Records
-                    </h3>
-                    <div id="qc-logs-list" class="space-y-2.5 overflow-y-auto max-h-[480px] pr-1 custom-scroll"></div>
+                    <div class="flex flex-wrap justify-between items-center gap-2 border-b border-zinc-100 pb-2.5 mb-3">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                            Logged QC Defect Reports & Executive Receipt Status
+                        </h3>
+                        <span class="text-[11px] text-zinc-400">Inspector logs show live Executive acknowledgment status</span>
+                    </div>
+                    <div id="qc-logs-list" class="space-y-2.5 overflow-y-auto max-h-[540px] pr-1 custom-scroll"></div>
                 </div>
             </div>
         </main>
@@ -535,21 +769,27 @@
 
 
         <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.8: DIGITAL TEAM ADMIN & SUPPORT CONSOLE                -->
+        <!-- VIEW 3.8: DIGITAL TEAM ADMIN vs SUPPORT TEAM CONSOLE          -->
         <!-- ------------------------------------------------------------- -->
         <main id="view-admin" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 mb-6">
+                
+                <!-- Role Privilege Banner -->
+                <div id="admin-role-privilege-banner" class="mb-4 p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-wrap justify-between items-center gap-2"></div>
+
                 <div class="flex flex-wrap gap-2 border-b border-zinc-200 pb-3 mb-5 text-xs font-semibold">
-                    <button type="button" onclick="switchAdminSubTab('emp')" id="adm-sub-emp" class="px-3.5 py-2 rounded-xl bg-zinc-900 text-white">1. Staff Directory & Bulk Photos</button>
-                    <button type="button" onclick="switchAdminSubTab('params')" id="adm-sub-params" class="px-3.5 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">2. System Parameters</button>
-                    <button type="button" onclick="switchAdminSubTab('records')" id="adm-sub-records" class="px-3.5 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">3. System Audit Log</button>
+                    <button type="button" onclick="switchAdminSubTab('emp')" id="adm-sub-emp" class="px-3.5 py-2 rounded-xl bg-zinc-900 text-white">1. Staff Directory & Photo Editor</button>
+                    <button type="button" onclick="switchAdminSubTab('security')" id="adm-sub-security" class="px-3.5 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">2. Password Resets & Leadership</button>
+                    <button type="button" onclick="switchAdminSubTab('params')" id="adm-sub-params" class="px-3.5 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">3. System Parameters</button>
+                    <button type="button" onclick="switchAdminSubTab('records')" id="adm-sub-records" class="px-3.5 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">4. Audit Log & Discard Vault</button>
                 </div>
 
+                <!-- TAB 1: STAFF DIRECTORY & PHOTO EDITOR -->
                 <div id="admin-panel-emp" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="space-y-4">
                         <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 space-y-2.5">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Bulk Profile Photo Upload</h4>
-                            <p class="text-[11px] text-zinc-500">Select multiple photos named by Employee ID (e.g. <code class="font-mono bg-white px-1 rounded border">DH-01.jpg</code>) or click <strong class="text-zinc-800">Photo</strong> on any row on the right.</p>
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Bulk Profile Photo Editor</h4>
+                            <p class="text-[11px] text-zinc-500">Select photos named by Employee ID (e.g. <code class="font-mono bg-white px-1 rounded border">DH-01.jpg</code>) or use <strong class="text-zinc-800">Add/Update Photo</strong> & <strong class="text-zinc-800">Remove Photo</strong> on any row.</p>
                             <input id="bulk-emp-photos" type="file" accept="image/*" multiple onchange="handleBulkEmployeePhotos(this)" class="w-full text-xs text-zinc-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-900 file:text-white cursor-pointer">
                         </div>
 
@@ -592,6 +832,7 @@
                                 <input id="reg-emp-id" type="text" placeholder="Auto ID" class="w-full p-2.5 bg-zinc-100 border border-zinc-300 rounded-xl text-xs font-mono font-bold text-zinc-900">
                             </div>
                             <input id="reg-emp-name" type="text" placeholder="Full Name" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                            <input id="reg-emp-init-pass" type="text" placeholder="Initial Password (default: bodyline123)" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs font-mono">
                             <input id="reg-emp-photo" type="file" accept="image/*" class="w-full text-xs text-zinc-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-200 file:text-zinc-800">
                             <button type="button" onclick="registerNewEmployee()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
                                 Register Employee
@@ -600,15 +841,21 @@
                         </div>
                     </div>
 
-                    <div class="lg:col-span-2 bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col h-[560px]">
+                    <div class="lg:col-span-2 bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col h-[600px]">
                         <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Employee Directory (85 Staff)</h4>
-                            <input id="admin-emp-search" type="text" oninput="renderAdminEmployeeList()" placeholder="Filter by Name, ID or Role..." class="px-3 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs outline-none">
+                            <h4 id="admin-emp-count-label" class="text-xs font-bold uppercase tracking-wider text-zinc-700">Employee Directory (0 Staff)</h4>
+                            <input id="admin-emp-search" type="text" oninput="renderAdminEmployeeList()" placeholder="Filter by Name, ID, Status or Role..." class="px-3 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs outline-none">
                         </div>
                         <div class="flex-1 overflow-auto custom-scroll bg-white rounded-xl border border-zinc-200">
                             <table class="w-full text-left text-xs">
                                 <thead class="bg-zinc-100 sticky top-0 text-[11px] uppercase text-zinc-500 border-b border-zinc-200">
-                                    <tr><th class="p-2.5">Staff Member</th><th class="p-2.5">ID</th><th class="p-2.5">Department</th><th class="p-2.5">Zone</th><th class="p-2.5 text-right">Actions</th></tr>
+                                    <tr>
+                                        <th class="p-2.5">Staff Member</th>
+                                        <th class="p-2.5">ID & Status</th>
+                                        <th class="p-2.5">Dept / Zone</th>
+                                        <th class="p-2.5">Photo Editor</th>
+                                        <th class="p-2.5 text-right">Admin Actions</th>
+                                    </tr>
                                 </thead>
                                 <tbody id="admin-emp-tbody" class="divide-y divide-zinc-100"></tbody>
                             </table>
@@ -616,9 +863,59 @@
                     </div>
                 </div>
 
+                <!-- TAB 2: PASSWORD RESETS, SUPPORT ESCALATIONS & DEPT HEAD REPLACEMENT -->
+                <div id="admin-panel-security" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-3">
+                        <div class="border-b border-zinc-200 pb-2.5">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-800">Forgot Password & Temporary Password Queue</h4>
+                            <p class="text-[11px] text-zinc-500 mt-0.5">Support Team (`DT-C-CST-01`) verifies staff identity and escalates to CDMS Admin (`DT-C-CA-01`). Admin issues a one-time Temporary Password that forces a password change upon login.</p>
+                        </div>
+                        <div id="password-reset-tickets-list" class="space-y-2.5 max-h-96 overflow-y-auto custom-scroll pr-1"></div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <!-- Department Head / Key Leadership Replacement Manager -->
+                        <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 space-y-3">
+                            <div class="border-b border-zinc-200 pb-2">
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-800">Department Head & Leadership Succession Manager</h4>
+                                <p class="text-[11px] text-zinc-500 mt-0.5">Privileged Admin/Executive tool: appoint a replacement for the Cutting Department Head (`DH-01`) or Senior Executive (`CSE-01`) and log an official handover report.</p>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                                <div>
+                                    <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Leadership Seat</label>
+                                    <select id="leader-seat-select" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl">
+                                        <option value="DH-01">DH-01 (Cutting Department Head)</option>
+                                        <option value="CSE-01">CSE-01 (Cutting Senior Executive)</option>
+                                        <option value="CQCE-01">CQCE-01 (Quality Control Executive)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold uppercase text-zinc-500 block mb-1">Incoming Officer Name</label>
+                                    <input id="leader-new-name" type="text" placeholder="e.g. Roshantha Silva" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl">
+                                </div>
+                            </div>
+                            <input id="leader-handover-reason" type="text" placeholder="Handover Reason / Board Reference Note" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                            <button type="button" onclick="executeLeadershipReplacement()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white py-2.5 rounded-xl text-xs font-semibold">
+                                Execute Leadership Handover & Log Report
+                            </button>
+                        </div>
+
+                        <!-- Digital Team Break-Glass Recovery Info -->
+                        <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 space-y-2">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-800">Admin Lockout & Kiosk Security</h4>
+                            <p class="text-[11px] text-zinc-500">If CDMS Admin (`DT-C-CA-01`) is locked out, Digital Team Executive (`CDTE-01`) and Department Head (`DH-01`) can authorize Dual-Custody Recovery from the Login screen, or reset the Pattern Room Kiosk session below.</p>
+                            <button type="button" onclick="supportResetKioskLocks()" class="w-full bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-300 py-2 rounded-xl text-xs font-semibold">
+                                Reset Expired 15-Minute Pattern Room Locks
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: SYSTEM PARAMETERS -->
                 <div id="admin-panel-params" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-3 h-fit">
                         <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Add System Parameter</h4>
+                        <p class="text-[11px] text-zinc-500">Both CDMS Support Team and CDMS Admin can register new Buyer Brands, Sizes, Racks, and Roles here.</p>
                         <select id="sys-cat" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
                             <option value="Brand">Buyer Brand</option>
                             <option value="Size">Cup / Garment Size</option>
@@ -638,10 +935,16 @@
                     </div>
                 </div>
 
+                <!-- TAB 4: AUDIT LOG & DISCARD VAULT -->
                 <div id="admin-panel-records" class="hidden flex flex-col gap-4">
-                    <div class="flex justify-between items-center text-xs text-zinc-500">
-                        <span>Permanent audit log stored in PostgreSQL.</span>
-                        <span id="audit-count-pill" class="font-mono font-bold px-2.5 py-0.5 rounded bg-zinc-100 text-zinc-800">0 Rows</span>
+                    <div class="flex flex-wrap justify-between items-center gap-2 text-xs text-zinc-500">
+                        <span>Permanent audit log stored in PostgreSQL. Deleted items are stored safely in the Discard Vault.</span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="openDiscardVaultModal()" class="px-3 py-1 rounded-lg bg-zinc-900 text-white font-semibold text-xs">
+                                Open Discard Vault (<span id="trash-vault-count-badge">0</span>)
+                            </button>
+                            <span id="audit-count-pill" class="font-mono font-bold px-2.5 py-1 rounded bg-zinc-100 text-zinc-800">0 Rows</span>
+                        </div>
                     </div>
                     <div class="overflow-auto max-h-[450px] custom-scroll border border-zinc-200 rounded-xl bg-white">
                         <table class="w-full text-left text-xs">
@@ -736,7 +1039,7 @@
             <span id="comm-unread-badge" class="px-2 py-0.5 rounded-full bg-zinc-700 text-white text-[10px]">0</span>
         </button>
 
-        <div id="comm-drawer-window" class="hidden fixed inset-0 sm:inset-auto sm:bottom-4 sm:right-4 sm:w-[400px] sm:h-[520px] bg-white sm:rounded-2xl border border-zinc-300 shadow-2xl flex flex-col overflow-hidden z-[220]">
+        <div id="comm-drawer-window" class="hidden fixed inset-0 sm:inset-auto sm:bottom-4 sm:right-4 sm:w-[410px] sm:h-[540px] bg-white sm:rounded-2xl border border-zinc-300 shadow-2xl flex flex-col overflow-hidden z-[220]">
             <div class="bg-zinc-900 text-white px-4 py-3.5 flex justify-between items-center shrink-0">
                 <h4 class="text-xs font-bold uppercase tracking-wider">Task & Approval Communicator</h4>
                 <button type="button" onclick="closeCommDrawer()" class="text-zinc-400 hover:text-white p-1"><i class="ph-bold ph-x text-lg"></i></button>
@@ -756,12 +1059,12 @@
 
 
     <!-- ================================================================= -->
-    <!-- SECTION 5: AUTHENTICATION & QR VERIFICATION MODALS                -->
+    <!-- SECTION 5: AUTHENTICATION, PASSWORD SECURITY & VAULT MODALS       -->
     <!-- ================================================================= -->
 
-    <!-- Modal 5.1: Staff Login Modal -->
+    <!-- Modal 5.1: Staff Login Modal (With Eye Icon, QC Inspector Role, & Forgot Password) -->
     <div id="user-login-modal" onclick="if(event.target===this) closeLoginModal()" class="fixed inset-0 bg-zinc-900/40 backdrop-blur-md z-[210] flex items-center justify-center hidden p-3 sm:p-4">
-        <div class="bg-white w-full max-w-md max-h-[88dvh] overflow-y-auto custom-scroll rounded-2xl border border-zinc-200 p-5 sm:p-7 shadow-2xl relative">
+        <div class="bg-white w-full max-w-md max-h-[90dvh] overflow-y-auto custom-scroll rounded-2xl border border-zinc-200 p-5 sm:p-7 shadow-2xl relative">
             <button type="button" onclick="closeLoginModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 p-1"><i class="ph-bold ph-x text-lg"></i></button>
 
             <div class="flex flex-col items-center text-center mb-5">
@@ -774,9 +1077,9 @@
                 <h3 id="login-dynamic-title" class="font-bold text-lg sm:text-xl text-zinc-900 mt-1">Staff Portal Sign In</h3>
             </div>
 
-            <!-- Quick Role Dropdown (Shown when Padlock on home screen is unlocked) -->
+            <!-- Quick Role Dropdown (Includes Quality Control Inspector QCI-C-01 & Digital Team Exec CDTE-01) -->
             <div id="quick-role-box" class="hidden mb-4">
-                <label class="text-xs font-semibold text-zinc-600 block mb-1.5">Select Position</label>
+                <label class="text-xs font-semibold text-zinc-600 block mb-1.5">Select Staff Position</label>
                 <select id="quick-role-select" onchange="onQuickRoleChange()" class="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold text-zinc-900 outline-none focus:border-zinc-900">
                     <option value="DH-01">Cutting Department Head (Jackson Emmanuel)</option>
                     <option value="CSE-01">Cutting Senior Executive (Aaron Emmanuel)</option>
@@ -787,20 +1090,30 @@
                     <option value="SDC-C-01">Sewing Dept Coordinator (Tharindu Perera)</option>
                     <option value="RMWC-C-01">RMW Warehouse Coordinator (Ahamed Niyas)</option>
                     <option value="CQCE-01">Quality Control Executive (Imesha Fernando)</option>
+                    <option value="QCI-C-01">Quality Control Inspector (Kasun Rajapaksha)</option>
                     <option value="DT-C-CST-01">CDMS Support Team (Shehani Mel)</option>
                     <option value="DT-C-CA-01">CDMS Admin (Ashan Mendis)</option>
+                    <option value="CDTE-01">Digital Team Executive (Dilshan Silva)</option>
                 </select>
             </div>
 
-            <!-- Standard ID & Password Inputs -->
+            <!-- Standard ID & Password Inputs (With Eye Reveal Button) -->
             <div id="standard-login-inputs" class="space-y-3">
                 <div>
                     <label class="text-xs font-semibold text-zinc-600 block mb-1">Employee ID</label>
-                    <input id="login-emp-id" type="text" oninput="morphDepartmentIconOnType(this.value)" placeholder="Enter Employee ID" class="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white">
+                    <input id="login-emp-id" type="text" oninput="morphDepartmentIconOnType(this.value)" placeholder="e.g. PR-C-PC-01 or QCI-C-01" class="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm text-zinc-900 font-mono uppercase outline-none focus:border-zinc-900 focus:bg-white">
                 </div>
                 <div>
-                    <label class="text-xs font-semibold text-zinc-600 block mb-1">Password</label>
-                    <input id="login-emp-pass" type="password" placeholder="Enter Password" class="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-semibold text-zinc-600">Password</label>
+                        <button type="button" onclick="openForgotPasswordModal()" class="text-[11px] font-semibold text-zinc-600 hover:text-zinc-900 underline">Forgot Password?</button>
+                    </div>
+                    <div class="relative flex items-center">
+                        <input id="login-emp-pass" type="password" placeholder="Enter Password or Temp Password" class="w-full p-3 pr-10 bg-zinc-50 border border-zinc-300 rounded-xl text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white">
+                        <button type="button" onclick="togglePasswordVisibility('login-emp-pass', 'login-pass-eye')" class="absolute right-3 text-zinc-400 hover:text-zinc-900 p-1" title="Show / Hide Password">
+                            <i id="login-pass-eye" class="ph-bold ph-eye text-base"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -810,7 +1123,95 @@
         </div>
     </div>
 
-    <!-- Modal 5.2: Pattern Room Kiosk Password Modal -->
+    <!-- Modal 5.2: Forgot Password & Break-Glass Admin Recovery Modal -->
+    <div id="forgot-password-modal" onclick="if(event.target===this) closeModal('forgot-password-modal')" class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-[225] flex items-center justify-center hidden p-3 sm:p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl border border-zinc-200 p-5 sm:p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-zinc-100 pb-3">
+                <div>
+                    <h3 class="font-bold text-sm text-zinc-900">Identity-Verified Password Recovery</h3>
+                    <p class="text-[11px] text-zinc-500">Protected 2-Step Escalation (Support Verifies $\rightarrow$ Admin Releases Temp Password)</p>
+                </div>
+                <button type="button" onclick="closeModal('forgot-password-modal')" class="text-zinc-400 hover:text-zinc-900"><i class="ph-bold ph-x text-lg"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="font-bold text-zinc-700 block mb-1">Your Employee ID</label>
+                    <input id="fp-emp-id" type="text" placeholder="e.g. PR-C-PC-01" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl font-mono uppercase">
+                </div>
+                <div>
+                    <label class="font-bold text-zinc-700 block mb-1">Assigned Department / Work Zone (Anti-Spoof Check)</label>
+                    <input id="fp-verify-zone" type="text" placeholder="e.g. Pattern Room or Cutting Floor" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl">
+                </div>
+                <div>
+                    <label class="font-bold text-zinc-700 block mb-1">Corporate Email / Contact Extension for Temp Password Delivery</label>
+                    <input id="fp-contact-info" type="text" placeholder="e.g. kavya@bodyline.lk or Ext 402" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl">
+                </div>
+                <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-[11px] text-zinc-600 leading-relaxed">
+                    <strong>Security Protection:</strong> Submitting this request does <em>not</em> lock your current password while pending. Support (`DT-C-CST-01`) will confirm your identity and escalate to Admin (`DT-C-CA-01`) to issue a Temporary Password.
+                </div>
+                <button type="button" onclick="submitForgotPasswordRequest()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-2.5 rounded-xl">
+                    Submit Verification Request to Support Team
+                </button>
+            </div>
+
+            <!-- Break-Glass Recovery if CDMS Admin (DT-C-CA-01) is Locked Out -->
+            <div class="border-t border-zinc-200 pt-3">
+                <button type="button" onclick="document.getElementById('admin-breakglass-box').classList.toggle('hidden')" class="text-[11px] font-bold text-rose-600 hover:underline flex items-center gap-1">
+                    <i class="ph-bold ph-shield-warning"></i> Locked out of CDMS Admin (DT-C-CA-01)? Dual-Custody Recovery
+                </button>
+                <div id="admin-breakglass-box" class="hidden mt-2.5 p-3 rounded-xl bg-rose-50/60 border border-rose-200 space-y-2 text-xs">
+                    <p class="text-[11px] text-zinc-700">If the CDMS Admin is locked out, enter the Digital Team Executive ID (<code class="font-mono">CDTE-01</code>) and Department Head Authorization ID (<code class="font-mono">DH-01</code>) with Master Plant Code (<code class="font-mono">MAS-BODYLINE-RECOVERY</code>) to issue an emergency Admin Temp Password:</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input id="bg-exec-id" type="text" placeholder="CDTE-01" class="p-2 bg-white border border-zinc-300 rounded-lg font-mono uppercase">
+                        <input id="bg-dh-id" type="text" placeholder="DH-01" class="p-2 bg-white border border-zinc-300 rounded-lg font-mono uppercase">
+                    </div>
+                    <input id="bg-master-key" type="password" placeholder="Master Recovery Key (MAS-BODYLINE-RECOVERY)" class="w-full p-2 bg-white border border-zinc-300 rounded-lg font-mono">
+                    <button type="button" onclick="executeAdminBreakGlassRecovery()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 rounded-lg">
+                        Authorize Emergency Admin Password Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 5.3: Set / Rename Account Password Modal (Forced on Temp Password Login) -->
+    <div id="change-password-modal" class="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm z-[235] flex items-center justify-center hidden p-3 sm:p-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl border border-zinc-200 p-5 sm:p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-zinc-100 pb-3">
+                <div>
+                    <h3 id="cp-modal-title" class="font-bold text-sm text-zinc-900">Set New Account Password</h3>
+                    <p id="cp-modal-subtitle" class="text-[11px] text-zinc-500">Assign a personal password to secure your CDMS+ account.</p>
+                </div>
+                <button type="button" id="cp-close-btn" onclick="closeModal('change-password-modal')" class="text-zinc-400 hover:text-zinc-900"><i class="ph-bold ph-x text-lg"></i></button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="font-bold text-zinc-700 block mb-1">New Password</label>
+                    <div class="relative flex items-center">
+                        <input id="cp-new-pass" type="password" placeholder="Minimum 6 characters" class="w-full p-2.5 pr-10 bg-zinc-50 border border-zinc-300 rounded-xl">
+                        <button type="button" onclick="togglePasswordVisibility('cp-new-pass', 'cp-eye-1')" class="absolute right-3 text-zinc-400 hover:text-zinc-900">
+                            <i id="cp-eye-1" class="ph-bold ph-eye text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="font-bold text-zinc-700 block mb-1">Confirm New Password</label>
+                    <div class="relative flex items-center">
+                        <input id="cp-confirm-pass" type="password" placeholder="Re-enter new password" class="w-full p-2.5 pr-10 bg-zinc-50 border border-zinc-300 rounded-xl">
+                        <button type="button" onclick="togglePasswordVisibility('cp-confirm-pass', 'cp-eye-2')" class="absolute right-3 text-zinc-400 hover:text-zinc-900">
+                            <i id="cp-eye-2" class="ph-bold ph-eye text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="button" onclick="saveNewUserPassword()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-2.5 rounded-xl">
+                    Save New Password
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 5.4: Pattern Room Kiosk Password Modal (With Eye Icon) -->
     <div id="kiosk-auth-modal" onclick="if(event.target===this) closeKioskAuthModal()" class="fixed inset-0 bg-zinc-900/40 backdrop-blur-md z-[210] flex items-center justify-center hidden p-3 sm:p-4">
         <div class="bg-white w-full max-w-sm max-h-[88dvh] overflow-y-auto custom-scroll rounded-2xl border border-zinc-200 p-5 sm:p-7 shadow-2xl relative">
             <button type="button" onclick="closeKioskAuthModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 p-1"><i class="ph-bold ph-x text-lg"></i></button>
@@ -825,7 +1226,12 @@
 
             <div id="kiosk-pass-wrapper" class="mb-4">
                 <label class="text-xs font-semibold text-zinc-600 block mb-1">Pattern Room Password</label>
-                <input id="kiosk-auth-password" type="password" placeholder="Enter Pattern Room Password" class="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white">
+                <div class="relative flex items-center">
+                    <input id="kiosk-auth-password" type="password" placeholder="Enter Pattern Room Password" class="w-full p-3 pr-10 bg-zinc-50 border border-zinc-300 rounded-xl text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white">
+                    <button type="button" onclick="togglePasswordVisibility('kiosk-auth-password', 'kiosk-pass-eye')" class="absolute right-3 text-zinc-400 hover:text-zinc-900 p-1" title="Show / Hide Password">
+                        <i id="kiosk-pass-eye" class="ph-bold ph-eye text-base"></i>
+                    </button>
+                </div>
             </div>
 
             <button type="button" id="kiosk-auth-submit-btn" onclick="executeKioskAuthAction()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-3 rounded-xl text-xs uppercase tracking-wider transition-colors">
@@ -834,7 +1240,21 @@
         </div>
     </div>
 
-    <!-- Modal 5.3: Item Details & QR Verification Modal -->
+    <!-- Modal 5.5: Discard Vault / Graveyard Modal (Restore Soft-Deleted Inventory & Staff) -->
+    <div id="discard-vault-modal" onclick="if(event.target===this) closeModal('discard-vault-modal')" class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-[225] flex items-center justify-center hidden p-3 sm:p-4">
+        <div class="bg-white w-full max-w-2xl rounded-2xl border border-zinc-200 overflow-hidden shadow-2xl flex flex-col max-h-[85dvh]">
+            <div class="bg-zinc-900 text-white px-5 py-3.5 flex justify-between items-center">
+                <div>
+                    <h3 class="font-bold text-sm">Discard Vault (Recoverable Archive)</h3>
+                    <p class="text-[11px] text-zinc-400">Deleted Pattern Room items, CAD Markers, and Staff records can be restored here by authorized coordinators/admins.</p>
+                </div>
+                <button type="button" onclick="closeModal('discard-vault-modal')" class="text-zinc-400 hover:text-white"><i class="ph-bold ph-x text-lg"></i></button>
+            </div>
+            <div id="discard-vault-list" class="p-4 overflow-y-auto custom-scroll space-y-2.5 flex-1 text-xs"></div>
+        </div>
+    </div>
+
+    <!-- Modal 5.6: Item Details & QR Verification Modal -->
     <div id="verify-modal" onclick="if(event.target===this) closeVerifyModal()" class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-[210] flex items-center justify-center hidden p-3 sm:p-4">
         <div class="bg-white border border-zinc-200 w-full max-w-lg rounded-2xl flex flex-col overflow-hidden max-h-[88dvh] shadow-2xl">
             <div class="bg-zinc-50 px-5 py-3.5 border-b border-zinc-200 flex justify-between items-center shrink-0">

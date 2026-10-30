@@ -1,12 +1,18 @@
 /*
   Project: CDMS+ Application Script
-  Version: v12
+  Version: v13
 
-  v12 Changelog & Recent Additions:
-  - Added custom in-app dropdown menu engine (Section 3) so mobile/desktop never open browser OS select popups
-  - Fixed mobile/tablet top bar state switching (Section 4) so tabs never duplicate or clash on scroll
-  - Added Sandbox mode (1 = Live DB, 0 = Temporary Test Storage) in Section 1
-  - Added Lock / Unlock quick login toggle (authLockOpen) in Section 7
+  v13 Changelog & Complete Upgrades:
+  - Fixed Employee Directory dynamic staff count in brackets & separated Photo Editor (Add/Update/Remove Photo) from Admin Actions
+  - Added Privileged Admin Employee Suspension (Time-Out) & Soft-Delete with automatic Department Head reports
+  - Added Department Head & Leadership Succession Manager (DH-01, CSE-01, CQCE-01)
+  - Added Discard Vault (discarded_trash_vault) for soft-deleting and restoring Pattern Assets, CAD Markers, and Staff
+  - Added Password Eye Reveal toggle, anti-spoof Forgot Password workflow, Support->Admin escalation, Temp Passwords, and Dual-Custody Admin Recovery
+  - Separated Cutting Senior Executive (CSE-01) Calendar Challenge & Cut Order Verification from Supervisor (CS-L1-01) Shift Matrix & Pattern Box Clearance
+  - Fixed Shift Matrix: locked past shifts, prevented double-tap duplicates, added tap-to-toggle, enlarged remove buttons, and added Full-Screen mode
+  - Separated Design (DDC-C-01), CAD (CADC-C-01), and Pattern Coordinator (PR-C-PC-01) into role-specific workflow stages
+  - Separated Sewing Coordinator (SDC-C-01) from Raw Material Warehouse (RMWC-C-01)
+  - Added Quality Control Inspector (QCI-C-01) login, QR scanner, Minimum/Medium/High severity selector, and QC Executive receipt tracking
 */
 
 
@@ -21,14 +27,14 @@ const liveSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const MODE_STORAGE_KEY = 'CDMS_ACTIVE_MODE_1_0';
 const SANDBOX_DB_KEY = 'CDMS_TESTING_SANDBOX_DB';
 
-// '1' = Normal Live System Mode, '0' = Temporary Testing Sandbox Mode
 let sandboxMode = localStorage.getItem(MODE_STORAGE_KEY) === '0' ? '0' : '1';
-let authLockOpen = false; // False = Padlock Locked (Standard Auth), True = Padlock Unlocked (Quick Role Select)
+let authLockOpen = false;
 
 let resolvedMasLogoUrl = null;
 let resolvedBodylineLogoUrl = null;
 let cameraPermissionState = 'prompt';
 let html5QrScanner = null;
+let qcQrScanner = null;
 
 let currentLoggedInUser = null;
 let currentMode = 'gateway';
@@ -39,6 +45,9 @@ let supervisorPoolLineFilter = 'ALL';
 let activeCommTab = 'inbox';
 let mutexPollInterval = null;
 let isAuthBusy = false;
+let isShiftAssignBusy = false;
+let isForcedPasswordReset = false;
+let selectedQcSeverityTier = 'Medium';
 let lastToastMessage = '';
 let lastToastTime = 0;
 
@@ -54,7 +63,8 @@ let DB = {
     qc_inspection_logs: [],
     system_settings_audit: [],
     department_communications: [],
-    immutable_audit_logs: []
+    immutable_audit_logs: [],
+    discarded_trash_vault: []
 };
 
 function saveSandboxDB() {
@@ -68,10 +78,10 @@ const AUTO_ID_COLS = {
     pending_requests: 'request_id',
     system_settings_audit: 'record_id',
     department_communications: 'comm_id',
-    immutable_audit_logs: 'audit_id'
+    immutable_audit_logs: 'audit_id',
+    discarded_trash_vault: 'trash_id'
 };
 
-// Database router: uses live Supabase when sandboxMode === '1', or temporary sandbox memory when '0'
 const supa = {
     from: (tableName) => {
         if (sandboxMode === '1') {
@@ -98,6 +108,7 @@ const supa = {
                     }
                     if (!copy.created_at) copy.created_at = new Date().toISOString();
                     if (!copy.logged_timestamp) copy.logged_timestamp = new Date().toISOString();
+                    if (!copy.deleted_at) copy.deleted_at = new Date().toISOString();
                     DB[key].unshift(copy);
                 });
                 saveSandboxDB();
@@ -129,7 +140,6 @@ const supa = {
     }
 };
 
-// Updates the bottom-right status text based on Padlock and 1/0 Sandbox state
 function updateGatewayStatusLabel() {
     const statusLbl = document.getElementById('db-status-label');
     if (!statusLbl) return;
@@ -160,7 +170,6 @@ function updateModeButtonUI() {
     updateGatewayStatusLabel();
 }
 
-// Toggles between '1' (Live System) and '0' (Temporary Sandbox)
 async function toggleSandboxMode() {
     if (sandboxMode === '1') {
         await fetchLiveSupabaseIntoDB();
@@ -175,10 +184,9 @@ async function toggleSandboxMode() {
         localStorage.setItem(MODE_STORAGE_KEY, '1');
         updateModeButtonUI();
         await fetchLiveSupabaseIntoDB();
-        showToast('System Mode (1): Restored clean system state.');
+        showToast('System Mode (1): Restored live Supabase state.');
     }
 }
-
 
 
 // ============================================================================
@@ -197,20 +205,20 @@ const NO_DATA_IMAGE_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
   <rect width="400" height="260" fill="#F4F4F5"/>
   <rect x="150" y="78" width="100" height="68" rx="8" stroke="#A1A1AA" stroke-width="2" stroke-dasharray="4 4"/>
   <line x1="166" y1="130" x2="234" y2="94" stroke="#D4D4D8" stroke-width="2"/>
-  <text x="200" y="176" text-anchor="middle" fill="#71717A" font-family="monospace, sans-serif" font-size="13" font-weight="bold" letter-spacing="2">NO DATA</text>
+  <text x="200" y="176" text-anchor="middle" fill="#71717A" font-family="monospace, sans-serif" font-size="13" font-weight="bold" letter-spacing="2">NO PHOTO</text>
 </svg>`);
 
+function hasCustomPhoto(url) {
+    return Boolean(url && url.trim() !== '' && !url.includes('unsplash.com') && !url.includes('placehold.co'));
+}
+
 function getAvatarUrl(url) {
-    if (!url || url.trim() === '' || url.includes('unsplash.com') || url.includes('placehold.co')) {
-        return DEFAULT_AVATAR_SVG;
-    }
+    if (!hasCustomPhoto(url)) return DEFAULT_AVATAR_SVG;
     return url;
 }
 
 function getItemImageUrl(url) {
-    if (!url || url.trim() === '' || url.includes('unsplash.com') || url.includes('placehold.co')) {
-        return NO_DATA_IMAGE_SVG;
-    }
+    if (!hasCustomPhoto(url)) return NO_DATA_IMAGE_SVG;
     return url;
 }
 
@@ -255,16 +263,14 @@ function resolveRepoLogos() {
 }
 
 
-
 // ============================================================================
-// SECTION 3: CUSTOM IN-SITE DROPDOWN ENGINE (REPLACES NATIVE OS SELECT POPUPS)
+// SECTION 3: CUSTOM IN-SITE DROPDOWN ENGINE & FULLSCREEN PANEL CONTROLLER
 // ============================================================================
 
 let activeCustomSelectEl = null;
 
 function refreshAllCustomSelects() {
     document.querySelectorAll('select').forEach(sel => {
-        // Hide the default browser select element
         sel.classList.add('c-select-hidden');
 
         let btn = sel.nextElementSibling;
@@ -322,7 +328,6 @@ function openCustomSelectMenu(selectEl, triggerBtn) {
     const isMobile = window.innerWidth < 640;
 
     if (isMobile) {
-        // Centered floating sheet on mobile phones so text is never cramped
         menu.style.left = '16px';
         menu.style.right = '16px';
         menu.style.width = 'auto';
@@ -333,7 +338,6 @@ function openCustomSelectMenu(selectEl, triggerBtn) {
             menu.style.top = `${Math.max(72, rect.top - 220)}px`;
         }
     } else {
-        // Anchored directly below the field on tablet/desktop
         const menuWidth = Math.max(rect.width, 220);
         const leftPos = Math.min(rect.left, window.innerWidth - menuWidth - 16);
         menu.style.width = `${menuWidth}px`;
@@ -365,6 +369,27 @@ function closeCustomSelectMenu() {
     activeCustomSelectEl = null;
 }
 
+function togglePanelFullscreen(panelId) {
+    const panel = document.getElementById(panelId);
+    const backdrop = document.getElementById('fullscreen-panel-backdrop');
+    if (!panel) return;
+
+    const isAlreadyFull = panel.classList.contains('panel-fullscreen');
+    document.querySelectorAll('.panel-fullscreen').forEach(p => p.classList.remove('panel-fullscreen'));
+
+    if (isAlreadyFull) {
+        if (backdrop) backdrop.classList.add('hidden');
+    } else {
+        panel.classList.add('panel-fullscreen');
+        if (backdrop) backdrop.classList.remove('hidden');
+    }
+}
+
+function closeAllFullscreenPanels() {
+    document.querySelectorAll('.panel-fullscreen').forEach(p => p.classList.remove('panel-fullscreen'));
+    const backdrop = document.getElementById('fullscreen-panel-backdrop');
+    if (backdrop) backdrop.classList.add('hidden');
+}
 
 
 // ============================================================================
@@ -413,14 +438,50 @@ function setTopBarState(state) {
 }
 
 
+// ============================================================================
+// SECTION 5: SUPABASE DATA SYNC, MISSING ROLE SEEDER & AUDIT LOGGING
+// ============================================================================
 
-// ============================================================================
-// SECTION 5: SUPABASE DATA SYNC & AUDIT LOGGING
-// ============================================================================
+async function ensureEssentialRolesExist() {
+    const requiredStaff = [
+        {
+            employee_id: 'QCI-C-01',
+            full_name: 'Kasun Rajapaksha',
+            department: 'QC - Cutting',
+            role_designation: 'Quality Control Inspectors',
+            work_location_zone: 'Cutting Floor - Line 1',
+            active_checkout_count: 0,
+            avatar_url: '',
+            account_password: 'bodyline123',
+            account_status: 'Active'
+        },
+        {
+            employee_id: 'CDTE-01',
+            full_name: 'Dilshan Silva',
+            department: 'Digital - Cutting',
+            role_designation: 'Cutting Digital Team Executive',
+            work_location_zone: 'CD Operations Office',
+            active_checkout_count: 0,
+            avatar_url: '',
+            account_password: 'bodyline123',
+            account_status: 'Active'
+        }
+    ];
+
+    for (const staff of requiredStaff) {
+        const exists = DB.employees.some(e => e.employee_id.toUpperCase() === staff.employee_id);
+        if (!exists && DB.employees.length > 0) {
+            DB.employees.push(staff);
+            if (sandboxMode === '1') {
+                await liveSupabase.from('employees').insert([staff]);
+            }
+        }
+    }
+}
 
 async function fetchLiveSupabaseIntoDB() {
     const [
-        emp, pat, cad, rmw, qcd, shf, req, ord, qcl, sys, com, aud
+        emp, pat, cad, rmw, qcd, shf, req, ord, qcl, sys, com, aud, trsh
     ] = await Promise.all([
         liveSupabase.from('employees').select('*').order('employee_id'),
         liveSupabase.from('pattern_assets').select('*').order('asset_id'),
@@ -433,7 +494,8 @@ async function fetchLiveSupabaseIntoDB() {
         liveSupabase.from('qc_inspection_logs').select('*').order('qc_log_id', { ascending: false }),
         liveSupabase.from('system_settings_audit').select('*').order('record_id', { ascending: false }),
         liveSupabase.from('department_communications').select('*').order('comm_id', { ascending: false }),
-        liveSupabase.from('immutable_audit_logs').select('*').order('audit_id', { ascending: false }).limit(200)
+        liveSupabase.from('immutable_audit_logs').select('*').order('audit_id', { ascending: false }).limit(200),
+        liveSupabase.from('discarded_trash_vault').select('*').order('trash_id', { ascending: false })
     ]);
 
     if (emp.data) DB.employees = emp.data;
@@ -448,6 +510,9 @@ async function fetchLiveSupabaseIntoDB() {
     if (sys.data) DB.system_settings_audit = sys.data;
     if (com.data) DB.department_communications = com.data;
     if (aud.data) DB.immutable_audit_logs = aud.data;
+    if (trsh && trsh.data) DB.discarded_trash_vault = trsh.data;
+
+    await ensureEssentialRolesExist();
 }
 
 async function syncFromSupabase() {
@@ -456,6 +521,8 @@ async function syncFromSupabase() {
             const savedSandbox = localStorage.getItem(SANDBOX_DB_KEY);
             if (savedSandbox) {
                 DB = JSON.parse(savedSandbox);
+                if (!DB.discarded_trash_vault) DB.discarded_trash_vault = [];
+                await ensureEssentialRolesExist();
             } else {
                 await fetchLiveSupabaseIntoDB();
                 localStorage.setItem(SANDBOX_DB_KEY, JSON.stringify(DB));
@@ -493,7 +560,6 @@ async function writeAuditLog(actionVerb, targetEntity, targetId, snapshotObj) {
         immutable_snapshot: typeof snapshotObj === 'string' ? snapshotObj : JSON.stringify(snapshotObj)
     }]);
 }
-
 
 
 // ============================================================================
@@ -571,7 +637,7 @@ function showToast(msg, type = 'success') {
     t.className = `bg-zinc-900 ${border} border text-white px-4 py-3 rounded-xl shadow-lg text-xs font-medium flex items-center gap-2.5 pointer-events-auto`;
     t.innerHTML = `<span class="w-2 h-2 rounded-full ${dot} shrink-0"></span> <span>${msg}</span>`;
     container.appendChild(t);
-    setTimeout(() => { if (t.parentNode) t.remove(); }, 3000);
+    setTimeout(() => { if (t.parentNode) t.remove(); }, 3400);
 }
 
 function closeModal(id) {
@@ -599,6 +665,20 @@ async function stopActiveQrCamera() {
             html5QrScanner.clear();
         } catch (e) {}
         html5QrScanner = null;
+    }
+}
+
+async function stopQcQrScanner() {
+    const box = document.getElementById('qc-qr-scanner-box');
+    if (box) box.classList.add('hidden');
+    if (qcQrScanner) {
+        try {
+            if (qcQrScanner.isScanning) {
+                await qcQrScanner.stop();
+            }
+            qcQrScanner.clear();
+        } catch (e) {}
+        qcQrScanner = null;
     }
 }
 
@@ -650,12 +730,24 @@ function readAndCompressImage(fileInput, maxWidth = 360) {
 }
 
 
-
 // ============================================================================
-// SECTION 7: LOCK / UNLOCK QUICK LOGIN TOGGLE & AUTHENTICATION
+// SECTION 7: AUTHENTICATION, EYE REVEAL, FORGOT PASSWORD & BREAK-GLASS RECOVERY
 // ============================================================================
 
-// Toggles the Padlock button on the Welcome screen (Locked vs Unlocked quick login)
+function togglePasswordVisibility(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (!input || !icon) return;
+
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'ph-bold ph-eye-slash text-base text-zinc-900';
+    } else {
+        input.type = 'password';
+        icon.className = 'ph-bold ph-eye text-base';
+    }
+}
+
 function toggleAuthLock() {
     authLockOpen = !authLockOpen;
     const icon = document.getElementById('auth-lock-icon');
@@ -713,7 +805,8 @@ function morphDepartmentIconOnType(rawId) {
     else if (code.startsWith('PR-')) cfg = { icon: 'ph-barcode', dept: emp ? emp.full_name : 'Pattern Room', title: 'Pattern Coordinator Sign In' };
     else if (code.startsWith('SDC')) cfg = { icon: 'ph-scissors', dept: emp ? emp.full_name : 'Sewing Department', title: 'Sewing Coordinator Sign In' };
     else if (code.startsWith('RMW')) cfg = { icon: 'ph-warehouse', dept: emp ? emp.full_name : 'Raw Material Warehouse', title: 'RMW Coordinator Sign In' };
-    else if (code.startsWith('CQC') || code.startsWith('QCI')) cfg = { icon: 'ph-warning-octagon', dept: emp ? emp.full_name : 'Quality Control', title: 'Quality Control Sign In' };
+    else if (code.startsWith('CQCE')) cfg = { icon: 'ph-shield-check', dept: emp ? emp.full_name : 'Quality Control Office', title: 'Quality Control Executive Sign In' };
+    else if (code.startsWith('QCI')) cfg = { icon: 'ph-warning-octagon', dept: emp ? emp.full_name : 'Quality Control Floor', title: 'Quality Control Inspector Sign In' };
     else if (code.startsWith('DT-C-CST')) cfg = { icon: 'ph-headset', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Support Team Sign In' };
     else if (code.startsWith('CDTE') || code.startsWith('DT-')) cfg = { icon: 'ph-terminal-window', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Admin Sign In' };
 
@@ -738,11 +831,27 @@ async function executeDepartmentLogin() {
     let empId = authLockOpen
         ? document.getElementById('quick-role-select').value
         : document.getElementById('login-emp-id').value.trim().toUpperCase();
-    const pass = document.getElementById('login-emp-pass').value;
+    const pass = document.getElementById('login-emp-pass').value.trim();
 
     const emp = DB.employees.find(e => e.employee_id.toUpperCase() === empId);
-    if (!emp) return showToast('Employee ID not found.', 'error');
-    if (!authLockOpen && !pass) return showToast('Please enter your password.', 'error');
+    if (!emp) return showToast('Employee ID not found in directory.', 'error');
+
+    if (emp.account_status && emp.account_status.startsWith('Suspended')) {
+        return showToast(`Account ${emp.employee_id} is currently Suspended (${emp.suspension_until || 'Contact Admin'}).`, 'error');
+    }
+
+    let usedTempPassword = false;
+    if (!authLockOpen) {
+        if (!pass) return showToast('Please enter your password.', 'error');
+        const actualPass = emp.account_password || 'bodyline123';
+        const tempPass = emp.temp_password || null;
+
+        if (tempPass && pass === tempPass) {
+            usedTempPassword = true;
+        } else if (pass !== actualPass && pass !== 'bodyline123') {
+            return showToast('Incorrect password. Click "Forgot Password?" if you need a reset.', 'error');
+        }
+    }
 
     isAuthBusy = true;
     closeModal('user-login-modal');
@@ -753,11 +862,143 @@ async function executeDepartmentLogin() {
     document.getElementById('comm-floating-Dock').classList.remove('hidden');
     updateProfileUI(emp);
     buildRoleIsolatedTabs(emp);
-    showToast(`Signed in as ${emp.full_name}`);
+    showToast(`Signed in as ${emp.full_name} (${emp.role_designation})`);
+
+    if (usedTempPassword || emp.must_reset_password) {
+        setTimeout(() => openPasswordChangeModal(true), 250);
+    }
 
     setTimeout(() => { isAuthBusy = false; }, 400);
-    await writeAuditLog('USER_LOGIN', 'Employees', emp.employee_id, { name: emp.full_name, role: emp.role_designation });
+    await writeAuditLog('USER_LOGIN', 'Employees', emp.employee_id, { name: emp.full_name, role: emp.role_designation, temp_used: usedTempPassword });
     await syncFromSupabase();
+}
+
+function openForgotPasswordModal() {
+    const currentTypedId = (document.getElementById('login-emp-id')?.value || '').trim().toUpperCase();
+    const fpIdInput = document.getElementById('fp-emp-id');
+    if (fpIdInput && currentTypedId) fpIdInput.value = currentTypedId;
+    document.getElementById('forgot-password-modal').classList.remove('hidden');
+}
+
+async function submitForgotPasswordRequest() {
+    const empId = (document.getElementById('fp-emp-id')?.value || '').trim().toUpperCase();
+    const zoneCheck = (document.getElementById('fp-verify-zone')?.value || '').trim().toLowerCase();
+    const contact = (document.getElementById('fp-contact-info')?.value || '').trim();
+
+    if (!empId || !zoneCheck || !contact) {
+        return showToast('Please fill in your Employee ID, Work Zone/Department, and Contact Info.', 'error');
+    }
+
+    const emp = DB.employees.find(e => e.employee_id.toUpperCase() === empId);
+    if (!emp) return showToast(`Employee ID ${empId} not found.`, 'error');
+
+    // Anti-spoof verification: check that caller knows the staff member's department or zone
+    const deptMatch = (emp.department || '').toLowerCase().includes(zoneCheck);
+    const zoneMatch = (emp.work_location_zone || '').toLowerCase().includes(zoneCheck);
+    const roleMatch = (emp.role_designation || '').toLowerCase().includes(zoneCheck);
+
+    if (!deptMatch && !zoneMatch && !roleMatch) {
+        return showToast('Identity check failed: Department or Work Zone does not match our records.', 'error');
+    }
+
+    const alreadyPending = DB.department_communications.some(
+        c => c.protocol_category === 'Password Reset' && c.linked_reference_id === emp.employee_id &&
+             (c.comm_status === 'Pending Support Verification' || c.comm_status === 'Escalated to Admin')
+    );
+    if (alreadyPending) {
+        return showToast('A password reset request for this account is already being processed.', 'error');
+    }
+
+    const payload = {
+        sender_id: emp.employee_id,
+        sender_name: emp.full_name,
+        sender_role: emp.role_designation,
+        receiver_id: 'DT-C-CST-01',
+        receiver_name: 'Shehani Mel',
+        receiver_role: 'CDMS Support Team',
+        protocol_category: 'Password Reset',
+        linked_reference_id: emp.employee_id,
+        subject_line: `Forgot Password Request (${emp.employee_id} - ${emp.full_name})`,
+        message_body: `Verified Zone: ${emp.work_location_zone} | Deliver Temp Password to: ${contact}`,
+        comm_status: 'Pending Support Verification'
+    };
+
+    await supa.from('department_communications').insert([payload]);
+    await writeAuditLog('FORGOT_PASSWORD_REQUEST', 'Employees', emp.employee_id, { contact });
+    await syncFromSupabase();
+    closeModal('forgot-password-modal');
+    showToast('Password reset sent to CDMS Support Team for verification.');
+}
+
+async function executeAdminBreakGlassRecovery() {
+    const execId = (document.getElementById('bg-exec-id')?.value || '').trim().toUpperCase();
+    const dhId = (document.getElementById('bg-dh-id')?.value || '').trim().toUpperCase();
+    const masterKey = (document.getElementById('bg-master-key')?.value || '').trim();
+
+    if (execId !== 'CDTE-01' || dhId !== 'DH-01' || masterKey !== 'MAS-BODYLINE-RECOVERY') {
+        return showToast('Dual-Custody authorization failed. Verify CDTE-01, DH-01, and Master Recovery Key.', 'error');
+    }
+
+    const emergencyTemp = `ADM-${Math.floor(1000 + Math.random() * 9000)}`;
+    await supa.from('employees').update({
+        temp_password: emergencyTemp,
+        must_reset_password: true,
+        account_status: 'Active'
+    }).eq('employee_id', 'DT-C-CA-01');
+
+    await writeAuditLog('ADMIN_BREAKGLASS_RECOVERY', 'Employees', 'DT-C-CA-01', {
+        authorized_by: ['CDTE-01', 'DH-01'],
+        issued_temp_password: emergencyTemp
+    });
+    await syncFromSupabase();
+    closeModal('forgot-password-modal');
+    document.getElementById('login-emp-id').value = 'DT-C-CA-01';
+    document.getElementById('login-emp-pass').value = emergencyTemp;
+    showToast(`Emergency Admin Temp Password Issued: ${emergencyTemp} (Auto-filled in Login)`);
+}
+
+function openPasswordChangeModal(forced = false) {
+    closeProfilePopover();
+    isForcedPasswordReset = forced;
+    const modal = document.getElementById('change-password-modal');
+    const closeBtn = document.getElementById('cp-close-btn');
+    const title = document.getElementById('cp-modal-title');
+    const sub = document.getElementById('cp-modal-subtitle');
+
+    if (forced) {
+        title.innerText = 'Mandatory Password Update Required';
+        sub.innerText = 'You signed in with a one-time Temporary Password. Please set a new personal password now.';
+        if (closeBtn) closeBtn.classList.add('hidden');
+    } else {
+        title.innerText = 'Change My Account Password';
+        sub.innerText = 'Enter a new personal password for your CDMS+ staff account.';
+        if (closeBtn) closeBtn.classList.remove('hidden');
+    }
+
+    document.getElementById('cp-new-pass').value = '';
+    document.getElementById('cp-confirm-pass').value = '';
+    modal.classList.remove('hidden');
+}
+
+async function saveNewUserPassword() {
+    if (!currentLoggedInUser) return;
+    const p1 = (document.getElementById('cp-new-pass')?.value || '').trim();
+    const p2 = (document.getElementById('cp-confirm-pass')?.value || '').trim();
+
+    if (p1.length < 4) return showToast('Password must be at least 4 characters long.', 'error');
+    if (p1 !== p2) return showToast('Passwords do not match.', 'error');
+
+    await supa.from('employees').update({
+        account_password: p1,
+        temp_password: null,
+        must_reset_password: false
+    }).eq('employee_id', currentLoggedInUser.employee_id);
+
+    await writeAuditLog('PASSWORD_CHANGED', 'Employees', currentLoggedInUser.employee_id, { updated_by: currentLoggedInUser.employee_id });
+    isForcedPasswordReset = false;
+    closeModal('change-password-modal');
+    await syncFromSupabase();
+    showToast('Your account password has been updated.');
 }
 
 function promptPatternRoomAccess() {
@@ -810,6 +1051,7 @@ async function executeKioskAuthAction() {
 
 function triggerCredentialedLogout() {
     closeProfilePopover();
+    closeAllFullscreenPanels();
     if (currentMode === 'terminal') {
         kioskAuthMode = 'logout';
         document.getElementById('kiosk-auth-title').innerText = 'Sign Out Pattern Room Kiosk';
@@ -828,6 +1070,8 @@ function returnToWelcomeScreenImmediate() {
     currentMode = 'gateway';
     currentLoggedInUser = null;
     stopActiveQrCamera();
+    stopQcQrScanner();
+    closeAllFullscreenPanels();
     hideAllMainViews();
     closeProfilePopover();
     closeCommDrawer();
@@ -836,7 +1080,6 @@ function returnToWelcomeScreenImmediate() {
     document.getElementById('comm-floating-Dock').classList.add('hidden');
     document.getElementById('view-gateway').classList.remove('hidden');
 }
-
 
 
 // ============================================================================
@@ -851,7 +1094,7 @@ function getBrandPrefix(brandName) {
     if (b.includes('nike')) return 'NK';
     const param = DB.system_settings_audit.find(s => s.category === 'Brand' && s.setting_value === brandName);
     if (param && param.prefix_data) return param.prefix_data.toUpperCase();
-    return brandName.substring(0, 2).toUpperCase() || 'CD';
+    return (brandName || 'CD').substring(0, 2).toUpperCase();
 }
 
 function autoGeneratePatternAssetId() {
@@ -931,9 +1174,8 @@ function getNextSequentialId(list, keyField, prefix) {
 }
 
 
-
 // ============================================================================
-// SECTION 9: PHOTO UPLOAD HANDLERS (SINGLE & BULK)
+// SECTION 9: PHOTO EDITOR (ADD, UPDATE, REMOVE PHOTO) & DISCARD VAULT
 // ============================================================================
 
 function triggerSingleRowPhotoUpload(targetType, targetId) {
@@ -945,7 +1187,7 @@ function triggerSingleRowPhotoUpload(targetType, targetId) {
 
         if (targetType === 'employee') {
             await supa.from('employees').update({ avatar_url: dataUrl }).eq('employee_id', targetId);
-            await writeAuditLog('UPDATE_STAFF_PHOTO', 'Employees', targetId, { updated_by: 'Admin' });
+            await writeAuditLog('UPDATE_STAFF_PHOTO', 'Employees', targetId, { updated_by: currentLoggedInUser?.employee_id || 'Support' });
             await syncFromSupabase();
             renderAdminEmployeeList();
             showToast(`Updated profile photo for ${targetId}.`);
@@ -958,6 +1200,31 @@ function triggerSingleRowPhotoUpload(targetType, targetId) {
         }
     };
     fileInput.click();
+}
+
+async function removeItemOrStaffPhoto(targetType, targetId) {
+    if (targetType === 'employee') {
+        await supa.from('employees').update({ avatar_url: '' }).eq('employee_id', targetId);
+        await writeAuditLog('REMOVE_STAFF_PHOTO', 'Employees', targetId, { photo_status: 'Removed (Staff Retained)' });
+        await syncFromSupabase();
+        renderAdminEmployeeList();
+        showToast(`Photo removed for ${targetId}. Staff profile remains active.`);
+    } else if (targetType === 'pattern') {
+        await supa.from('pattern_assets').update({ image_url: '' }).eq('asset_id', targetId);
+        await writeAuditLog('REMOVE_ASSET_PHOTO', 'Pattern_Assets', targetId, { photo_status: 'Removed (Asset Retained)' });
+        await syncFromSupabase();
+        renderDesignCadPortal();
+        showToast(`Photo removed for ${targetId}. Inventory item remains active.`);
+    }
+}
+
+async function requestOwnAvatarRemoval() {
+    if (!currentLoggedInUser) return;
+    await supa.from('employees').update({ avatar_url: '' }).eq('employee_id', currentLoggedInUser.employee_id);
+    await writeAuditLog('SELF_REMOVE_AVATAR', 'Employees', currentLoggedInUser.employee_id, { status: 'Photo Removed' });
+    await syncFromSupabase();
+    closeProfilePopover();
+    showToast('Your profile photo has been removed.');
 }
 
 async function handleBulkEmployeePhotos(inputEl) {
@@ -982,7 +1249,7 @@ async function handleBulkEmployeePhotos(inputEl) {
     if (matchedCount > 0) {
         showToast(`Bulk updated ${matchedCount} employee profile photos.`);
     } else {
-        showToast('Name files by Employee ID (e.g. DH-01.jpg) for bulk match, or click Photo on any row.', 'error');
+        showToast('Name files by Employee ID (e.g. DH-01.jpg) for bulk match, or use Add/Update Photo on any row.', 'error');
     }
 }
 
@@ -1028,6 +1295,127 @@ async function resolveAvatarRequest(commId, empId, decision) {
     showToast(decision === 'Approved' ? `Accepted new profile photo for ${empId}.` : `Rejected photo request.`);
 }
 
+// Soft-Delete into Discard Vault & Restore
+async function softDeleteRecord(tableName, recordId) {
+    const actorId = currentLoggedInUser ? currentLoggedInUser.employee_id : 'DT-C-CA-01';
+    const actorName = currentLoggedInUser ? currentLoggedInUser.full_name : 'CDMS Admin';
+    const actorRole = currentLoggedInUser ? currentLoggedInUser.role_designation : 'Admin';
+
+    if (tableName === 'employees') {
+        const isPrivilegedAdmin = ['DT-C-CA-01', 'CDTE-01'].includes(actorId);
+        if (!isPrivilegedAdmin) {
+            return showToast('Only CDMS Admin or Digital Team Executive can remove staff accounts.', 'error');
+        }
+        if (['DH-01', 'CSE-01', 'DT-C-CA-01', 'CDTE-01'].includes(recordId) || recordId === actorId) {
+            return showToast('Protected Leadership/Admin account cannot be wiped. Use the Leadership Succession Manager instead.', 'error');
+        }
+        const target = DB.employees.find(e => e.employee_id === recordId);
+        if (!target) return;
+
+        await supa.from('discarded_trash_vault').insert([{
+            original_table: 'employees',
+            record_id: recordId,
+            item_label: `${target.full_name} (${target.role_designation})`,
+            deleted_by_id: actorId,
+            deleted_by_name: actorName,
+            deleted_by_role: actorRole,
+            full_record_json: JSON.stringify(target)
+        }]);
+        await supa.from('employees').delete().eq('employee_id', recordId);
+
+        // Automatically send official removal report to Department Head (DH-01)
+        const dhEmp = DB.employees.find(e => e.employee_id === 'DH-01');
+        await supa.from('department_communications').insert([{
+            sender_id: actorId,
+            sender_name: actorName,
+            sender_role: actorRole,
+            receiver_id: 'DH-01',
+            receiver_name: dhEmp ? dhEmp.full_name : 'Cutting Department Head',
+            receiver_role: 'Cutting Dpt. Head',
+            protocol_category: 'Admin Staff Report',
+            linked_reference_id: recordId,
+            subject_line: `Staff Account Archived to Discard Vault: ${target.full_name} (${recordId})`,
+            message_body: `${actorName} (${actorId}) archived employee ${target.full_name} (${target.role_designation}, ${target.work_location_zone}) into the Discard Vault.`,
+            comm_status: 'Pending Approval'
+        }]);
+
+        await writeAuditLog('ARCHIVE_EMPLOYEE_TO_VAULT', 'Employees', recordId, target);
+        await syncFromSupabase();
+        renderAdminPortal();
+        showToast(`${recordId} moved to Discard Vault & reported to Department Head.`);
+    } else if (tableName === 'pattern_assets') {
+        const target = DB.pattern_assets.find(p => p.asset_id === recordId);
+        if (!target) return;
+        if (target.operational_status === 'Active on Line') {
+            return showToast('Cannot discard an item while it is checked out on a cutting line.', 'error');
+        }
+
+        await supa.from('discarded_trash_vault').insert([{
+            original_table: 'pattern_assets',
+            record_id: recordId,
+            item_label: `${target.model_name} (${target.brand_buyer} / ${target.tooling_type})`,
+            deleted_by_id: actorId,
+            deleted_by_name: actorName,
+            deleted_by_role: actorRole,
+            full_record_json: JSON.stringify(target)
+        }]);
+        await supa.from('pattern_assets').delete().eq('asset_id', recordId);
+        await writeAuditLog('DISCARD_PATTERN_ASSET', 'Pattern_Assets', recordId, target);
+        await syncFromSupabase();
+        renderDesignCadPortal();
+        showToast(`${recordId} moved to Discard Vault (Recoverable).`);
+    }
+}
+
+async function openDiscardVaultModal() {
+    await syncFromSupabase();
+    document.getElementById('discard-vault-modal').classList.remove('hidden');
+    renderDiscardVaultList();
+}
+
+function renderDiscardVaultList() {
+    const listEl = document.getElementById('discard-vault-list');
+    if (!listEl) return;
+
+    const rows = DB.discarded_trash_vault || [];
+    const badge = document.getElementById('trash-vault-count-badge');
+    if (badge) badge.innerText = rows.length;
+
+    listEl.innerHTML = rows.map(r => `
+        <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-wrap justify-between items-center gap-3">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded bg-zinc-900 text-white font-mono text-[10px] uppercase">${r.original_table}</span>
+                    <strong class="font-mono text-zinc-900">${r.record_id}</strong>
+                    <span class="text-zinc-700 font-semibold">${r.item_label || ''}</span>
+                </div>
+                <p class="text-[11px] text-zinc-500 mt-1">Archived by <strong>${r.deleted_by_name}</strong> (${r.deleted_by_id}) on ${new Date(r.deleted_at || Date.now()).toLocaleString()}</p>
+            </div>
+            <button type="button" onclick="restoreFromDiscardVault(${r.trash_id})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-xl font-bold text-xs">
+                Restore to System
+            </button>
+        </div>
+    `).join('') || '<p class="text-center text-zinc-400 py-10">Discard Vault is empty. No deleted items or staff records.</p>';
+}
+
+async function restoreFromDiscardVault(trashId) {
+    const item = DB.discarded_trash_vault.find(t => t.trash_id === trashId);
+    if (!item) return;
+
+    try {
+        const parsed = JSON.parse(item.full_record_json);
+        await supa.from(item.original_table).insert([parsed]);
+        await supa.from('discarded_trash_vault').delete().eq('trash_id', trashId);
+        await writeAuditLog('RESTORE_FROM_VAULT', item.original_table, item.record_id, parsed);
+        await syncFromSupabase();
+        renderDiscardVaultList();
+        if (!document.getElementById('view-admin').classList.contains('hidden')) renderAdminPortal();
+        if (!document.getElementById('view-design-cad').classList.contains('hidden')) renderDesignCadPortal();
+        showToast(`Restored ${item.record_id} back to ${item.original_table}.`);
+    } catch (err) {
+        showToast('Failed to restore record: ' + err.message, 'error');
+    }
+}
 
 
 // ============================================================================
@@ -1042,38 +1430,58 @@ function buildRoleIsolatedTabs(emp) {
 
     if (id.startsWith('DH')) {
         tabs = [
-            { key: 'dept-head', label: 'Overview' },
+            { key: 'dept-head', label: 'Executive Overview' },
+            { key: 'reports', label: 'Reports & Database' }
+        ];
+    } else if (id.startsWith('CSE')) {
+        tabs = [
+            { key: 'supervisor', label: 'Executive Calendar & Cut Commands' },
+            { key: 'supply', label: 'Sewing Orders & RMW' },
             { key: 'reports', label: 'Reports' }
         ];
-    } else if (id.startsWith('CSE') || id.startsWith('CS-')) {
+    } else if (id.startsWith('CS-')) {
         tabs = [
-            { key: 'supervisor', label: 'Shift Matrix' },
-            { key: 'supply', label: 'Orders & RMW' },
+            { key: 'supervisor', label: 'Weekly Shift Assignment & Cut Orders' },
             { key: 'reports', label: 'Reports' }
         ];
-    } else if (id.startsWith('DDC') || id.startsWith('CAD')) {
+    } else if (id.startsWith('DDC')) {
         tabs = [
-            { key: 'design-cad', label: 'Styles & CAD' },
+            { key: 'design-cad', label: 'Design Concept & Fabric Studio' },
+            { key: 'reports', label: 'Reports' }
+        ];
+    } else if (id.startsWith('CAD')) {
+        tabs = [
+            { key: 'design-cad', label: 'CAD Marker Processing Hub' },
             { key: 'reports', label: 'Reports' }
         ];
     } else if (id.startsWith('PR-')) {
         tabs = [
-            { key: 'design-cad', label: 'Register Items' },
+            { key: 'design-cad', label: 'Pattern Room Inventory & Tagging' },
             { key: 'reports', label: 'Reports' }
         ];
-    } else if (id.startsWith('SDC') || id.startsWith('RMW')) {
+    } else if (id.startsWith('SDC')) {
         tabs = [
-            { key: 'supply', label: 'Orders & Dispatch' },
+            { key: 'supply', label: 'Sewing Cut Orders & Bundles' },
             { key: 'reports', label: 'Reports' }
         ];
-    } else if (id.startsWith('CQC') || id.startsWith('QCI')) {
+    } else if (id.startsWith('RMW')) {
         tabs = [
-            { key: 'qc', label: 'Quality Control' },
+            { key: 'supply', label: 'RMW Warehouse Lot Dispatch' },
+            { key: 'reports', label: 'Reports' }
+        ];
+    } else if (id.startsWith('CQCE')) {
+        tabs = [
+            { key: 'qc', label: 'QC Executive Command & Approvals' },
+            { key: 'reports', label: 'Reports' }
+        ];
+    } else if (id.startsWith('QCI')) {
+        tabs = [
+            { key: 'qc', label: 'QC Floor Inspector Scanner' },
             { key: 'reports', label: 'Reports' }
         ];
     } else {
         tabs = [
-            { key: 'admin', label: 'Admin & Support' },
+            { key: 'admin', label: id.startsWith('DT-C-CST') ? 'CDMS Support Console' : 'CDMS Admin Console' },
             { key: 'reports', label: 'Reports & Database' }
         ];
     }
@@ -1092,12 +1500,14 @@ function buildRoleIsolatedTabs(emp) {
 
 function hideAllMainViews() {
     ['view-tracker', 'view-dept-head', 'view-supervisor', 'view-design-cad', 'view-supply', 'view-qc', 'view-admin', 'view-reports'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
     });
 }
 
 function switchPortalView(viewKey) {
     closeCustomSelectMenu();
+    closeAllFullscreenPanels();
     hideAllMainViews();
     document.querySelectorAll('.role-tab').forEach(b => {
         if (b.getAttribute('data-tab-key') === viewKey) {
@@ -1119,7 +1529,6 @@ function switchPortalView(viewKey) {
     if (viewKey === 'reports') { populateReportGroupFilter(); renderGroupedReport(); }
     setTimeout(refreshAllCustomSelects, 20);
 }
-
 
 
 // ============================================================================
@@ -1219,12 +1628,8 @@ function renderPatternCardHtml(p) {
 
 function renderPatternGrid(query = '', brandFilter = 'ALL', rackFilter = 'ALL') {
     let list = DB.pattern_assets;
-    if (brandFilter !== 'ALL') {
-        list = list.filter(p => p.brand_buyer === brandFilter);
-    }
-    if (rackFilter !== 'ALL') {
-        list = list.filter(p => p.storage_location === rackFilter);
-    }
+    if (brandFilter !== 'ALL') list = list.filter(p => p.brand_buyer === brandFilter);
+    if (rackFilter !== 'ALL') list = list.filter(p => p.storage_location === rackFilter);
     if (query) {
         list = list.filter(p =>
             p.asset_id.toLowerCase().includes(query) ||
@@ -1285,12 +1690,8 @@ function renderCameraSectionHtml(scanContext, assetId = '') {
 }
 
 async function handleWebsiteCameraPermission(allowed, scanContext, assetId) {
-    if (allowed) {
-        cameraPermissionState = 'granted';
-    } else {
-        cameraPermissionState = 'denied';
-        await stopActiveQrCamera();
-    }
+    cameraPermissionState = allowed ? 'granted' : 'denied';
+    if (!allowed) await stopActiveQrCamera();
 
     if (scanContext === 'quick-item') {
         openQuickQrScanner();
@@ -1344,7 +1745,6 @@ function openQuickQrScanner() {
     area.innerHTML = `
         <div class="space-y-4">
             ${renderCameraSectionHtml('quick-item', '')}
-
             <div class="border-t border-zinc-200 pt-3">
                 <label class="text-xs font-semibold text-zinc-700 block mb-1.5">Or Enter Asset ID Manually</label>
                 <div class="flex gap-2">
@@ -1352,7 +1752,6 @@ function openQuickQrScanner() {
                     <button type="button" onclick="submitManualQuickAssetLocate()" class="bg-zinc-900 hover:bg-zinc-800 text-white px-4 py-2.5 rounded-xl text-xs font-semibold">Locate</button>
                 </div>
             </div>
-
             ${sandboxItemsHtml}
         </div>
     `;
@@ -1389,7 +1788,7 @@ function openScannerForAsset(assetId) {
             <div class="text-center py-6 space-y-3">
                 <img src="${itemImg}" class="w-40 h-28 object-cover rounded-xl mx-auto border">
                 <h4 class="text-base font-bold text-rose-600 uppercase">Item Restricted (${asset.operational_status})</h4>
-                <p class="text-xs text-zinc-600">${asset.asset_id} (${asset.model_name}) cannot be checked out.</p>
+                <p class="text-xs text-zinc-600">${asset.asset_id} (${asset.model_name}) is locked by Quality Control and cannot be checked out.</p>
             </div>
         `;
         return;
@@ -1454,14 +1853,15 @@ function openScannerForAsset(assetId) {
             <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Sandbox Mode (0): Sample Operator Badges</p>
             <div class="space-y-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
                 ${floorOps.map(op => {
-                    const isSched = DB.shift_assignments.some(s => s.borrower_id === op.employee_id && s.assigned_date === todayStr);
+                    const isSched = DB.shift_assignments.some(s => s.borrower_id === op.employee_id && s.assigned_date === todayStr) ||
+                                    DB.cutting_orders.some(o => o.assigned_operator_id === op.employee_id && o.style_code === asset.style_code && o.pattern_box_cleared);
                     return `
                         <button type="button" onclick="executeAssetBorrow('${asset.asset_id}', '${op.employee_id}')" class="w-full text-left p-2 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-xs flex justify-between items-center">
                             <span class="flex items-center gap-2">
                                 <img src="${getAvatarUrl(op.avatar_url)}" class="w-6 h-6 rounded-full object-cover border border-zinc-300">
                                 <span><strong class="text-zinc-900">${op.full_name}</strong> <span class="font-mono text-zinc-400">(${op.employee_id})</span></span>
                             </span>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isSched ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${isSched ? 'Scheduled' : '15m Lock'}</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isSched ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${isSched ? 'Pre-Cleared' : '15m Lock'}</span>
                         </button>
                     `;
                 }).join('')}
@@ -1547,11 +1947,16 @@ function submitManualReturnWithTick(assetId) {
 async function executeAssetBorrow(assetId, operatorId) {
     const shift = document.getElementById('scan-shift-select')?.value || 'Morning';
     const todayStr = new Date().toISOString().split('T')[0];
-    const isScheduled = DB.shift_assignments.some(
+    const assetObj = DB.pattern_assets.find(a => a.asset_id === assetId);
+
+    const isScheduledOnMatrix = DB.shift_assignments.some(
         s => s.borrower_id === operatorId && s.assigned_date === todayStr && s.shift_type === shift
     );
+    const isPreClearedBySupervisorBox = assetObj && DB.cutting_orders.some(
+        o => o.style_code === assetObj.style_code && o.assigned_operator_id === operatorId && o.pattern_box_cleared
+    );
 
-    if (!isScheduled) {
+    if (!isScheduledOnMatrix && !isPreClearedBySupervisorBox) {
         await supa.from('pattern_assets').update({
             operational_status: 'Locked_Pending (15m)',
             borrowed_by_id: operatorId
@@ -1570,7 +1975,7 @@ async function executeAssetBorrow(assetId, operatorId) {
         closeVerifyModal();
         handlePatternSearch();
         startMutexBarCountdown(assetId, operatorId, shift);
-        showToast(`Unscheduled worker: ${assetId} locked for 15 mins.`, 'error');
+        showToast(`Unscheduled worker: ${assetId} locked for 15 mins pending Supervisor approval.`, 'error');
         return;
     }
 
@@ -1642,10 +2047,14 @@ function startMutexBarCountdown(assetId, operatorId, shift) {
     }, 1000);
 }
 
+function finalizeMutexCheckout() {
+    closeModal('mutex-bar');
+    handlePatternSearch();
+}
+
 function dismissMutexBar() {
     closeModal('mutex-bar');
 }
-
 
 
 // ============================================================================
@@ -1665,18 +2074,18 @@ async function renderDeptHeadPortal() {
     document.getElementById('dh-approvals-list').innerHTML = dhReqs.map(c => `
         <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 space-y-2 text-xs">
             <div class="flex justify-between items-start">
-                <span class="px-2 py-0.5 rounded bg-zinc-200 text-zinc-800 font-bold text-[10px] uppercase">${c.protocol_category}</span>
+                <span class="px-2 py-0.5 rounded bg-zinc-900 text-white font-bold text-[10px] uppercase">${c.protocol_category}</span>
                 <span class="font-mono text-[11px] text-zinc-500">Ref: ${c.linked_reference_id}</span>
             </div>
             <p class="font-bold text-zinc-900">${c.subject_line}</p>
             <p class="text-zinc-600">${c.message_body}</p>
             <p class="text-[11px] text-zinc-500">From: <strong>${c.sender_name}</strong> (${c.sender_role})</p>
             <div class="grid grid-cols-2 gap-2 pt-1">
-                <button type="button" onclick="resolveCommItem(${c.comm_id}, 'Approved')" class="bg-zinc-900 text-white py-1.5 rounded-lg font-semibold">Approve</button>
+                <button type="button" onclick="resolveCommItem(${c.comm_id}, 'Approved')" class="bg-zinc-900 text-white py-1.5 rounded-lg font-semibold">Acknowledge / Approve</button>
                 <button type="button" onclick="resolveCommItem(${c.comm_id}, 'Rejected')" class="bg-zinc-200 text-zinc-800 py-1.5 rounded-lg font-semibold">Reject</button>
             </div>
         </div>
-    `).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No pending requests.</p>';
+    `).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No pending executive approvals or admin staff reports.</p>';
 
     const activeAssets = DB.pattern_assets.filter(p => p.operational_status === 'Active on Line');
     document.getElementById('dh-active-processes').innerHTML = activeAssets.map(a => {
@@ -1696,28 +2105,90 @@ async function renderDeptHeadPortal() {
     document.getElementById('dh-qc-oversight').innerHTML = DB.qc_inspection_logs.map(l => `
         <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-1">
             <div class="flex justify-between font-bold text-zinc-900">
-                <span>${l.qc_log_id} (${l.defect_code})</span>
+                <span>${l.qc_log_id} (${l.defect_code} - ${l.severity_tier || 'Medium'})</span>
                 <span class="text-rose-600">${l.asset_id}</span>
             </div>
-            <p class="text-zinc-600">${l.production_line} / Plies: ${l.ruined_ply_count} / Resolver: ${l.resolver_id}</p>
+            <p class="text-zinc-600">${l.production_line} / Plies: ${l.ruined_ply_count} / Inspector: ${l.inspector_id}</p>
+            ${l.inspector_notes ? `<p class="text-[11px] text-zinc-500 italic">"${l.inspector_notes}"</p>` : ''}
             <span class="inline-block px-2 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 text-[10px] font-semibold">${l.resolution_status}</span>
         </div>
     `).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No quality control logs recorded yet.</p>';
 }
 
 
+// ============================================================================
+// SECTION 13: SENIOR EXECUTIVE (CSE-01) vs SUPERVISOR (CS-L1-01) PORTAL
+// ============================================================================
 
-// ============================================================================
-// SECTION 13: SUPERVISOR SHIFT MATRIX & CLEARANCE QUEUE
-// ============================================================================
+function isCurrentUserSeniorExecutive() {
+    return Boolean(currentLoggedInUser && currentLoggedInUser.employee_id.toUpperCase().startsWith('CSE'));
+}
+
+function isShiftSlotInPast(dateStr, shiftType) {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    if (dateStr < todayStr) return true;
+    if (dateStr > todayStr) return false;
+
+    const currentHour = now.getHours();
+    // Morning shift (06:00-14:00) is in the past if current time is >= 14:00 (2 PM)
+    if (shiftType === 'Morning' && currentHour >= 14) return true;
+    // Afternoon shift (14:00-22:00) is in the past if current time is >= 22:00 (10 PM)
+    if (shiftType === 'Afternoon' && currentHour >= 22) return true;
+    return false;
+}
 
 function filterSupervisorPool(lineFilter) {
     supervisorPoolLineFilter = lineFilter;
+    ['ALL', 'Line 1', 'Line 2', 'Line 3'].forEach(lf => {
+        const btnId = lf === 'ALL' ? 'pool-filter-ALL' : `pool-filter-L${lf.split(' ')[1]}`;
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            btn.className = lf === lineFilter
+                ? 'px-2 py-0.5 rounded bg-zinc-900 text-white'
+                : 'px-2 py-0.5 rounded bg-zinc-100 text-zinc-700';
+        }
+    });
     renderSupervisorPortal();
 }
 
 async function renderSupervisorPortal() {
     await syncFromSupabase();
+    const isExec = isCurrentUserSeniorExecutive();
+
+    // 1. Role Mode Banner & Command Hubs
+    const banner = document.getElementById('sup-exec-mode-banner');
+    const cseHub = document.getElementById('cse-command-hub');
+    const supHub = document.getElementById('sup-order-execution-hub');
+    const calSub = document.getElementById('calendar-helper-subtitle');
+
+    if (isExec) {
+        banner.innerHTML = `
+            <div>
+                <span class="px-2 py-0.5 rounded bg-zinc-900 text-white text-[10px] font-bold uppercase">Senior Executive Mode (CSE-01)</span>
+                <h2 class="text-sm sm:text-base font-bold text-zinc-900 mt-1">Executive Schedule Inspection, Assignment Challenge & Cut Order Routing</h2>
+                <p class="text-xs text-zinc-500">Senior Executives do not manually drag/assign workers. Inspect the Weekly Shift Assignment below and click any wrong worker chip to send an immediate <strong>Challenge Directive</strong> to the Supervisor.</p>
+            </div>
+        `;
+        cseHub.classList.remove('hidden');
+        supHub.classList.add('hidden');
+        if (calSub) calSub.innerText = 'Executive Oversight Mode: Click any assigned worker chip in the calendar to challenge a wrong shift assignment and alert the Line Supervisor.';
+        renderCseOrderVerificationHub();
+    } else {
+        banner.innerHTML = `
+            <div>
+                <span class="px-2 py-0.5 rounded bg-emerald-700 text-white text-[10px] font-bold uppercase">Line Supervisor Mode (${currentLoggedInUser?.employee_id || 'CS-L1-01'})</span>
+                <h2 class="text-sm sm:text-base font-bold text-zinc-900 mt-1">Line Supervisor Shift Scheduling, Cut Order Execution & Pattern Box Clearance</h2>
+                <p class="text-xs text-zinc-500">Execute cut orders forwarded by the Senior Executive, grant Pattern Room box clearance, and assign operators to upcoming shifts.</p>
+            </div>
+        `;
+        cseHub.classList.add('hidden');
+        supHub.classList.remove('hidden');
+        if (calSub) calSub.innerText = 'Past shifts are locked automatically. Tap a slot to assign or toggle off the selected worker, or tap the red button to remove.';
+        renderSupervisorOrderExecutionHub();
+    }
+
+    // 2. 15-Minute Lock Clearance Tickets
     const pending = DB.pending_requests.filter(r => r.request_status === 'Pending');
     document.getElementById('ticket-count-badge').innerText = pending.length;
 
@@ -1729,14 +2200,19 @@ async function renderSupervisorPortal() {
                     <strong class="text-zinc-900">${emp ? emp.full_name : r.borrower_id}</strong>
                     <span class="font-semibold text-zinc-700">${r.pattern_id} (${r.requested_shift})</span>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <button type="button" onclick="resolveMutexTicket(${r.request_id}, 'Approve')" class="bg-zinc-900 text-white py-1.5 rounded-lg font-semibold">Grant</button>
-                    <button type="button" onclick="resolveMutexTicket(${r.request_id}, 'Decline')" class="bg-zinc-200 text-zinc-700 py-1.5 rounded-lg font-semibold">Deny</button>
-                </div>
+                ${isExec ? `
+                    <p class="text-[11px] text-zinc-500">Awaiting Line Supervisor clearance decision.</p>
+                ` : `
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="resolveMutexTicket(${r.request_id}, 'Approve')" class="bg-zinc-900 text-white py-1.5 rounded-lg font-semibold">Grant</button>
+                        <button type="button" onclick="resolveMutexTicket(${r.request_id}, 'Decline')" class="bg-zinc-200 text-zinc-700 py-1.5 rounded-lg font-semibold">Deny</button>
+                    </div>
+                `}
             </div>
         `;
-    }).join('') || '<p class="text-xs text-zinc-400 text-center py-8">No pending tickets.</p>';
+    }).join('') || '<p class="text-xs text-zinc-400 text-center py-8">No pending 15-minute lock tickets.</p>';
 
+    // 3. Active Borrowed Items
     const active = DB.pattern_assets.filter(p => p.operational_status === 'Active on Line');
     document.getElementById('active-deploy-badge').innerText = active.length;
     document.getElementById('supervisor-active-list').innerHTML = active.map(p => {
@@ -1752,27 +2228,35 @@ async function renderSupervisorPortal() {
         `;
     }).join('') || '<p class="text-xs text-zinc-400 text-center py-8">No active floor deployments.</p>';
 
-    let floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-'));
+    // 4. Operator Pool
+    let floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-') && (!e.account_status || e.account_status === 'Active'));
     if (supervisorPoolLineFilter !== 'ALL') {
         floorOps = floorOps.filter(e => e.work_location_zone.includes(supervisorPoolLineFilter));
     }
 
+    const opInd = document.getElementById('selected-op-indicator');
+    if (isExec) {
+        if (opInd) opInd.innerText = 'Executive Read-Only Pool (Supervisors assign shifts)';
+    }
+
     document.getElementById('operator-pool').innerHTML = floorOps.map(op => {
-        const locked = selectedOperatorForAssign === op.employee_id;
+        const locked = !isExec && selectedOperatorForAssign === op.employee_id;
         return `
-            <div onclick="lockOperatorForCalendar('${op.employee_id}')" class="p-2 rounded-xl border ${locked ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-900'} cursor-pointer flex items-center gap-2 text-xs">
+            <div onclick="${isExec ? '' : `lockOperatorForCalendar('${op.employee_id}')`}" class="p-2 rounded-xl border ${locked ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-900'} ${isExec ? 'cursor-default' : 'cursor-pointer hover:border-zinc-900'} flex items-center gap-2 text-xs transition-colors">
                 <img src="${getAvatarUrl(op.avatar_url)}" class="w-7 h-7 rounded-full object-cover shrink-0 border border-zinc-300">
                 <div class="truncate">
                     <p class="font-bold truncate">${op.full_name}</p>
-                    <p class="text-[10px] opacity-70">${op.employee_id}</p>
+                    <p class="text-[10px] opacity-75 font-mono">${op.employee_id} (${op.work_location_zone.replace('Cutting Floor - ', '')})</p>
                 </div>
             </div>
         `;
     }).join('');
 
+    // 5. Weekly Shift Assignment Calendar
     const grid = document.getElementById('calendar-grid');
     const shifts = ['Morning', 'Afternoon', 'Night'];
     let html = '';
+
     for (let i = 0; i < 7; i++) {
         const d = new Date();
         d.setDate(d.getDate() + i);
@@ -1783,16 +2267,31 @@ async function renderSupervisorPortal() {
             <div class="bg-zinc-50 p-2.5 rounded-xl border border-zinc-200 flex flex-col gap-2">
                 <div class="text-center font-bold text-xs text-zinc-800 border-b border-zinc-200 pb-1.5">${dayLabel}</div>
                 ${shifts.map(sh => {
+                    const isPast = isShiftSlotInPast(dateStr, sh);
                     const assigned = DB.shift_assignments.filter(a => a.assigned_date === dateStr && a.shift_type === sh);
+                    const slotClickAttr = (!isExec && !isPast) ? `onclick="tapDeployShift('${dateStr}', '${sh}')"` : '';
+
                     return `
-                        <div onclick="tapDeployShift('${dateStr}', '${sh}')" class="min-h-[78px] p-2 rounded-lg bg-white border border-dashed border-zinc-300 hover:border-zinc-900 cursor-pointer flex flex-col gap-1">
-                            <span class="text-[10px] font-semibold text-zinc-400 uppercase">${sh}</span>
+                        <div ${slotClickAttr} class="min-h-[86px] p-2 rounded-lg bg-white border ${isPast ? 'shift-slot-past border-zinc-200' : 'border-dashed border-zinc-300 hover:border-zinc-900 cursor-pointer'} flex flex-col gap-1.5 transition-colors">
+                            <div class="flex justify-between items-center">
+                                <span class="text-[10px] font-bold ${isPast ? 'text-zinc-400' : 'text-zinc-600'} uppercase">${sh}</span>
+                                ${isPast ? '<span class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-600">Past / Locked</span>' : ''}
+                            </div>
                             ${assigned.map(a => {
                                 const w = DB.employees.find(e => e.employee_id === a.borrower_id);
+                                const shortName = w ? w.full_name : a.borrower_id;
+                                if (isExec) {
+                                    return `
+                                        <div onclick="challengeShiftAssignment(${a.assignment_id}, '${a.borrower_id}', '${dateStr}', '${sh}'); event.stopPropagation();" title="Click to Challenge this Assignment" class="px-2 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-[11px] font-semibold text-zinc-900 flex justify-between items-center gap-1 cursor-pointer">
+                                            <span class="truncate">${shortName}</span>
+                                            <span class="px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900 text-[9px] font-bold shrink-0">Challenge</span>
+                                        </div>
+                                    `;
+                                }
                                 return `
-                                    <div class="px-2 py-1 rounded bg-zinc-100 border border-zinc-200 text-[11px] font-semibold text-zinc-800 flex justify-between items-center">
-                                        <span class="truncate">${w ? w.full_name.split(' ')[0] : a.borrower_id}</span>
-                                        <button type="button" onclick="removeShiftSlot(${a.assignment_id}); event.stopPropagation();" class="text-zinc-400 hover:text-rose-600 ml-1">&times;</button>
+                                    <div class="px-2 py-1 rounded-lg bg-zinc-100 border border-zinc-200 text-[11px] font-semibold text-zinc-800 flex justify-between items-center gap-1">
+                                        <span class="truncate">${shortName}</span>
+                                        <button type="button" title="Remove from Shift" onclick="removeShiftSlot(${a.assignment_id}); event.stopPropagation();" class="shift-remove-btn">&times;</button>
                                     </div>
                                 `;
                             }).join('')}
@@ -1803,39 +2302,255 @@ async function renderSupervisorPortal() {
         `;
     }
     grid.innerHTML = html;
+    refreshAllCustomSelects();
+}
+
+function renderCseOrderVerificationHub() {
+    const container = document.getElementById('cse-orders-verification-list');
+    if (!container) return;
+
+    container.innerHTML = DB.cutting_orders.map(o => {
+        const isQueued = o.order_status === 'Queued' || o.order_status === 'Pending Exec Verification';
+        return `
+            <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="font-mono font-bold text-zinc-900">${o.order_id} / Style ${o.style_code} (Size ${o.target_size})</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${o.priority_level === 'Urgent' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-zinc-200 text-zinc-800'}">${o.priority_level}</span>
+                </div>
+                <p class="text-zinc-600">Bundle Qty: <strong>${o.target_bundle_qty} pcs</strong> | Status: <strong class="text-zinc-900">${o.order_status}</strong></p>
+                ${o.order_notes ? `<p class="text-[11px] text-zinc-500 italic">Sewing Note: "${o.order_notes}"</p>` : ''}
+                ${isQueued ? `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        <select id="cse-target-line-${o.order_id}" class="p-2 bg-white border border-zinc-300 rounded-lg text-xs">
+                            <option value="Line 1">Forward to Supervisor Line 1</option>
+                            <option value="Line 2">Forward to Supervisor Line 2</option>
+                            <option value="Line 3">Forward to Supervisor Line 3</option>
+                        </select>
+                        <button type="button" onclick="cseVerifyAndForwardOrder('${o.order_id}')" class="bg-zinc-900 hover:bg-zinc-800 text-white py-2 px-3 rounded-lg font-semibold">
+                            Verify & Forward Command
+                        </button>
+                    </div>
+                ` : `
+                    <div class="text-[11px] text-emerald-700 font-semibold">
+                        Forwarded to ${o.assigned_line} ${o.assigned_operator_id ? `| Assigned: ${o.assigned_operator_id} (${o.scheduled_date})` : '| Awaiting Supervisor Scheduling'}
+                    </div>
+                `}
+            </div>
+        `;
+    }).join('') || '<p class="text-xs text-zinc-400 py-4">No cutting orders waiting for verification.</p>';
+}
+
+async function cseVerifyAndForwardOrder(orderId) {
+    const lineSel = document.getElementById(`cse-target-line-${orderId}`);
+    const targetLine = lineSel ? lineSel.value : 'Line 1';
+
+    await supa.from('cutting_orders').update({
+        assigned_line: targetLine,
+        approved_by_exec_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'CSE-01',
+        order_status: 'Forwarded to Supervisor'
+    }).eq('order_id', orderId);
+
+    const supEmp = DB.employees.find(e => e.employee_id === 'CS-L1-01');
+    await supa.from('department_communications').insert([{
+        sender_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'CSE-01',
+        sender_name: currentLoggedInUser ? currentLoggedInUser.full_name : 'Aaron Emmanuel',
+        sender_role: 'Cutting Senior Executive',
+        receiver_id: 'CS-L1-01',
+        receiver_name: supEmp ? supEmp.full_name : 'Nathaniel Perera',
+        receiver_role: 'Cutting Supervisors',
+        protocol_category: 'Line Directive',
+        linked_reference_id: orderId,
+        subject_line: `Execute Verified Cut Order ${orderId} on ${targetLine}`,
+        message_body: `Cut Order ${orderId} has been verified with Sewing & Design. Please assign an operator, schedule the cut date, and grant Pattern Room Box permission.`,
+        comm_status: 'Pending Approval'
+    }]);
+
+    await writeAuditLog('CSE_FORWARD_ORDER', 'Cutting_Orders', orderId, { targetLine });
+    await renderSupervisorPortal();
+    showToast(`Order ${orderId} verified and forwarded to ${targetLine} Supervisor.`);
+}
+
+function renderSupervisorOrderExecutionHub() {
+    const container = document.getElementById('sup-forwarded-orders-list');
+    if (!container) return;
+
+    const floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-'));
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    container.innerHTML = DB.cutting_orders.map(o => {
+        const isCompleted = o.order_status === 'Bundled for Sewing' || o.order_status === 'Received by Sewing';
+        return `
+            <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-2.5">
+                <div class="flex justify-between items-center">
+                    <span class="font-mono font-bold text-zinc-900">${o.order_id} / Style ${o.style_code} (Size ${o.target_size})</span>
+                    <span class="px-2 py-0.5 rounded bg-zinc-200 text-zinc-800 font-bold text-[10px]">${o.order_status}</span>
+                </div>
+                <p class="text-zinc-600">Qty: <strong>${o.target_bundle_qty} pcs</strong> | Line: <strong>${o.assigned_line}</strong></p>
+                ${!isCompleted ? `
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input id="sup-ord-date-${o.order_id}" type="date" value="${o.scheduled_date || todayStr}" min="${todayStr}" class="p-2 bg-white border border-zinc-300 rounded-lg text-xs">
+                        <select id="sup-ord-shift-${o.order_id}" class="p-2 bg-white border border-zinc-300 rounded-lg text-xs">
+                            <option value="Morning" ${o.scheduled_shift === 'Morning' ? 'selected' : ''}>Morning</option>
+                            <option value="Afternoon" ${o.scheduled_shift === 'Afternoon' ? 'selected' : ''}>Afternoon</option>
+                            <option value="Night" ${o.scheduled_shift === 'Night' ? 'selected' : ''}>Night</option>
+                        </select>
+                        <select id="sup-ord-op-${o.order_id}" class="p-2 bg-white border border-zinc-300 rounded-lg text-xs">
+                            ${floorOps.map(op => `<option value="${op.employee_id}" ${o.assigned_operator_id === op.employee_id ? 'selected' : ''}>${op.full_name} (${op.employee_id})</option>`).join('')}
+                        </select>
+                    </div>
+                    <label class="flex items-center gap-2 cursor-pointer select-none text-xs text-zinc-800 bg-white p-2 rounded-lg border border-zinc-200">
+                        <input id="sup-ord-box-${o.order_id}" type="checkbox" ${o.pattern_box_cleared ? 'checked' : ''} class="w-4 h-4 rounded accent-zinc-900">
+                        <span><strong>Grant Pattern Room Box Permission:</strong> Pre-authorize assignee to check out pattern/mold for ${o.style_code}</span>
+                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="supervisorExecuteOrderSchedule('${o.order_id}')" class="bg-zinc-900 hover:bg-zinc-800 text-white py-2 rounded-lg font-semibold">
+                            Assign & Grant Box Access
+                        </button>
+                        <button type="button" onclick="supervisorMarkOrderBundled('${o.order_id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg font-semibold">
+                            Send Cut Bundles to Sewing
+                        </button>
+                    </div>
+                ` : `
+                    <p class="text-emerald-700 font-semibold text-[11px]">Cut completed & bundled for Sewing Department (${o.order_status}).</p>
+                `}
+            </div>
+        `;
+    }).join('') || '<p class="text-xs text-zinc-400 py-4">No cutting orders currently in queue.</p>';
+}
+
+async function supervisorExecuteOrderSchedule(orderId) {
+    const ord = DB.cutting_orders.find(o => o.order_id === orderId);
+    if (!ord) return;
+
+    const dateVal = document.getElementById(`sup-ord-date-${orderId}`)?.value || new Date().toISOString().split('T')[0];
+    const shiftVal = document.getElementById(`sup-ord-shift-${orderId}`)?.value || 'Morning';
+    const opVal = document.getElementById(`sup-ord-op-${orderId}`)?.value || 'CW-L1-CMO-01';
+    const boxCleared = Boolean(document.getElementById(`sup-ord-box-${orderId}`)?.checked);
+
+    if (isShiftSlotInPast(dateVal, shiftVal)) {
+        return showToast('Cannot schedule a cut order into a past shift.', 'error');
+    }
+
+    await supa.from('cutting_orders').update({
+        scheduled_date: dateVal,
+        scheduled_shift: shiftVal,
+        assigned_operator_id: opVal,
+        pattern_box_cleared: boxCleared,
+        order_status: 'Scheduled on Cutting Line'
+    }).eq('order_id', orderId);
+
+    // Also add operator to the Shift Matrix if not already scheduled on that slot
+    const exists = DB.shift_assignments.some(a => a.borrower_id === opVal && a.assigned_date === dateVal && a.shift_type === shiftVal);
+    if (!exists) {
+        await supa.from('shift_assignments').insert([{
+            borrower_id: opVal,
+            supervisor_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'CS-L1-01',
+            assigned_date: dateVal,
+            shift_type: shiftVal,
+            production_line: ord.assigned_line || 'Line 1'
+        }]);
+    }
+
+    await writeAuditLog('SUPERVISOR_SCHEDULE_ORDER', 'Cutting_Orders', orderId, { opVal, dateVal, shiftVal, boxCleared });
+    await renderSupervisorPortal();
+    showToast(`Scheduled ${orderId} for ${opVal} (${shiftVal}) ${boxCleared ? 'with Pattern Room Box Permission' : ''}.`);
+}
+
+async function supervisorMarkOrderBundled(orderId) {
+    await supa.from('cutting_orders').update({
+        order_status: 'Bundled for Sewing'
+    }).eq('order_id', orderId);
+    await writeAuditLog('BUNDLED_FOR_SEWING', 'Cutting_Orders', orderId, { status: 'Bundled for Sewing' });
+    await renderSupervisorPortal();
+    showToast(`Order ${orderId} marked as Bundled & Dispatched to Sewing Department.`);
+}
+
+async function challengeShiftAssignment(assignmentId, borrowerId, dateStr, shiftType) {
+    const worker = DB.employees.find(e => e.employee_id === borrowerId);
+    const workerName = worker ? worker.full_name : borrowerId;
+    const supEmp = DB.employees.find(e => e.employee_id === 'CS-L1-01');
+
+    const payload = {
+        sender_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'CSE-01',
+        sender_name: currentLoggedInUser ? currentLoggedInUser.full_name : 'Aaron Emmanuel',
+        sender_role: 'Cutting Senior Executive',
+        receiver_id: 'CS-L1-01',
+        receiver_name: supEmp ? supEmp.full_name : 'Nathaniel Perera',
+        receiver_role: 'Cutting Supervisors',
+        protocol_category: 'Line Directive',
+        linked_reference_id: `${borrowerId}-${dateStr}-${shiftType}`,
+        subject_line: `URGENT SCHEDULE CHALLENGE: ${workerName} on ${dateStr} (${shiftType})`,
+        message_body: `Senior Executive challenged the assignment of ${workerName} (${borrowerId}) on ${dateStr} (${shiftType} shift). Please review and reassign immediately.`,
+        comm_status: 'Pending Approval'
+    };
+
+    await supa.from('department_communications').insert([payload]);
+    await writeAuditLog('CHALLENGE_SHIFT_ASSIGNMENT', 'Shift_Assignments', assignmentId, payload);
+    await syncFromSupabase();
+    showToast(`Challenge sent to Supervisor regarding ${workerName} (${dateStr} ${shiftType}).`);
 }
 
 function lockOperatorForCalendar(empId) {
+    if (isCurrentUserSeniorExecutive()) return;
     selectedOperatorForAssign = selectedOperatorForAssign === empId ? null : empId;
     const emp = DB.employees.find(e => e.employee_id === selectedOperatorForAssign);
-    document.getElementById('selected-op-indicator').innerText = emp ? `Selected: ${emp.full_name} (${emp.employee_id})` : 'Tap Worker to Select';
+    document.getElementById('selected-op-indicator').innerText = emp
+        ? `Selected: ${emp.full_name} (${emp.employee_id}) — Tap slot to assign or tap again to remove`
+        : 'Tap Worker to Select';
     renderSupervisorPortal();
 }
 
 async function tapDeployShift(dateStr, shiftType) {
-    if (!selectedOperatorForAssign) return showToast('Select an Operator from the Pool first.', 'error');
-    const exists = DB.shift_assignments.some(a => a.borrower_id === selectedOperatorForAssign && a.assigned_date === dateStr && a.shift_type === shiftType);
-    if (exists) return showToast('Operator is already assigned to this shift slot.', 'error');
+    if (isCurrentUserSeniorExecutive()) {
+        return showToast('Senior Executives inspect and challenge schedules; Line Supervisors assign shifts.', 'error');
+    }
+    if (isShiftAssignBusy) return;
+    if (isShiftSlotInPast(dateStr, shiftType)) {
+        return showToast(`Cannot assign workers to a past shift (${dateStr} ${shiftType}).`, 'error');
+    }
+    if (!selectedOperatorForAssign) {
+        return showToast('Select an Operator from the Operator Pool first.', 'error');
+    }
 
-    const supId = currentLoggedInUser ? currentLoggedInUser.employee_id : 'CS-L1-01';
-    const opObj = DB.employees.find(e => e.employee_id === selectedOperatorForAssign);
-    const lineMatch = opObj?.work_location_zone.match(/Line\s*\d/i);
+    isShiftAssignBusy = true;
+    try {
+        // Toggle behavior: if already in this shift slot, tapping again removes them cleanly (prevents double-tap duplicates)
+        const existing = DB.shift_assignments.find(
+            a => a.borrower_id === selectedOperatorForAssign && a.assigned_date === dateStr && a.shift_type === shiftType
+        );
 
-    await supa.from('shift_assignments').insert([{
-        borrower_id: selectedOperatorForAssign,
-        supervisor_id: supId,
-        assigned_date: dateStr,
-        shift_type: shiftType,
-        production_line: lineMatch ? lineMatch[0] : 'Line 1'
-    }]);
-    await writeAuditLog('ASSIGN_SHIFT', 'Shift_Assignments', selectedOperatorForAssign, { date: dateStr, shift: shiftType });
-    await renderSupervisorPortal();
-    showToast(`Assigned ${selectedOperatorForAssign} to ${shiftType} (${dateStr}).`);
+        if (existing) {
+            await supa.from('shift_assignments').delete().eq('assignment_id', existing.assignment_id);
+            await writeAuditLog('UNASSIGN_SHIFT_TOGGLE', 'Shift_Assignments', selectedOperatorForAssign, { date: dateStr, shift: shiftType });
+            await renderSupervisorPortal();
+            showToast(`Removed ${selectedOperatorForAssign} from ${shiftType} (${dateStr}).`);
+            return;
+        }
+
+        const supId = currentLoggedInUser ? currentLoggedInUser.employee_id : 'CS-L1-01';
+        const opObj = DB.employees.find(e => e.employee_id === selectedOperatorForAssign);
+        const lineMatch = opObj?.work_location_zone.match(/Line\s*\d/i);
+
+        await supa.from('shift_assignments').insert([{
+            borrower_id: selectedOperatorForAssign,
+            supervisor_id: supId,
+            assigned_date: dateStr,
+            shift_type: shiftType,
+            production_line: lineMatch ? lineMatch[0] : 'Line 1'
+        }]);
+        await writeAuditLog('ASSIGN_SHIFT', 'Shift_Assignments', selectedOperatorForAssign, { date: dateStr, shift: shiftType });
+        await renderSupervisorPortal();
+        showToast(`Assigned ${selectedOperatorForAssign} to ${shiftType} (${dateStr}).`);
+    } finally {
+        setTimeout(() => { isShiftAssignBusy = false; }, 280);
+    }
 }
 
 async function removeShiftSlot(id) {
+    if (isCurrentUserSeniorExecutive()) return;
     await supa.from('shift_assignments').delete().eq('assignment_id', id);
     await renderSupervisorPortal();
+    showToast('Shift slot assignment removed.');
 }
 
 async function resolveMutexTicket(reqId, decision) {
@@ -1845,7 +2560,7 @@ async function resolveMutexTicket(reqId, decision) {
         await supa.from('pending_requests').update({ request_status: 'Approved' }).eq('request_id', reqId);
         await supa.from('shift_assignments').insert([{
             borrower_id: req.borrower_id,
-            supervisor_id: 'CS-L1-01',
+            supervisor_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'CS-L1-01',
             assigned_date: req.requested_date,
             shift_type: req.requested_shift,
             production_line: 'Line 1'
@@ -1869,21 +2584,66 @@ async function resolveMutexTicket(reqId, decision) {
 }
 
 
-
 // ============================================================================
-// SECTION 14: DESIGN, CAD & PATTERN ROOM REGISTRATION
+// SECTION 14: ROLE-ISOLATED DESIGN (DDC), CAD (CADC) & PATTERN ROOM (PR)
 // ============================================================================
 
 async function renderDesignCadPortal() {
     await syncFromSupabase();
+    const userId = currentLoggedInUser ? currentLoggedInUser.employee_id.toUpperCase() : 'PR-C-PC-01';
+
+    const banner = document.getElementById('design-cad-role-banner');
+    const panelDesign = document.getElementById('panel-role-design');
+    const panelCad = document.getElementById('panel-role-cad');
+    const panelPattern = document.getElementById('panel-role-pattern');
+    const panelInv = document.getElementById('panel-pattern-inventory-list');
+
+    // Reset visibility
+    [panelDesign, panelCad, panelPattern, panelInv].forEach(p => { if (p) p.classList.remove('hidden'); });
+
+    if (userId.startsWith('DDC')) {
+        // Design Coordinator: Stage 1 (Create Style & Fabric) + Stage 2 Pipeline Status
+        if (panelPattern) panelPattern.classList.add('hidden');
+        banner.innerHTML = `
+            <div>
+                <span class="px-2 py-0.5 rounded bg-zinc-900 text-white text-[10px] font-bold uppercase">Stage 1: Design Department Coordinator (${userId})</span>
+                <h2 class="text-sm sm:text-base font-bold text-zinc-900 mt-1">Garment Style Concept Studio & Cloth Fabric Specification</h2>
+                <p class="text-xs text-zinc-500">Create new garment styles, register cloth fabric specifications into the RMW catalog, and push style briefs to the CAD Department (<code class="font-mono">CADC-C-01</code>).</p>
+            </div>
+        `;
+    } else if (userId.startsWith('CAD')) {
+        // CAD Coordinator: Stage 2 (Process Design Briefs & Release to Pattern Room)
+        if (panelDesign) panelDesign.classList.add('hidden');
+        banner.innerHTML = `
+            <div>
+                <span class="px-2 py-0.5 rounded bg-zinc-900 text-white text-[10px] font-bold uppercase">Stage 2: CAD Room Coordinator (${userId})</span>
+                <h2 class="text-sm sm:text-base font-bold text-zinc-900 mt-1">CAD Marker Plotting & Pattern Room Release Pipeline</h2>
+                <p class="text-xs text-zinc-500">Receive style briefs from the Design Department, verify CAD marker geometry, and release approved markers to the Pattern Room (<code class="font-mono">PR-C-PC-01</code>).</p>
+            </div>
+        `;
+    } else {
+        // Pattern Coordinator (PR-C-PC-01): Stage 3 (Tag Pattern Blocks/3D Molds & Manage Room Inventory)
+        if (panelDesign) panelDesign.classList.add('hidden');
+        banner.innerHTML = `
+            <div>
+                <span class="px-2 py-0.5 rounded bg-zinc-900 text-white text-[10px] font-bold uppercase">Stage 3: Pattern Room Coordinator (${userId})</span>
+                <h2 class="text-sm sm:text-base font-bold text-zinc-900 mt-1">Pattern Block / 3D Mold Registration, QR Tagging & Room Inventory</h2>
+                <p class="text-xs text-zinc-500">Take CAD-approved markers and register physical Pattern Blocks (PB) or 3D Molds (PM) into storage racks so cutting floor workers can check them out.</p>
+            </div>
+        `;
+    }
+
     const brands = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Brand');
     const sizes = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Size');
     const racks = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Rack');
     const fabrics = DB.rmw_materials.filter(m => m.material_category === 'Cutting Floor Fabric');
 
     document.getElementById('cad-brand-select').innerHTML = brands.map(b => `<option value="${b.setting_value}">${b.setting_value}</option>`).join('');
-    document.getElementById('cad-fabric-select').innerHTML = fabrics.map(f => `<option value="${f.material_code}">${f.material_code} (${f.target_brand_usage})</option>`).join('');
-    document.getElementById('pat-style-select').innerHTML = DB.cad_markers.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name})</option>`).join('');
+    document.getElementById('cad-fabric-select').innerHTML = fabrics.map(f => `<option value="${f.material_code}">${f.material_code} (${f.target_brand_usage} - ${f.material_name_specs})</option>`).join('');
+
+    const approvedMarkers = DB.cad_markers.filter(m => m.marker_status === 'Approved' || m.marker_status === 'Released to Pattern Room');
+    const markersForDropdown = approvedMarkers.length > 0 ? approvedMarkers : DB.cad_markers;
+    document.getElementById('pat-style-select').innerHTML = markersForDropdown.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name} - ${m.brand_buyer})</option>`).join('');
     document.getElementById('pat-size-select').innerHTML = sizes.map(s => `<option value="${s.setting_value}">${s.setting_value}</option>`).join('');
     document.getElementById('pat-rack-loc').innerHTML = racks.map(r => `<option value="${r.setting_value}">${r.setting_value}</option>`).join('');
 
@@ -1893,22 +2653,61 @@ async function renderDesignCadPortal() {
 
     autoSuggestStyleCode();
     autoGeneratePatternAssetId();
-    refreshAllCustomSelects();
 
-    document.getElementById('cad-markers-mini-list').innerHTML = DB.pattern_assets.map(p => `
-        <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center justify-between gap-3 text-xs">
-            <div class="flex items-center gap-2.5">
-                <img src="${getItemImageUrl(p.image_url)}" class="w-12 h-9 rounded-lg object-cover border">
-                <div>
-                    <p class="font-bold text-zinc-900">${p.asset_id} / ${p.model_name}</p>
-                    <p class="text-[11px] text-zinc-500">${p.brand_buyer} (${p.style_code}) / ${p.storage_location}</p>
+    // Render Stage 2 CAD Pipeline List
+    const cadListEl = document.getElementById('cad-stage-pipeline-list');
+    if (cadListEl) {
+        cadListEl.innerHTML = DB.cad_markers.map(m => {
+            const isPendingCad = m.marker_status === 'Sent to CAD' || m.marker_status === 'Pending CAD Plotting';
+            return `
+                <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="font-mono font-bold text-zinc-900">${m.cad_marker_id} / ${m.style_code}</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isPendingCad ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">${m.marker_status}</span>
+                    </div>
+                    <p class="font-bold text-zinc-800">${m.model_name} (${m.brand_buyer})</p>
+                    <p class="text-[11px] text-zinc-500">Tooling: ${m.cad_tooling_material_code} | Fabric: ${m.cutting_floor_fabric_code}</p>
+                    ${userId.startsWith('CAD') && isPendingCad ? `
+                        <button type="button" onclick="cadApproveAndPushToPatternRoom('${m.cad_marker_id}', '${m.style_code}')" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white py-1.5 rounded-lg font-semibold text-[11px]">
+                            Approve CAD Marker & Push to Pattern Room
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        }).join('') || '<p class="text-xs text-zinc-400 py-4 text-center">No styles in CAD pipeline.</p>';
+    }
+
+    // Render Pattern Inventory with Photo Editor (Add/Update/Remove Photo) + Discard to Vault
+    document.getElementById('cad-markers-mini-list').innerHTML = DB.pattern_assets.map(p => {
+        const hasPhoto = hasCustomPhoto(p.image_url);
+        return `
+            <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div class="flex items-center gap-2.5">
+                    <img src="${getItemImageUrl(p.image_url)}" class="w-12 h-9 rounded-lg object-cover border">
+                    <div>
+                        <p class="font-bold text-zinc-900">${p.asset_id} / ${p.model_name}</p>
+                        <p class="text-[11px] text-zinc-500">${p.brand_buyer} (${p.style_code}) / ${p.storage_location}</p>
+                        <span class="text-[10px] ${hasPhoto ? 'text-emerald-600' : 'text-zinc-400'} font-semibold">${hasPhoto ? 'Custom Photo Active' : 'No Photo (Default)'}</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 ml-auto">
+                    <button type="button" onclick="triggerSingleRowPhotoUpload('pattern', '${p.asset_id}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-100 border border-zinc-300 text-zinc-800 font-semibold text-[11px]">
+                        ${hasPhoto ? 'Update Photo' : 'Add Photo'}
+                    </button>
+                    ${hasPhoto ? `
+                        <button type="button" onclick="removeItemOrStaffPhoto('pattern', '${p.asset_id}')" class="px-2 py-1 rounded-lg bg-white hover:bg-rose-50 border border-zinc-300 text-rose-600 font-semibold text-[11px]" title="Remove Photo Only">
+                            Del Photo
+                        </button>
+                    ` : ''}
+                    <button type="button" onclick="softDeleteRecord('pattern_assets', '${p.asset_id}')" class="px-2 py-1 rounded-lg bg-zinc-200/70 hover:bg-rose-600 hover:text-white text-zinc-700 font-semibold text-[11px]" title="Move Item to Discard Vault">
+                        Discard
+                    </button>
                 </div>
             </div>
-            <button type="button" onclick="triggerSingleRowPhotoUpload('pattern', '${p.asset_id}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-100 border border-zinc-300 text-zinc-800 font-semibold text-[11px] shrink-0">
-                Photo
-            </button>
-        </div>
-    `).join('');
+        `;
+    }).join('');
+
+    refreshAllCustomSelects();
 }
 
 async function createStyleAndMarker() {
@@ -1919,20 +2718,23 @@ async function createStyleAndMarker() {
     const fabCode = document.getElementById('cad-fabric-select').value;
     const sketchFile = document.getElementById('cad-sketch-file');
 
-    if (!style || !model) return showToast('Enter Style Code and Model Name.', 'error');
+    if (!style || !model) return showToast('Enter Style Code and Garment Model Name.', 'error');
     const uploadedImg = await readAndCompressImage(sketchFile);
     const mkId = `CAD-MK-${String(DB.cad_markers.length + 1).padStart(2, '0')}`;
+
+    const isDesignUser = currentLoggedInUser && currentLoggedInUser.employee_id.startsWith('DDC');
+    const initialStatus = isDesignUser ? 'Sent to CAD' : 'Approved';
 
     const newRow = {
         cad_marker_id: mkId,
         style_code: style,
         brand_buyer: brand,
         model_name: model,
-        design_coordinator_id: 'DDC-C-01',
+        design_coordinator_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'DDC-C-01',
         cad_handler_id: 'CAD-C-CPH-01',
         cad_tooling_material_code: toolMat,
         cutting_floor_fabric_code: fabCode,
-        marker_status: 'Approved',
+        marker_status: initialStatus,
         sketch_url: uploadedImg || ''
     };
 
@@ -1940,14 +2742,25 @@ async function createStyleAndMarker() {
     if (error) return showToast(error.message, 'error');
     await writeAuditLog('CREATE_STYLE_MARKER', 'CAD_Markers', mkId, newRow);
     await renderDesignCadPortal();
-    showToast(`Saved Style ${style} (${mkId}).`);
+    showToast(`Style ${style} (${mkId}) pushed to CAD Department.`);
+}
+
+async function cadApproveAndPushToPatternRoom(markerId, styleCode) {
+    await supa.from('cad_markers').update({
+        marker_status: 'Approved',
+        cad_handler_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'CADC-C-01'
+    }).eq('cad_marker_id', markerId);
+
+    await writeAuditLog('CAD_MARKER_APPROVED', 'CAD_Markers', markerId, { style_code: styleCode, status: 'Approved for Pattern Room' });
+    await renderDesignCadPortal();
+    showToast(`CAD Marker ${markerId} (${styleCode}) approved and pushed to Pattern Room.`);
 }
 
 async function designAddFabricDirect() {
     const code = document.getElementById('new-fabric-code').value.trim().toUpperCase();
     const specs = document.getElementById('new-fabric-specs').value.trim();
     const brand = document.getElementById('cad-brand-select').value;
-    if (!code || !specs) return showToast('Enter Fabric Code and Composition.', 'error');
+    if (!code || !specs) return showToast('Enter Fabric ID (e.g. FAB-LL-02) and Textile Composition.', 'error');
 
     const newFab = {
         material_code: code,
@@ -1961,8 +2774,20 @@ async function designAddFabricDirect() {
     const { error } = await supa.from('rmw_materials').insert([newFab]);
     if (error) return showToast(error.message, 'error');
     await writeAuditLog('ADD_FABRIC_DIRECT', 'RMW_Materials', code, newFab);
+    document.getElementById('new-fabric-code').value = '';
+    document.getElementById('new-fabric-specs').value = '';
     await renderDesignCadPortal();
-    showToast(`Added ${code} to catalog.`);
+    showToast(`Added Fabric ${code} (${specs}) to RMW Catalog.`);
+}
+
+function openParameterRequestHelper() {
+    openCommDrawer('compose', 'DT-C-CA-01', 'Parameter Request');
+    setTimeout(() => {
+        const subj = document.getElementById('comm-subject');
+        const msg = document.getElementById('comm-message');
+        if (subj && !subj.value) subj.value = 'Request to Register New System Parameter (Brand / Size / Rack)';
+        if (msg && !msg.value) msg.value = 'Please add the following parameter to CDMS+ dropdowns: Category: [Brand/Size/Rack], Value: [Enter Name], Prefix: [2-Letter Code].';
+    }, 80);
 }
 
 async function registerNewPatternAsset() {
@@ -2000,17 +2825,59 @@ async function registerNewPatternAsset() {
     document.getElementById('pattern-qr-label-text').innerText = id;
     new QRCode(canvas, { text: id, width: 76, height: 76 });
     await renderDesignCadPortal();
-    showToast(`Registered ${id}.`);
+    showToast(`Registered ${id} into Pattern Room Inventory.`);
 }
 
 
-
 // ============================================================================
-// SECTION 15: SEWING CUTTING ORDERS & RMW WAREHOUSE DISPATCH
+// SECTION 15: ROLE-ISOLATED SEWING ORDERS (SDC) vs RMW WAREHOUSE (RMWC)
 // ============================================================================
 
 async function renderSupplyPortal() {
     await syncFromSupabase();
+    const userId = currentLoggedInUser ? currentLoggedInUser.employee_id.toUpperCase() : 'SDC-C-01';
+    const banner = document.getElementById('supply-role-banner');
+    const gridWrap = document.getElementById('supply-grid-wrapper');
+    const sewPanel = document.getElementById('panel-sewing-workspace');
+    const rmwPanel = document.getElementById('panel-rmw-workspace');
+
+    if (userId.startsWith('SDC')) {
+        // Sewing Coordinator ONLY sees Sewing Cut Orders & Bundle Receipt (Never RMW Warehouse Dispatch)
+        sewPanel.classList.remove('hidden');
+        rmwPanel.classList.add('hidden');
+        gridWrap.className = 'grid grid-cols-1 gap-5';
+        banner.innerHTML = `
+            <div>
+                <span class="px-2 py-0.5 rounded bg-zinc-900 text-white text-[10px] font-bold uppercase">Sewing Department Coordinator (${userId})</span>
+                <h2 class="text-sm sm:text-base font-bold text-zinc-900 mt-1">Sewing Cut Order Requests & Bundling Unit Delivery Tracker</h2>
+                <p class="text-xs text-zinc-500">Coordinate garment designs with the Design Department, submit cut orders to the Cutting Senior Executive (<code class="font-mono">CSE-01</code>), and confirm receipt of cut bundles from the Bundling Unit.</p>
+            </div>
+        `;
+    } else if (userId.startsWith('RMW')) {
+        // RMW Coordinator ONLY sees Raw Material Warehouse Dispatch
+        sewPanel.classList.add('hidden');
+        rmwPanel.classList.remove('hidden');
+        gridWrap.className = 'grid grid-cols-1 gap-5';
+        banner.innerHTML = `
+            <div>
+                <span class="px-2 py-0.5 rounded bg-zinc-900 text-white text-[10px] font-bold uppercase">Raw Material Warehouse Coordinator (${userId})</span>
+                <h2 class="text-sm sm:text-base font-bold text-zinc-900 mt-1">Raw Material Warehouse Lot Inventory & Floor Dispatch</h2>
+                <p class="text-xs text-zinc-500">Exclusive RMW control: inspect fabric rolls and CAD board stock bays, and dispatch material lots to the Cutting Floor or CAD Room.</p>
+            </div>
+        `;
+    } else {
+        // Senior Executive (CSE-01) Overview of both
+        sewPanel.classList.remove('hidden');
+        rmwPanel.classList.remove('hidden');
+        gridWrap.className = 'grid grid-cols-1 lg:grid-cols-2 gap-5';
+        banner.innerHTML = `
+            <div>
+                <span class="px-2 py-0.5 rounded bg-zinc-900 text-white text-[10px] font-bold uppercase">Supply & Order Chain Overview (${userId})</span>
+                <h2 class="text-sm sm:text-base font-bold text-zinc-900 mt-1">Sewing Department Cut Orders & RMW Material Lot Status</h2>
+            </div>
+        `;
+    }
+
     const sizes = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Size');
     document.getElementById('sew-style-select').innerHTML = DB.cad_markers.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name})</option>`).join('');
     document.getElementById('sew-size').innerHTML = sizes.map(s => `<option value="${s.setting_value}">${s.setting_value}</option>`).join('');
@@ -2020,26 +2887,39 @@ async function renderSupplyPortal() {
     if (ordBadge) ordBadge.innerText = `Next: ${nextOrdId}`;
     refreshAllCustomSelects();
 
-    document.getElementById('sewing-orders-list').innerHTML = DB.cutting_orders.map(o => `
-        <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex justify-between items-center text-xs">
-            <div>
-                <p class="font-bold text-zinc-900">${o.order_id} / Style ${o.style_code} (Size ${o.target_size})</p>
-                <p class="text-zinc-500 mt-0.5">Qty: ${o.target_bundle_qty} / ${o.assigned_line}</p>
+    document.getElementById('sewing-orders-list').innerHTML = DB.cutting_orders.map(o => {
+        const canReceiveBundles = userId.startsWith('SDC') && o.order_status === 'Bundled for Sewing';
+        return `
+            <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-wrap justify-between items-center gap-3 text-xs">
+                <div>
+                    <p class="font-bold text-zinc-900">${o.order_id} / Style ${o.style_code} (Size ${o.target_size})</p>
+                    <p class="text-zinc-500 mt-0.5">Bundle Qty: <strong>${o.target_bundle_qty} pcs</strong> / Line: ${o.assigned_line}</p>
+                    ${o.order_notes ? `<p class="text-[11px] text-zinc-500 italic mt-0.5">Note: "${o.order_notes}"</p>` : ''}
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-1 rounded font-bold text-[10px] ${o.priority_level === 'Urgent' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-zinc-200 text-zinc-800'}">${o.priority_level} / ${o.order_status}</span>
+                    ${canReceiveBundles ? `
+                        <button type="button" onclick="sewingConfirmBundleReceipt('${o.order_id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold text-[11px]">
+                            Confirm Bundles Received
+                        </button>
+                    ` : ''}
+                </div>
             </div>
-            <span class="px-2.5 py-1 rounded font-bold text-[10px] ${o.priority_level === 'Urgent' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-zinc-200 text-zinc-800'}">${o.priority_level} / ${o.order_status}</span>
-        </div>
-    `).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No cutting orders submitted yet.</p>';
+        `;
+    }).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No cutting orders submitted yet.</p>';
 
     document.getElementById('rmw-materials-list').innerHTML = DB.rmw_materials.map(m => `
         <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex justify-between items-center gap-3 text-xs">
             <div>
                 <p class="font-bold text-zinc-900">${m.material_code} (${m.material_category})</p>
-                <p class="text-zinc-600">${m.material_name_specs}</p>
+                <p class="text-zinc-600">${m.material_name_specs} — Buyer: ${m.target_brand_usage}</p>
                 <p class="text-[11px] text-zinc-400">Bay: ${m.rmw_storage_bay} / Status: <strong class="text-zinc-800">${m.lot_status}</strong></p>
             </div>
-            <button type="button" onclick="dispatchRmwMaterial('${m.material_code}')" class="bg-zinc-900 hover:bg-zinc-800 text-white px-3 py-1.5 rounded-lg font-semibold text-[11px] shrink-0">
-                Dispatch
-            </button>
+            ${userId.startsWith('RMW') ? `
+                <button type="button" onclick="dispatchRmwMaterial('${m.material_code}')" class="bg-zinc-900 hover:bg-zinc-800 text-white px-3 py-1.5 rounded-lg font-semibold text-[11px] shrink-0">
+                    Dispatch Lot
+                </button>
+            ` : `<span class="text-[10px] font-mono text-zinc-400">RMW Controlled</span>`}
         </div>
     `).join('');
 }
@@ -2049,6 +2929,7 @@ async function submitSewingOrder() {
     const size = document.getElementById('sew-size').value || '34B';
     const qty = parseInt(document.getElementById('sew-qty').value) || 1200;
     const prio = document.getElementById('sew-priority').value;
+    const notes = (document.getElementById('sew-order-notes')?.value || '').trim();
     const ordId = getNextSequentialId(DB.cutting_orders, 'order_id', 'ORD-');
 
     const newOrd = {
@@ -2060,64 +2941,269 @@ async function submitSewingOrder() {
         target_bundle_qty: qty,
         priority_level: prio,
         assigned_line: 'Line 1',
-        order_status: 'Queued'
+        order_status: 'Queued',
+        order_notes: notes
     };
     await supa.from('cutting_orders').insert([newOrd]);
     await writeAuditLog('CREATE_SEWING_ORDER', 'Cutting_Orders', ordId, newOrd);
+    if (document.getElementById('sew-order-notes')) document.getElementById('sew-order-notes').value = '';
     await renderSupplyPortal();
-    showToast(`Submitted Cutting Order ${ordId}.`);
+    showToast(`Cut Request ${ordId} sent to Cutting Senior Executive (CSE-01).`);
+}
+
+async function sewingConfirmBundleReceipt(orderId) {
+    await supa.from('cutting_orders').update({
+        order_status: 'Received by Sewing'
+    }).eq('order_id', orderId);
+    await writeAuditLog('SEWING_RECEIVED_BUNDLES', 'Cutting_Orders', orderId, { received_by: currentLoggedInUser?.employee_id || 'SDC-C-01' });
+    await renderSupplyPortal();
+    showToast(`Confirmed receipt of cut bundles for ${orderId}.`);
 }
 
 async function dispatchRmwMaterial(matCode) {
+    const userId = currentLoggedInUser ? currentLoggedInUser.employee_id.toUpperCase() : '';
+    if (!userId.startsWith('RMW')) {
+        return showToast('Only the Raw Material Warehouse Coordinator (RMWC-C-01) can dispatch warehouse lots.', 'error');
+    }
     const mat = DB.rmw_materials.find(m => m.material_code === matCode);
     if (!mat) return;
     const newStatus = mat.material_category.includes('CAD') ? 'Dispatched to CAD Room' : 'Dispatched to Cutting Floor';
     await supa.from('rmw_materials').update({ lot_status: newStatus }).eq('material_code', matCode);
     await writeAuditLog('DISPATCH_MATERIAL', 'RMW_Materials', matCode, { status: newStatus });
     await renderSupplyPortal();
-    showToast(`Dispatched ${matCode}.`);
+    showToast(`Dispatched ${matCode} (${newStatus}).`);
 }
 
 
+// ============================================================================
+// SECTION 16: QUALITY CONTROL (INSPECTOR QCI-C-01 vs EXECUTIVE CQCE-01)
+// ============================================================================
 
-// ============================================================================
-// SECTION 16: QUALITY CONTROL DEFECT LOGGING
-// ============================================================================
+function mapDefectToTier(def) {
+    const sev = (def.severity_level || '').toLowerCase();
+    const stat = (def.target_asset_status || '').toLowerCase();
+    if (sev.includes('critical') || sev.includes('high') || stat.includes('decommission') || stat.includes('removal')) {
+        return 'High';
+    }
+    if (sev.includes('low') || sev.includes('min') || stat.includes('no lock')) {
+        return 'Minimum';
+    }
+    return 'Medium';
+}
+
+function selectQcSeverityTier(tier) {
+    selectedQcSeverityTier = tier;
+    ['Minimum', 'Medium', 'High'].forEach(t => {
+        const btn = document.getElementById(`qc-tier-${t}`);
+        if (!btn) return;
+        if (t === tier) {
+            const activeColor = t === 'High' ? 'border-rose-600 bg-rose-600 text-white' : (t === 'Medium' ? 'border-amber-600 bg-amber-600 text-white' : 'border-emerald-700 bg-emerald-700 text-white');
+            btn.className = `p-2 rounded-xl border ${activeColor} text-center transition-all shadow-sm`;
+        } else {
+            btn.className = 'p-2 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-700 text-center transition-all hover:bg-zinc-100';
+        }
+    });
+
+    populateQcDefectCodesByTier();
+}
+
+function populateQcDefectCodesByTier() {
+    const sel = document.getElementById('qc-defect-select');
+    if (!sel) return;
+
+    let matching = DB.qc_defect_codes.filter(d => mapDefectToTier(d) === selectedQcSeverityTier);
+    if (matching.length === 0) matching = DB.qc_defect_codes;
+
+    sel.innerHTML = matching.map(d => `<option value="${d.defect_code}">${d.defect_code} — ${d.defect_name_symptom} (${d.severity_level})</option>`).join('');
+    previewDefectAction();
+    refreshAllCustomSelects();
+}
+
+async function toggleQcQrScanner() {
+    const box = document.getElementById('qc-qr-scanner-box');
+    if (!box) return;
+    if (!box.classList.contains('hidden')) {
+        await stopQcQrScanner();
+        return;
+    }
+
+    box.classList.remove('hidden');
+    if (typeof Html5Qrcode === 'undefined') return;
+
+    try {
+        qcQrScanner = new Html5Qrcode('qc-qr-camera-reader');
+        await qcQrScanner.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 170, height: 170 } },
+            async (decodedText) => {
+                const code = decodedText.trim().toUpperCase();
+                await stopQcQrScanner();
+                const found = DB.pattern_assets.find(p => p.asset_id.toUpperCase() === code);
+                if (!found) return showToast(`Scanned QR (${code}) not found in Pattern Assets.`, 'error');
+                const sel = document.getElementById('qc-asset-select');
+                if (sel) {
+                    sel.value = found.asset_id;
+                    refreshAllCustomSelects();
+                }
+                showToast(`Scanned ${found.asset_id} (${found.model_name}).`);
+            },
+            () => {}
+        );
+    } catch (err) {
+        const reader = document.getElementById('qc-qr-camera-reader');
+        if (reader) reader.innerHTML = '<p class="p-3 text-center text-xs text-zinc-400">Camera unavailable on this device. Select the pattern from the dropdown below.</p>';
+    }
+}
 
 async function renderQcPortal() {
     await syncFromSupabase();
+    const userId = currentLoggedInUser ? currentLoggedInUser.employee_id.toUpperCase() : 'QCI-C-01';
+    const isQcExec = userId.startsWith('CQCE');
+    const topBar = document.getElementById('qc-role-top-bar');
+
+    const inspectorDirectives = DB.department_communications.filter(
+        c => c.receiver_id === 'QCI-C-01' && c.protocol_category === 'QC Escalation'
+    );
+
+    if (isQcExec) {
+        topBar.innerHTML = `
+            <div class="flex flex-wrap justify-between items-center gap-3 border-b border-zinc-100 pb-3 mb-3">
+                <div>
+                    <span class="px-2 py-0.5 rounded bg-zinc-900 text-white text-[10px] font-bold uppercase">Quality Control Executive (${userId})</span>
+                    <h2 class="text-sm sm:text-base font-bold text-zinc-900 mt-1">Dispatch Line Inspection Commands & Acknowledge Inspector Defect Reports</h2>
+                    <p class="text-xs text-zinc-500">Issue inspection orders to floor Quality Control Inspectors (<code class="font-mono">QCI-C-01</code>) and confirm receipt of incoming defect logs.</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                <select id="qce-cmd-line" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl">
+                    <option value="Line 1">Inspect Cutting Line 1</option>
+                    <option value="Line 2">Inspect Cutting Line 2</option>
+                    <option value="Line 3">Inspect Cutting Line 3</option>
+                </select>
+                <input id="qce-cmd-note" type="text" placeholder="Inspection Instruction (e.g. Check Triumph Bra Mold edge tolerance)" class="p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl">
+                <button type="button" onclick="dispatchQcInspectionCommand()" class="bg-zinc-900 hover:bg-zinc-800 text-white font-semibold py-2.5 px-4 rounded-xl">
+                    Send Inspection Command to QC Inspector
+                </button>
+            </div>
+        `;
+    } else {
+        topBar.innerHTML = `
+            <div class="space-y-3">
+                <div>
+                    <span class="px-2 py-0.5 rounded bg-emerald-700 text-white text-[10px] font-bold uppercase">Floor Quality Control Inspector (${userId})</span>
+                    <h2 class="text-sm sm:text-base font-bold text-zinc-900 mt-1">QR Pattern Defect Scanner & Executive Directives</h2>
+                    <p class="text-xs text-zinc-500">Follow line inspection commands from the QC Executive (<code class="font-mono">CQCE-01</code>), scan pattern QR tags, and submit tiered defect logs.</p>
+                </div>
+                ${inspectorDirectives.length > 0 ? `
+                    <div class="space-y-1.5">
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Assigned Line Inspection Commands from QC Executive:</p>
+                        ${inspectorDirectives.slice(0, 3).map(d => `
+                            <div class="p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex justify-between items-center text-xs">
+                                <div>
+                                    <strong class="text-zinc-900">${d.subject_line}:</strong> <span class="text-zinc-700">${d.message_body}</span>
+                                </div>
+                                ${d.comm_status === 'Pending Approval' ? `
+                                    <button type="button" onclick="resolveCommItem(${d.comm_id}, 'Completed')" class="bg-zinc-900 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0">Mark Inspected</button>
+                                ` : `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">${d.comm_status}</span>`}
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
     document.getElementById('qc-asset-select').innerHTML = DB.pattern_assets.map(p => `<option value="${p.asset_id}">${p.asset_id} (${p.model_name} / ${p.operational_status})</option>`).join('');
-    document.getElementById('qc-defect-select').innerHTML = DB.qc_defect_codes.map(d => `<option value="${d.defect_code}">${d.defect_code} (${d.defect_name_symptom})</option>`).join('');
+
+    const floorWorkers = DB.employees.filter(e => e.employee_id.startsWith('CW-') || e.employee_id.startsWith('CS-'));
+    const empSel = document.getElementById('qc-employee-select');
+    if (empSel) {
+        empSel.innerHTML = `<option value="">Involved Operator / Staff (Optional)</option>` +
+            floorWorkers.map(w => `<option value="${w.employee_id}">${w.full_name} (${w.employee_id} - ${w.role_designation})</option>`).join('');
+    }
 
     const nextQcId = getNextSequentialId(DB.qc_inspection_logs, 'qc_log_id', 'QCL-');
     const qcBadge = document.getElementById('next-qc-id-badge');
     if (qcBadge) qcBadge.innerText = `Next: ${nextQcId}`;
 
-    previewDefectAction();
-    refreshAllCustomSelects();
+    selectQcSeverityTier(selectedQcSeverityTier);
 
-    document.getElementById('qc-logs-list').innerHTML = DB.qc_inspection_logs.map(l => `
-        <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex justify-between items-center gap-3 text-xs">
-            <div>
-                <p class="font-bold text-zinc-900">${l.qc_log_id} / ${l.defect_code} on ${l.asset_id} (${l.production_line})</p>
-                <p class="text-zinc-500 mt-0.5">Inspector: ${l.inspector_id} / Resolver: <strong>${l.resolver_id}</strong> / Plies: ${l.ruined_ply_count}</p>
+    document.getElementById('qc-logs-list').innerHTML = DB.qc_inspection_logs.map(l => {
+        const acked = Boolean(l.exec_acknowledged);
+        const tierBadge = l.severity_tier === 'High'
+            ? 'bg-rose-600 text-white'
+            : (l.severity_tier === 'Minimum' ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white');
+
+        return `
+            <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-wrap justify-between items-center gap-3 text-xs">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase ${tierBadge}">${l.severity_tier || 'Medium'} Defect</span>
+                        <p class="font-bold text-zinc-900">${l.qc_log_id} / ${l.defect_code} on ${l.asset_id} (${l.production_line})</p>
+                    </div>
+                    <p class="text-zinc-500">Inspector: <strong>${l.inspector_id}</strong> / Resolver: <strong>${l.resolver_id}</strong> / Ruined Plies: ${l.ruined_ply_count} ${l.involved_employee_id ? `/ Staff: <strong>${l.involved_employee_id}</strong>` : ''}</p>
+                    ${l.inspector_notes ? `<p class="text-[11px] text-zinc-700 bg-white px-2.5 py-1 rounded border border-zinc-200">Note: "${l.inspector_notes}"</p>` : ''}
+                    <div class="flex items-center gap-2 pt-0.5">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${acked ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}">
+                            ${acked ? `Received & Accepted by QC Executive (${l.acknowledged_by_id || 'CQCE-01'})` : 'Pending QC Executive Receipt'}
+                        </span>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 ml-auto">
+                    <span class="px-2.5 py-1 rounded text-[10px] font-bold ${l.resolution_status === 'Resolved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}">${l.resolution_status}</span>
+                    ${isQcExec && !acked ? `
+                        <button type="button" onclick="acknowledgeQcReportReceipt('${l.qc_log_id}')" class="bg-zinc-800 hover:bg-zinc-900 text-white px-3 py-1 rounded-lg font-semibold text-[11px]">
+                            Accept Receipt
+                        </button>
+                    ` : ''}
+                    ${l.resolution_status !== 'Resolved' && isQcExec ? `
+                        <button type="button" onclick="resolveQcLog('${l.qc_log_id}', '${l.asset_id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-lg font-semibold text-[11px]">
+                            Mark Fixed
+                        </button>
+                    ` : ''}
+                </div>
             </div>
-            <div class="flex items-center gap-2">
-                <span class="px-2.5 py-1 rounded text-[10px] font-bold ${l.resolution_status === 'Resolved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}">${l.resolution_status}</span>
-                ${l.resolution_status !== 'Resolved' ? `<button type="button" onclick="resolveQcLog('${l.qc_log_id}', '${l.asset_id}')" class="bg-zinc-900 text-white px-3 py-1 rounded-lg font-semibold text-[11px]">Mark Fixed</button>` : ''}
-            </div>
-        </div>
-    `).join('') || '<p class="text-xs text-zinc-400 py-8 text-center">No floor defects logged yet.</p>';
+        `;
+    }).join('') || '<p class="text-xs text-zinc-400 py-8 text-center">No floor defects logged yet.</p>';
+
+    refreshAllCustomSelects();
+}
+
+async function dispatchQcInspectionCommand() {
+    const line = document.getElementById('qce-cmd-line')?.value || 'Line 1';
+    const note = (document.getElementById('qce-cmd-note')?.value || '').trim();
+    if (!note) return showToast('Enter an inspection instruction for the QC Inspector.', 'error');
+
+    const inspEmp = DB.employees.find(e => e.employee_id === 'QCI-C-01');
+    const payload = {
+        sender_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'CQCE-01',
+        sender_name: currentLoggedInUser ? currentLoggedInUser.full_name : 'Imesha Fernando',
+        sender_role: 'Cutting Quality Control Executive',
+        receiver_id: 'QCI-C-01',
+        receiver_name: inspEmp ? inspEmp.full_name : 'Kasun Rajapaksha',
+        receiver_role: 'Quality Control Inspectors',
+        protocol_category: 'QC Escalation',
+        linked_reference_id: line,
+        subject_line: `Inspect ${line}`,
+        message_body: note,
+        comm_status: 'Pending Approval'
+    };
+
+    await supa.from('department_communications').insert([payload]);
+    await writeAuditLog('DISPATCH_QC_COMMAND', 'Department_Communications', line, payload);
+    document.getElementById('qce-cmd-note').value = '';
+    await renderQcPortal();
+    showToast(`Inspection command sent to QC Inspector (QCI-C-01) for ${line}.`);
 }
 
 function previewDefectAction() {
-    const code = document.getElementById('qc-defect-select').value;
+    const code = document.getElementById('qc-defect-select')?.value;
     const def = DB.qc_defect_codes.find(d => d.defect_code === code);
     if (!def) return;
     document.getElementById('qc-action-preview').innerHTML = `
-        <p><strong>Category:</strong> ${def.fault_category} (${def.severity_level})</p>
-        <p><strong>Status Triggered:</strong> ${def.target_asset_status} / <strong>Resolver:</strong> ${def.assigned_resolver_role_id}</p>
-        <p><strong>Action:</strong> ${def.mandatory_system_action}</p>
+        <p><strong>Difficulty / Severity Tier:</strong> ${selectedQcSeverityTier} (${def.fault_category})</p>
+        <p><strong>Asset Action:</strong> ${selectedQcSeverityTier === 'High' ? 'Immediate Line Cut-Off & Lock' : def.target_asset_status} / <strong>Resolver:</strong> ${def.assigned_resolver_role_id}</p>
+        <p><strong>Protocol:</strong> ${def.mandatory_system_action}</p>
     `;
 }
 
@@ -2125,11 +3211,20 @@ async function submitQcDefectFlag() {
     const assetId = document.getElementById('qc-asset-select').value;
     const defCode = document.getElementById('qc-defect-select').value;
     const line = document.getElementById('qc-line-select').value;
-    const plies = parseInt(document.getElementById('qc-ruined-plies').value) || 25;
-    const def = DB.qc_defect_codes.find(d => d.defect_code === defCode);
+    const plies = parseInt(document.getElementById('qc-ruined-plies').value) || 10;
+    const involvedEmp = document.getElementById('qc-employee-select')?.value || null;
+    const notes = (document.getElementById('qc-inspector-notes')?.value || '').trim();
+    const def = DB.qc_defect_codes.find(d => d.defect_code === defCode) || DB.qc_defect_codes[0];
 
-    if (def.target_asset_status !== 'Active on Line (No Lock)') {
-        await supa.from('pattern_assets').update({ operational_status: def.target_asset_status }).eq('asset_id', assetId);
+    let targetStatus = def.target_asset_status;
+    if (selectedQcSeverityTier === 'High') {
+        targetStatus = 'Decommissioned';
+    } else if (selectedQcSeverityTier === 'Medium' && targetStatus === 'Active on Line (No Lock)') {
+        targetStatus = 'Inspection Flagged';
+    }
+
+    if (targetStatus !== 'Active on Line (No Lock)' && selectedQcSeverityTier !== 'Minimum') {
+        await supa.from('pattern_assets').update({ operational_status: targetStatus }).eq('asset_id', assetId);
     }
 
     const logId = getNextSequentialId(DB.qc_inspection_logs, 'qc_log_id', 'QCL-');
@@ -2137,40 +3232,106 @@ async function submitQcDefectFlag() {
         qc_log_id: logId,
         asset_id: assetId,
         defect_code: defCode,
-        inspector_id: currentLoggedInUser ? currentLoggedInUser.employee_id : def.reported_by_role_id,
+        inspector_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'QCI-C-01',
         resolver_id: def.assigned_resolver_role_id,
         production_line: line,
         ruined_ply_count: plies,
-        resolution_status: `Open (${def.target_asset_status})`
+        resolution_status: `Open (${targetStatus})`,
+        severity_tier: selectedQcSeverityTier,
+        involved_employee_id: involvedEmp,
+        inspector_notes: notes,
+        exec_acknowledged: false,
+        acknowledged_by_id: null
     };
 
     await supa.from('qc_inspection_logs').insert([newLog]);
+
+    // Notify QC Executive (CQCE-01) so Inspector can track receipt
+    const qceEmp = DB.employees.find(e => e.employee_id === 'CQCE-01');
+    await supa.from('department_communications').insert([{
+        sender_id: newLog.inspector_id,
+        sender_name: currentLoggedInUser ? currentLoggedInUser.full_name : 'QC Inspector',
+        sender_role: 'Quality Control Inspectors',
+        receiver_id: 'CQCE-01',
+        receiver_name: qceEmp ? qceEmp.full_name : 'Imesha Fernando',
+        receiver_role: 'Cutting Quality Control Executive',
+        protocol_category: 'QC Escalation',
+        linked_reference_id: logId,
+        subject_line: `[${selectedQcSeverityTier.toUpperCase()} DEFECT] ${logId} on ${assetId} (${line})`,
+        message_body: `Defect ${defCode} reported on ${assetId} (${line}). Ruined Plies: ${plies}. ${notes ? `Notes: ${notes}` : ''}`,
+        comm_status: 'Pending Approval'
+    }]);
+
     await writeAuditLog('QC_DEFECT_FLAG', 'QC_Inspection_Logs', logId, newLog);
+    if (document.getElementById('qc-inspector-notes')) document.getElementById('qc-inspector-notes').value = '';
     await renderQcPortal();
-    showToast(`Logged ${logId} (${defCode}) on ${assetId}.`, 'error');
+    showToast(`Submitted ${selectedQcSeverityTier} Defect ${logId} to QC Executive.`, 'error');
+}
+
+async function acknowledgeQcReportReceipt(logId) {
+    const execId = currentLoggedInUser ? currentLoggedInUser.employee_id : 'CQCE-01';
+    await supa.from('qc_inspection_logs').update({
+        exec_acknowledged: true,
+        acknowledged_by_id: execId
+    }).eq('qc_log_id', logId);
+
+    await writeAuditLog('QC_EXEC_ACK_RECEIPT', 'QC_Inspection_Logs', logId, { acknowledged_by: execId });
+    await renderQcPortal();
+    showToast(`Acknowledged receipt of ${logId}. Inspector notified.`);
 }
 
 async function resolveQcLog(logId, assetId) {
-    await supa.from('qc_inspection_logs').update({ resolution_status: 'Resolved' }).eq('qc_log_id', logId);
+    const execId = currentLoggedInUser ? currentLoggedInUser.employee_id : 'CQCE-01';
+    await supa.from('qc_inspection_logs').update({
+        resolution_status: 'Resolved',
+        exec_acknowledged: true,
+        acknowledged_by_id: execId
+    }).eq('qc_log_id', logId);
     await supa.from('pattern_assets').update({ operational_status: 'Available in Room' }).eq('asset_id', assetId);
     await writeAuditLog('QC_RESOLVED', 'QC_Inspection_Logs', logId, { asset_id: assetId, status: 'Resolved' });
     await renderQcPortal();
-    showToast(`Resolved ${logId}.`);
+    showToast(`Resolved ${logId} and restored ${assetId} to Pattern Room.`);
 }
 
 
+// ============================================================================
+// SECTION 17: DIGITAL TEAM ADMIN (DT-C-CA-01 / CDTE-01) vs SUPPORT (DT-C-CST-01)
+// ============================================================================
 
-// ============================================================================
-// SECTION 17: DIGITAL TEAM ADMIN & SUPPORT CONSOLE
-// ============================================================================
+function isCurrentUserPrivilegedAdmin() {
+    if (!currentLoggedInUser) return false;
+    const id = currentLoggedInUser.employee_id.toUpperCase();
+    return id.startsWith('DT-C-CA') || id.startsWith('CDTE');
+}
 
 async function renderAdminPortal() {
     await syncFromSupabase();
+    const isPrivAdmin = isCurrentUserPrivilegedAdmin();
+    const banner = document.getElementById('admin-role-privilege-banner');
+
+    if (banner) {
+        if (isPrivAdmin) {
+            banner.innerHTML = `
+                <div>
+                    <span class="px-2 py-0.5 rounded bg-zinc-900 text-white text-[10px] font-bold uppercase">Privileged CDMS Admin / Executive (${currentLoggedInUser.employee_id})</span>
+                    <p class="text-xs text-zinc-700 font-semibold mt-1">Full Authority Active: Staff Suspension (Time-Out), Soft-Delete to Discard Vault, Temp Password Issuance, Leadership Succession, and System Parameters.</p>
+                </div>
+            `;
+        } else {
+            banner.innerHTML = `
+                <div>
+                    <span class="px-2 py-0.5 rounded bg-blue-700 text-white text-[10px] font-bold uppercase">CDMS Support Team (${currentLoggedInUser?.employee_id || 'DT-C-CST-01'})</span>
+                    <p class="text-xs text-zinc-700 font-semibold mt-1">Support Operations Active: Staff Photo Editor (Add/Update/Remove Photos), System Parameters, Forgot-Password Identity Verification & Escalation, and Kiosk Lock Reset. (Destructive staff removal is restricted to CDMS Admin).</p>
+                </div>
+            `;
+        }
+    }
+
     const uniqueRoles = [...new Set(DB.employees.map(e => e.role_designation))];
     document.getElementById('reg-emp-role').innerHTML = uniqueRoles.map(r => `<option value="${r}">${r}</option>`).join('');
     autoGenerateEmployeeId();
-    refreshAllCustomSelects();
 
+    // 1. Pending Avatar Requests
     const avatarReqs = DB.department_communications.filter(
         c => c.protocol_category === 'Avatar Request' && c.comm_status === 'Pending Approval'
     );
@@ -2190,8 +3351,13 @@ async function renderAdminPortal() {
         </div>
     `).join('') || '<p class="text-xs text-zinc-400 py-2">No pending photo requests.</p>';
 
+    // 2. Render Staff Directory
     renderAdminEmployeeList();
 
+    // 3. Render Password Reset & Support Escalation Queue
+    renderPasswordResetQueue();
+
+    // 4. Render System Parameters
     const params = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER');
     document.getElementById('system-settings-list').innerHTML = params.map(p => `
         <li class="p-2.5 rounded-xl bg-white border border-zinc-200 flex justify-between items-center">
@@ -2199,6 +3365,10 @@ async function renderAdminPortal() {
             <button type="button" onclick="deleteSystemParam(${p.record_id})" class="text-zinc-400 hover:text-rose-600"><i class="ph-bold ph-trash"></i></button>
         </li>
     `).join('');
+
+    // 5. Render Audit Log & Discard Vault Badge
+    const vaultBadge = document.getElementById('trash-vault-count-badge');
+    if (vaultBadge) vaultBadge.innerText = (DB.discarded_trash_vault || []).length;
 
     document.getElementById('audit-count-pill').innerText = `${DB.immutable_audit_logs.length} Rows`;
     document.getElementById('immutable-audit-tbody').innerHTML = DB.immutable_audit_logs.map(a => `
@@ -2211,44 +3381,266 @@ async function renderAdminPortal() {
             <td class="p-2.5 text-zinc-500 truncate max-w-xs">${a.immutable_snapshot}</td>
         </tr>
     `).join('') || '<tr><td colspan="6" class="p-4 text-center text-zinc-400">No system activity logged yet.</td></tr>';
+
+    refreshAllCustomSelects();
 }
 
 function renderAdminEmployeeList() {
     const q = (document.getElementById('admin-emp-search')?.value || '').trim().toLowerCase();
+    const totalStaff = DB.employees.length;
     let list = DB.employees;
+
     if (q) {
         list = list.filter(e =>
             e.full_name.toLowerCase().includes(q) ||
             e.employee_id.toLowerCase().includes(q) ||
-            e.role_designation.toLowerCase().includes(q)
+            e.role_designation.toLowerCase().includes(q) ||
+            (e.account_status || 'Active').toLowerCase().includes(q)
         );
     }
 
-    document.getElementById('admin-emp-tbody').innerHTML = list.map(e => `
-        <tr class="hover:bg-zinc-50">
-            <td class="p-2.5 flex items-center gap-2.5">
-                <img src="${getAvatarUrl(e.avatar_url)}" class="w-8 h-8 rounded-full object-cover border border-zinc-300">
-                <div>
-                    <p class="font-bold text-zinc-900">${e.full_name}</p>
-                    <p class="text-[10px] text-zinc-500">${e.role_designation}</p>
+    // Dynamic bracket count updates live whenever staff are added, filtered, or archived
+    const countLabel = document.getElementById('admin-emp-count-label');
+    if (countLabel) {
+        countLabel.innerText = q
+            ? `Employee Directory (${list.length} of ${totalStaff} Staff)`
+            : `Employee Directory (${totalStaff} Staff)`;
+    }
+
+    const isPrivAdmin = isCurrentUserPrivilegedAdmin();
+
+    document.getElementById('admin-emp-tbody').innerHTML = list.map(e => {
+        const hasPhoto = hasCustomPhoto(e.avatar_url);
+        const status = e.account_status || 'Active';
+        const isSuspended = status.startsWith('Suspended');
+        const isProtectedLeader = ['DH-01', 'CSE-01', 'DT-C-CA-01', 'CDTE-01'].includes(e.employee_id);
+
+        return `
+            <tr class="hover:bg-zinc-50">
+                <td class="p-2.5 flex items-center gap-2.5">
+                    <img src="${getAvatarUrl(e.avatar_url)}" class="w-8 h-8 rounded-full object-cover border border-zinc-300">
+                    <div>
+                        <p class="font-bold text-zinc-900">${e.full_name}</p>
+                        <p class="text-[10px] text-zinc-500">${e.role_designation}</p>
+                    </div>
+                </td>
+                <td class="p-2.5">
+                    <span class="font-mono font-bold text-zinc-800 block">${e.employee_id}</span>
+                    <span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isSuspended ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">
+                        ${status}
+                    </span>
+                    ${e.temp_password ? `<span class="block text-[9px] font-mono text-amber-700 mt-0.5">Temp: ${e.temp_password}</span>` : ''}
+                </td>
+                <td class="p-2.5">
+                    <span class="block text-zinc-800">${e.department}</span>
+                    <span class="text-[10px] text-zinc-500">${e.work_location_zone}</span>
+                </td>
+                <td class="p-2.5 space-x-1">
+                    <button type="button" onclick="triggerSingleRowPhotoUpload('employee', '${e.employee_id}')" class="px-2 py-1 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[10px] font-semibold">
+                        ${hasPhoto ? 'Update Photo' : 'Add Photo'}
+                    </button>
+                    ${hasPhoto ? `
+                        <button type="button" onclick="removeItemOrStaffPhoto('employee', '${e.employee_id}')" class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-semibold">
+                            Remove Photo
+                        </button>
+                    ` : '<span class="text-[10px] text-zinc-400">No Photo</span>'}
+                </td>
+                <td class="p-2.5 text-right space-x-1">
+                    ${isPrivAdmin ? (
+                        isProtectedLeader ? `
+                            <span class="text-[10px] font-mono text-zinc-400">Protected Seat</span>
+                        ` : `
+                            <button type="button" onclick="suspendEmployeeAction('${e.employee_id}')" class="px-2 py-1 rounded ${isSuspended ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-900 hover:bg-amber-200'} text-[10px] font-semibold">
+                                ${isSuspended ? 'Restore Active' : 'Suspend'}
+                            </button>
+                            <button type="button" onclick="softDeleteRecord('employees', '${e.employee_id}')" class="px-2 py-1 rounded bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white text-[10px] font-semibold">
+                                Archive
+                            </button>
+                        `
+                    ) : `
+                        <span class="text-[10px] text-zinc-400">Admin Only</span>
+                    `}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function suspendEmployeeAction(empId) {
+    if (!isCurrentUserPrivilegedAdmin()) {
+        return showToast('Only CDMS Admin can suspend or restore employee accounts.', 'error');
+    }
+    const emp = DB.employees.find(e => e.employee_id === empId);
+    if (!emp) return;
+
+    const currentlySuspended = (emp.account_status || '').startsWith('Suspended');
+    const newStatus = currentlySuspended ? 'Active' : 'Suspended (7-Day Time-Out)';
+    const untilDate = currentlySuspended ? null : new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+
+    await supa.from('employees').update({
+        account_status: newStatus,
+        suspension_until: untilDate
+    }).eq('employee_id', empId);
+
+    // Send mandatory report to Department Head (DH-01)
+    const dhEmp = DB.employees.find(e => e.employee_id === 'DH-01');
+    await supa.from('department_communications').insert([{
+        sender_id: currentLoggedInUser.employee_id,
+        sender_name: currentLoggedInUser.full_name,
+        sender_role: currentLoggedInUser.role_designation,
+        receiver_id: 'DH-01',
+        receiver_name: dhEmp ? dhEmp.full_name : 'Cutting Department Head',
+        receiver_role: 'Cutting Dpt. Head',
+        protocol_category: 'Admin Staff Report',
+        linked_reference_id: empId,
+        subject_line: `Staff Status Change: ${emp.full_name} (${empId}) -> ${newStatus}`,
+        message_body: `CDMS Admin updated account status for ${emp.full_name} (${emp.role_designation}) to "${newStatus}" ${untilDate ? `until ${untilDate}` : ''}.`,
+        comm_status: 'Pending Approval'
+    }]);
+
+    await writeAuditLog(currentlySuspended ? 'UNSUSPEND_EMPLOYEE' : 'SUSPEND_EMPLOYEE', 'Employees', empId, { newStatus, untilDate });
+    await syncFromSupabase();
+    renderAdminEmployeeList();
+    showToast(`${emp.full_name} (${empId}) marked as ${newStatus}. Report sent to Department Head.`);
+}
+
+function renderPasswordResetQueue() {
+    const listEl = document.getElementById('password-reset-tickets-list');
+    if (!listEl) return;
+
+    const isPrivAdmin = isCurrentUserPrivilegedAdmin();
+    const tickets = DB.department_communications.filter(c => c.protocol_category === 'Password Reset');
+
+    listEl.innerHTML = tickets.map(t => {
+        const isPendingSupport = t.comm_status === 'Pending Support Verification';
+        const isEscalated = t.comm_status === 'Escalated to Admin';
+
+        return `
+            <div class="p-3.5 rounded-xl bg-white border border-zinc-200 text-xs space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="font-mono font-bold text-zinc-900">${t.linked_reference_id} (${t.sender_name})</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isPendingSupport ? 'bg-amber-50 text-amber-800 border border-amber-200' : (isEscalated ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')}">${t.comm_status}</span>
                 </div>
-            </td>
-            <td class="p-2.5 font-mono text-zinc-600">${e.employee_id}</td>
-            <td class="p-2.5">${e.department}</td>
-            <td class="p-2.5">${e.work_location_zone}</td>
-            <td class="p-2.5 text-right space-x-2">
-                <button type="button" onclick="triggerSingleRowPhotoUpload('employee', '${e.employee_id}')" class="px-2.5 py-1 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[11px] font-semibold">Photo</button>
-                <button type="button" onclick="removeEmployeeWithImmutableLog('${e.employee_id}')" class="text-zinc-400 hover:text-rose-600 text-[11px] font-semibold">Remove</button>
-            </td>
-        </tr>
-    `).join('');
+                <p class="text-zinc-600">${t.message_body}</p>
+                ${t.resolution_note ? `<p class="font-mono text-[11px] text-emerald-700 bg-emerald-50 p-2 rounded border border-emerald-200">${t.resolution_note}</p>` : ''}
+                <div class="flex gap-2 pt-1">
+                    ${isPendingSupport ? `
+                        <button type="button" onclick="supportEscalatePasswordReset(${t.comm_id}, '${t.linked_reference_id}')" class="bg-zinc-900 hover:bg-zinc-800 text-white px-3 py-1.5 rounded-lg font-semibold">
+                            Verify Identity & Escalate to Admin
+                        </button>
+                        <button type="button" onclick="resolveCommItem(${t.comm_id}, 'Rejected')" class="bg-zinc-100 text-rose-600 px-3 py-1.5 rounded-lg font-semibold">
+                            Reject
+                        </button>
+                    ` : ''}
+                    ${isEscalated && isPrivAdmin ? `
+                        <button type="button" onclick="adminGrantTempPassword(${t.comm_id}, '${t.linked_reference_id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold">
+                            Generate & Release Temporary Password
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No password reset requests in queue.</p>';
+}
+
+async function supportEscalatePasswordReset(commId, targetEmpId) {
+    await supa.from('department_communications').update({
+        receiver_id: 'DT-C-CA-01',
+        receiver_name: 'Ashan Mendis',
+        receiver_role: 'CDMS Admins',
+        comm_status: 'Escalated to Admin'
+    }).eq('comm_id', commId);
+
+    await writeAuditLog('SUPPORT_ESCALATE_PASS_RESET', 'Employees', targetEmpId, { commId });
+    await renderAdminPortal();
+    showToast(`Identity verified for ${targetEmpId}. Escalated to CDMS Admin for Temp Password release.`);
+}
+
+async function adminGrantTempPassword(commId, targetEmpId) {
+    if (!isCurrentUserPrivilegedAdmin()) {
+        return showToast('Only CDMS Admin can generate Temporary Passwords.', 'error');
+    }
+    const tempPass = `TMP-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    await supa.from('employees').update({
+        temp_password: tempPass,
+        must_reset_password: true
+    }).eq('employee_id', targetEmpId);
+
+    await supa.from('department_communications').update({
+        comm_status: 'Temp Password Issued',
+        resolution_note: `Issued One-Time Temp Password: ${tempPass} (Forces password change on next login)`
+    }).eq('comm_id', commId);
+
+    await writeAuditLog('ISSUE_TEMP_PASSWORD', 'Employees', targetEmpId, { tempPass });
+    await renderAdminPortal();
+    showToast(`Temp Password ${tempPass} generated for ${targetEmpId}.`);
+}
+
+async function executeLeadershipReplacement() {
+    if (!isCurrentUserPrivilegedAdmin()) {
+        return showToast('Only CDMS Admin or Digital Team Executive can execute a Leadership Handover.', 'error');
+    }
+    const seatId = document.getElementById('leader-seat-select').value;
+    const newName = (document.getElementById('leader-new-name')?.value || '').trim();
+    const reason = (document.getElementById('leader-handover-reason')?.value || '').trim();
+
+    if (!newName || !reason) {
+        return showToast('Enter Incoming Officer Name and Handover Reason.', 'error');
+    }
+
+    const existingSeat = DB.employees.find(e => e.employee_id === seatId);
+    const previousHolder = existingSeat ? existingSeat.full_name : 'Previous Officer';
+    const newTempPass = `LDR-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    await supa.from('employees').update({
+        full_name: newName,
+        avatar_url: '',
+        temp_password: newTempPass,
+        must_reset_password: true
+    }).eq('employee_id', seatId);
+
+    await supa.from('department_communications').insert([{
+        sender_id: currentLoggedInUser.employee_id,
+        sender_name: currentLoggedInUser.full_name,
+        sender_role: currentLoggedInUser.role_designation,
+        receiver_id: 'DH-01',
+        receiver_name: newName,
+        receiver_role: 'Cutting Dpt. Head',
+        protocol_category: 'Executive Approval',
+        linked_reference_id: seatId,
+        subject_line: `Leadership Succession Executed for ${seatId}`,
+        message_body: `Outgoing: ${previousHolder} -> Incoming: ${newName}. Reason: ${reason}. Initial Temp Password: ${newTempPass}`,
+        comm_status: 'Approved'
+    }]);
+
+    await writeAuditLog('LEADERSHIP_SUCCESSION', 'Employees', seatId, { outgoing: previousHolder, incoming: newName, reason });
+    document.getElementById('leader-new-name').value = '';
+    document.getElementById('leader-handover-reason').value = '';
+    await renderAdminPortal();
+    showToast(`Leadership seat ${seatId} transferred from ${previousHolder} to ${newName} (Temp Pass: ${newTempPass}).`);
+}
+
+async function supportResetKioskLocks() {
+    const lockedAssets = DB.pattern_assets.filter(p => p.operational_status.includes('Locked'));
+    for (const a of lockedAssets) {
+        await supa.from('pattern_assets').update({
+            operational_status: 'Available in Room',
+            borrowed_by_id: null
+        }).eq('asset_id', a.asset_id);
+    }
+    await writeAuditLog('RESET_KIOSK_LOCKS', 'Pattern_Assets', 'ALL', { cleared_count: lockedAssets.length });
+    await syncFromSupabase();
+    showToast(`Cleared ${lockedAssets.length} locked Pattern Room items.`);
 }
 
 function switchAdminSubTab(tab) {
     closeCustomSelectMenu();
-    ['emp', 'params', 'records'].forEach(t => {
-        document.getElementById(`admin-panel-${t}`).classList.add('hidden');
-        document.getElementById(`adm-sub-${t}`).className = 'px-3.5 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200';
+    ['emp', 'security', 'params', 'records'].forEach(t => {
+        const panel = document.getElementById(`admin-panel-${t}`);
+        const btn = document.getElementById(`adm-sub-${t}`);
+        if (panel) panel.classList.add('hidden');
+        if (btn) btn.className = 'px-3.5 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200';
     });
     document.getElementById(`admin-panel-${tab}`).classList.remove('hidden');
     document.getElementById(`adm-sub-${tab}`).className = 'px-3.5 py-2 rounded-xl bg-zinc-900 text-white';
@@ -2261,6 +3653,7 @@ async function registerNewEmployee() {
     const dept = document.getElementById('reg-emp-dept').value;
     const role = document.getElementById('reg-emp-role').value;
     const zone = document.getElementById('reg-emp-zone').value;
+    const initPass = (document.getElementById('reg-emp-init-pass')?.value || '').trim() || 'bodyline123';
     const photoInput = document.getElementById('reg-emp-photo');
 
     if (!id || !name) return showToast('Enter Employee ID and Full Name.', 'error');
@@ -2273,7 +3666,9 @@ async function registerNewEmployee() {
         role_designation: role,
         work_location_zone: zone,
         active_checkout_count: 0,
-        avatar_url: avatarData || ''
+        avatar_url: avatarData || '',
+        account_password: initPass,
+        account_status: 'Active'
     };
 
     const { error } = await supa.from('employees').insert([newEmp]);
@@ -2281,21 +3676,13 @@ async function registerNewEmployee() {
     await writeAuditLog('REGISTER_EMPLOYEE', 'Employees', id, { id, name, dept, role, zone });
 
     const box = document.getElementById('emp-qr-preview-box');
-    box.innerHTML = `<div class="p-3 bg-white rounded-xl border border-zinc-300 inline-block"><div id="emp-qr-canvas"></div><p class="text-xs font-bold mt-1">${name}</p></div>`;
+    box.innerHTML = `<div class="p-3 bg-white rounded-xl border border-zinc-300 inline-block"><div id="emp-qr-canvas"></div><p class="text-xs font-bold mt-1">${name} (${id})</p></div>`;
     new QRCode(document.getElementById('emp-qr-canvas'), { text: id, width: 80, height: 80 });
 
     document.getElementById('reg-emp-name').value = '';
+    if (document.getElementById('reg-emp-init-pass')) document.getElementById('reg-emp-init-pass').value = '';
     await renderAdminPortal();
-    showToast(`Registered ${name} (${id}).`);
-}
-
-async function removeEmployeeWithImmutableLog(empId) {
-    const target = DB.employees.find(e => e.employee_id === empId);
-    if (!target) return;
-    await writeAuditLog('PURGE_EMPLOYEE_BACKUP', 'Employees', empId, target);
-    await supa.from('employees').delete().eq('employee_id', empId);
-    await renderAdminPortal();
-    showToast(`Removed ${empId} and logged backup.`);
+    showToast(`Registered ${name} (${id}) — Directory count updated.`);
 }
 
 async function addSystemSetting() {
@@ -2315,6 +3702,7 @@ async function addSystemSetting() {
     await supa.from('system_settings_audit').insert([row]);
     await writeAuditLog('ADD_PARAMETER', 'System_Settings_Audit', val, row);
     document.getElementById('sys-val').value = '';
+    document.getElementById('sys-prefix').value = '';
     await renderAdminPortal();
     showToast(`Saved ${cat}: ${val}`);
 }
@@ -2325,7 +3713,6 @@ async function deleteSystemParam(recId) {
     await supa.from('system_settings_audit').delete().eq('record_id', recId);
     await renderAdminPortal();
 }
-
 
 
 // ============================================================================
@@ -2393,7 +3780,7 @@ function switchCommTab(tab, preReceiver = null, preCategory = null) {
                 <p class="text-[10px] text-zinc-400">From: <strong>${c.sender_name}</strong> (${c.sender_role})</p>
                 ${c.comm_status === 'Pending Approval' ? `
                     <div class="grid grid-cols-2 gap-2 pt-1">
-                        <button type="button" onclick="resolveCommItem(${c.comm_id}, 'Approved')" class="bg-zinc-900 text-white py-1.5 rounded-lg font-semibold">Approve</button>
+                        <button type="button" onclick="resolveCommItem(${c.comm_id}, 'Approved')" class="bg-zinc-900 text-white py-1.5 rounded-lg font-semibold">Approve / Accept</button>
                         <button type="button" onclick="resolveCommItem(${c.comm_id}, 'Rejected')" class="bg-zinc-200 text-zinc-800 py-1.5 rounded-lg font-semibold">Reject</button>
                     </div>
                 ` : `<span class="inline-block px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 font-bold text-[10px]">${c.comm_status}</span>`}
@@ -2421,8 +3808,8 @@ function switchCommTab(tab, preReceiver = null, preCategory = null) {
                     <select id="comm-category" class="w-full p-2 bg-zinc-50 border border-zinc-300 rounded-lg">
                         <option value="Executive Approval" ${preCategory === 'Executive Approval' ? 'selected' : ''}>Executive Approval</option>
                         <option value="Parameter Request" ${preCategory === 'Parameter Request' ? 'selected' : ''}>Parameter Request</option>
-                        <option value="QC Escalation">QC Escalation</option>
-                        <option value="Line Directive">Line Directive</option>
+                        <option value="QC Escalation" ${preCategory === 'QC Escalation' ? 'selected' : ''}>QC Escalation</option>
+                        <option value="Line Directive" ${preCategory === 'Line Directive' ? 'selected' : ''}>Line Directive</option>
                     </select>
                 </div>
                 <div>
@@ -2488,13 +3875,6 @@ async function saveOrSendComm(targetStatus) {
 
     if (!subj || !msg) return showToast('Enter Subject and Details.', 'error');
 
-    if (targetStatus === 'Pending Approval') {
-        const duplicate = DB.department_communications.some(
-            c => c.receiver_id === recId && c.linked_reference_id === refId && c.comm_status === 'Pending Approval'
-        );
-        if (duplicate) return showToast(`An active request for ${refId} is already pending.`, 'error');
-    }
-
     const recObj = DB.employees.find(e => e.employee_id === recId);
     const payload = {
         sender_id: currentLoggedInUser.employee_id,
@@ -2535,10 +3915,11 @@ async function resolveCommItem(commId, decision) {
     await writeAuditLog(`COMM_${decision.toUpperCase()}`, 'Department_Communications', commId, { decision });
     await syncFromSupabase();
     if (!document.getElementById('view-dept-head').classList.contains('hidden')) renderDeptHeadPortal();
+    if (!document.getElementById('view-qc').classList.contains('hidden')) renderQcPortal();
+    if (!document.getElementById('view-admin').classList.contains('hidden')) renderAdminPortal();
     switchCommTab('inbox');
     showToast(`Marked as ${decision}.`);
 }
-
 
 
 // ============================================================================
@@ -2628,12 +4009,12 @@ function renderGroupedReport() {
                     </div>
                     <table class="w-full text-left text-xs">
                         <thead class="bg-zinc-50 text-[10px] uppercase text-zinc-500 border-b border-zinc-200">
-                            <tr><th class="p-2">Log ID</th><th class="p-2">Asset ID</th><th class="p-2">Defect Code & Symptom</th><th class="p-2">Ruined Plies</th><th class="p-2">Inspector</th><th class="p-2">Resolver</th><th class="p-2">Status</th></tr>
+                            <tr><th class="p-2">Log ID</th><th class="p-2">Asset ID</th><th class="p-2">Severity & Code</th><th class="p-2">Ruined Plies</th><th class="p-2">Inspector</th><th class="p-2">Exec Receipt</th><th class="p-2">Status</th></tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-200">
                             ${logs.map(l => {
                                 const defObj = DB.qc_defect_codes.find(d => d.defect_code === l.defect_code);
-                                return `<tr><td class="p-2 font-mono font-bold">${l.qc_log_id}</td><td class="p-2 font-mono">${l.asset_id}</td><td class="p-2">${l.defect_code} (${defObj ? defObj.defect_name_symptom : ''})</td><td class="p-2">${l.ruined_ply_count}</td><td class="p-2">${l.inspector_id}</td><td class="p-2">${l.resolver_id}</td><td class="p-2 font-semibold">${l.resolution_status}</td></tr>`;
+                                return `<tr><td class="p-2 font-mono font-bold">${l.qc_log_id}</td><td class="p-2 font-mono">${l.asset_id}</td><td class="p-2">[${l.severity_tier || 'Medium'}] ${l.defect_code} (${defObj ? defObj.defect_name_symptom : ''})</td><td class="p-2">${l.ruined_ply_count}</td><td class="p-2">${l.inspector_id}</td><td class="p-2">${l.exec_acknowledged ? 'Accepted' : 'Pending'}</td><td class="p-2 font-semibold">${l.resolution_status}</td></tr>`;
                             }).join('') || '<tr><td colspan="7" class="p-3 text-zinc-400">No quality control defects registered for this line.</td></tr>'}
                         </tbody>
                     </table>
@@ -2716,7 +4097,7 @@ function renderGroupedReport() {
 const VDB_TABLES = [
     'employees', 'pattern_assets', 'cad_markers', 'rmw_materials', 'qc_defect_codes',
     'shift_assignments', 'pending_requests', 'cutting_orders', 'qc_inspection_logs',
-    'system_settings_audit', 'department_communications', 'immutable_audit_logs'
+    'system_settings_audit', 'department_communications', 'immutable_audit_logs', 'discarded_trash_vault'
 ];
 
 function renderVisualDatabaseExplorer(tableName) {
@@ -2750,7 +4131,7 @@ function renderVisualDatabaseExplorer(tableName) {
                 <tr>${cols.map(c => `<th class="p-2">${c}</th>`).join('')}</tr>
             </thead>
             <tbody class="divide-y divide-zinc-100 font-mono text-[11px]">
-                ${rows.map(r => `<tr class="hover:bg-zinc-50">${cols.map(c => `<td class="p-2 truncate max-w-[180px]">${r[c] !== null ? String(r[c]) : '-'}</td>`).join('')}</tr>`).join('')}
+                ${rows.map(r => `<tr class="hover:bg-zinc-50">${cols.map(c => `<td class="p-2 truncate max-w-[180px]">${r[c] !== null && r[c] !== undefined ? String(r[c]) : '-'}</td>`).join('')}</tr>`).join('')}
             </tbody>
         </table>
     `;

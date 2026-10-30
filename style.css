@@ -1,13 +1,13 @@
 /*
   Project: CDMS+ Stylesheet
-  Version: v12
+  Version: v13
   
-  v12 Changes:
-  - Fixed responsive header rules so desktop and mobile tab bars never appear together
-  - Added styling for custom in-site dropdown menus (.c-select-btn & #custom-select-menu)
-  - Styled Lock/Unlock and 1/0 Sandbox toggle buttons (.ctrl-btn-minimal-light / dark)
+  v13 Changes:
+  - Added full-screen panel expansion (.panel-fullscreen) for mobile & desktop
+  - Added larger touch targets for shift chip deletion and past-shift lock styling
+  - Added QC difficulty/severity tier button states
+  - Preserved responsive header rules and custom in-site dropdown menus
 */
-
 
 /* --- Page Layout & Scroll Protection --- */
 html, body {
@@ -37,8 +37,6 @@ html, body {
 .custom-scroll::-webkit-scrollbar-thumb:hover {
     background: #a1a1aa;
 }
-
-
 
 /* --- Top Bar Animation & Responsive Tab Visibility --- */
 #top-bar-inner {
@@ -80,8 +78,6 @@ html, body {
     }
 }
 
-
-
 /* --- Lock/Unlock & 1/0 Sandbox Control Buttons --- */
 .ctrl-btn-minimal-light {
     background-color: #ffffff !important;
@@ -103,8 +99,6 @@ html, body {
 .ctrl-btn-minimal-dark:hover {
     background-color: #27272a !important;
 }
-
-
 
 /* --- Custom In-Site Dropdown Menus (Replaces Browser Native Select) --- */
 select.c-select-hidden {
@@ -135,10 +129,66 @@ select.c-select-hidden {
     outline: none;
 }
 
+/* --- Full-Screen Expandable Workspace Panels (Mobile & Desktop) --- */
+.panel-fullscreen {
+    position: fixed !important;
+    inset: 10px !important;
+    z-index: 205 !important;
+    height: calc(100dvh - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    width: calc(100vw - 20px) !important;
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45) !important;
+    border: 2px solid #18181b !important;
+    background-color: #ffffff !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
 
+@media (min-width: 640px) {
+    .panel-fullscreen {
+        inset: 24px !important;
+        height: calc(100dvh - 48px) !important;
+        max-height: calc(100dvh - 48px) !important;
+        width: calc(100vw - 48px) !important;
+    }
+}
+
+.panel-fullscreen #operator-pool {
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)) !important;
+}
+
+/* --- Shift Assignment Slot & Chip Controls --- */
+.shift-slot-past {
+    background-color: #f4f4f5 !important;
+    border-color: #e4e4e7 !important;
+    opacity: 0.68;
+    cursor: not-allowed !important;
+}
+
+.shift-remove-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #fee2e2;
+    color: #dc2626;
+    font-weight: 800;
+    font-size: 13px;
+    transition: all 0.12s ease;
+    flex-shrink: 0;
+}
+.shift-remove-btn:hover {
+    background-color: #dc2626;
+    color: #ffffff;
+}
 
 /* --- Pattern Room Cards & Camera Box --- */
-#qr-camera-reader video {
+#qr-camera-reader video,
+#qc-qr-camera-reader video {
     border-radius: 12px;
     object-fit: cover;
     width: 100% !important;
@@ -153,8 +203,6 @@ select.c-select-hidden {
     transform: translateY(-2px);
     border-color: #18181b;
 }
-
-
 
 /* --- A4 Report Print Rules --- */
 @media print {
