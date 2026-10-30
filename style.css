@@ -1,12 +1,6 @@
 /*
   Project: CDMS+ Stylesheet
-  Version: v13
-  
-  v13 Changes:
-  - Added full-screen panel expansion (.panel-fullscreen) for mobile & desktop
-  - Added larger touch targets for shift chip deletion and past-shift lock styling
-  - Added QC difficulty/severity tier button states
-  - Preserved responsive header rules and custom in-site dropdown menus
+  Version: v14 (Minimalistic UI, Separated Top Bar, Info Popovers & Profile Modal)
 */
 
 /* --- Page Layout & Scroll Protection --- */
@@ -38,7 +32,7 @@ html, body {
     background: #a1a1aa;
 }
 
-/* --- Top Bar Animation & Responsive Tab Visibility --- */
+/* --- Top Bar Animation & Dedicated Sub-Navigation Bar --- */
 #top-bar-inner {
     transition: max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -53,29 +47,13 @@ html, body {
     width: 100%;
 }
 
-/* Hide both tab bars unless logged into a staff portal */
-#unified-top-bar:not([data-bar-mode="portal"]) #desktop-workspace-tabs,
+/* Sub-navigation bar only appears below the header when logged into a portal */
 #unified-top-bar:not([data-bar-mode="portal"]) #portal-subnav-bar {
     display: none !important;
 }
 
-/* When logged into a portal: Desktop (>=768px) shows inline center tabs, Mobile (<768px) shows bottom strip */
-@media (min-width: 768px) {
-    #unified-top-bar[data-bar-mode="portal"] #desktop-workspace-tabs {
-        display: flex !important;
-    }
-    #unified-top-bar[data-bar-mode="portal"] #portal-subnav-bar {
-        display: none !important;
-    }
-}
-
-@media (max-width: 767px) {
-    #unified-top-bar[data-bar-mode="portal"] #desktop-workspace-tabs {
-        display: none !important;
-    }
-    #unified-top-bar[data-bar-mode="portal"] #portal-subnav-bar {
-        display: block !important;
-    }
+#unified-top-bar[data-bar-mode="portal"] #portal-subnav-bar {
+    display: flex !important;
 }
 
 /* --- Lock/Unlock & 1/0 Sandbox Control Buttons --- */
@@ -100,7 +78,29 @@ html, body {
     background-color: #27272a !important;
 }
 
-/* --- Custom In-Site Dropdown Menus (Replaces Browser Native Select) --- */
+/* --- Minimalistic (i) Info Icon Button --- */
+.info-icon-btn {
+    width: 20px;
+    height: 20px;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f4f4f5;
+    color: #71717a;
+    border: 1px solid #d4d4d8;
+    font-size: 11px;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.info-icon-btn:hover {
+    background-color: #18181b;
+    color: #ffffff;
+    border-color: #18181b;
+}
+
+/* --- Custom In-Site Dropdown Menus --- */
 select.c-select-hidden {
     display: none !important;
 }
@@ -129,7 +129,7 @@ select.c-select-hidden {
     outline: none;
 }
 
-/* --- Full-Screen Expandable Workspace Panels (Mobile & Desktop) --- */
+/* --- Full-Screen Expandable Workspace Panels --- */
 .panel-fullscreen {
     position: fixed !important;
     inset: 10px !important;
@@ -163,7 +163,7 @@ select.c-select-hidden {
 .shift-slot-past {
     background-color: #f4f4f5 !important;
     border-color: #e4e4e7 !important;
-    opacity: 0.68;
+    opacity: 0.65;
     cursor: not-allowed !important;
 }
 
@@ -184,6 +184,16 @@ select.c-select-hidden {
 .shift-remove-btn:hover {
     background-color: #dc2626;
     color: #ffffff;
+}
+
+/* --- Disabled Button State --- */
+button:disabled,
+.btn-disabled {
+    background-color: #f4f4f5 !important;
+    color: #a1a1aa !important;
+    border-color: #e4e4e7 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
 }
 
 /* --- Pattern Room Cards & Camera Box --- */
