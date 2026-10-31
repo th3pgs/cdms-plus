@@ -2321,12 +2321,14 @@ function renderPatternCardHtml(p) {
         if (st.includes('Locked')) return 'bg-amber-50 text-amber-700 border-amber-200';
         return 'bg-rose-50 text-rose-700 border-rose-200';
     };
+    const isMold = (p.tooling_type || '').toLowerCase().includes('mold') || (p.asset_id || '').includes('-PM-');
+    const fitClass = isMold ? 'object-fill bg-white' : 'object-contain bg-white';
 
     return `
         <div onclick="openScannerForAsset('${p.asset_id}')" class="product-card bg-white rounded-2xl border border-zinc-200 overflow-hidden cursor-pointer flex flex-col justify-between">
             <div>
-                <div class="h-44 w-full bg-zinc-100 relative overflow-hidden border-b border-zinc-100">
-                    <img src="${getItemImageUrl(p.image_url)}" class="w-full h-full object-cover bg-white" alt="${p.model_name}">
+                <div class="h-44 w-full bg-white relative overflow-hidden border-b border-zinc-100">
+                    <img src="${getItemImageUrl(p.image_url)}" class="w-full h-full ${fitClass}" alt="${p.model_name}">
                     <span class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white/95 text-zinc-800 border border-zinc-200">${p.tooling_type}</span>
                     <span class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${badgeStyle(p.operational_status)}">${p.operational_status}</span>
                 </div>
@@ -2527,11 +2529,13 @@ function openScannerForAsset(assetId) {
     document.getElementById('verify-modal').classList.remove('hidden');
     const area = document.getElementById('modal-dynamic-area');
     const itemImg = getItemImageUrl(asset.image_url);
+    const isMold = (asset.tooling_type || '').toLowerCase().includes('mold') || (asset.asset_id || '').includes('-PM-');
+    const fitClass = isMold ? 'object-fill bg-white' : 'object-contain bg-white';
 
     if (['Inspection Flagged', 'Decommissioned', 'Pending Removal'].includes(asset.operational_status)) {
         area.innerHTML = `
             <div class="text-center py-6 space-y-3">
-                <img src="${itemImg}" class="w-40 h-28 object-cover bg-white rounded-xl mx-auto border">
+                <img src="${itemImg}" class="w-40 h-28 ${fitClass} rounded-xl mx-auto border">
                 <h4 class="text-base font-bold text-rose-600 uppercase">Restricted (${asset.operational_status})</h4>
                 <p class="text-xs text-zinc-600">${asset.asset_id} cannot be checked out while flagged.</p>
             </div>
@@ -2554,7 +2558,7 @@ function openScannerForAsset(assetId) {
         area.innerHTML = `
             <div class="space-y-4">
                 <div class="flex gap-3 items-center p-3 rounded-xl bg-zinc-50 border border-zinc-200">
-                    <img src="${itemImg}" class="w-20 h-14 rounded-lg object-cover bg-white border">
+                    <img src="${itemImg}" class="w-20 h-14 rounded-lg ${fitClass} border">
                     <div>
                         <p class="text-xs font-medium text-zinc-500">Checked Out By: <strong class="text-zinc-900">${asset.borrowed_by_id || 'Floor Staff'}</strong></p>
                         <h4 class="text-sm font-bold text-zinc-900">${asset.model_name} (${asset.asset_id})</h4>
@@ -2613,7 +2617,7 @@ function openScannerForAsset(assetId) {
     area.innerHTML = `
         <div class="space-y-4">
             <div class="flex gap-3 items-center p-3 rounded-xl bg-zinc-50 border border-zinc-200">
-                <img src="${itemImg}" class="w-20 h-14 rounded-lg object-cover bg-white border">
+                <img src="${itemImg}" class="w-20 h-14 rounded-lg ${fitClass} border">
                 <div>
                     <p class="text-xs font-medium text-zinc-500">${asset.brand_buyer} (${asset.style_code})</p>
                     <h4 class="text-base font-bold text-zinc-900">${asset.model_name} (${asset.asset_id})</h4>
@@ -3546,11 +3550,13 @@ async function renderDesignCadPortal() {
         cadListEl.innerHTML = DB.cad_markers.map(m => {
             const isPendingCad = m.marker_status === 'Sent to CAD' || m.marker_status === 'Pending CAD Plotting';
             const hasDesignPhoto = hasCustomPhoto(m.sketch_url);
+            const isMold = (m.cad_tooling_material_code || '').toUpperCase().includes('PLS');
+            const fitClass = isMold ? 'object-fill bg-white' : 'object-contain bg-white';
             return `
                 <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-2">
                     <div class="flex items-center justify-between gap-2.5">
                         <div class="flex items-center gap-2.5 min-w-0">
-                            <img src="${getItemImageUrl(m.sketch_url)}" class="w-16 h-11 rounded-lg object-cover bg-white border border-zinc-200 shrink-0" alt="${m.model_name}">
+                            <img src="${getItemImageUrl(m.sketch_url)}" class="w-16 h-11 rounded-lg ${fitClass} border border-zinc-200 shrink-0" alt="${m.model_name}">
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-1.5">
                                     <span class="font-mono font-bold text-zinc-900">${m.cad_marker_id} • ${m.style_code}</span>
@@ -3589,10 +3595,12 @@ async function renderDesignCadPortal() {
     document.getElementById('cad-markers-mini-list').innerHTML = DB.pattern_assets.map(p => {
         const hasPhoto = hasCustomPhoto(p.image_url);
         const qrOk = isPatternQrAssigned(p.asset_id);
+        const isMold = (p.tooling_type || '').toLowerCase().includes('mold') || (p.asset_id || '').includes('-PM-');
+        const fitClass = isMold ? 'object-fill bg-white' : 'object-contain bg-white';
         return `
             <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
                 <div class="flex items-center gap-2.5 min-w-0">
-                    <img src="${getItemImageUrl(p.image_url)}" class="w-16 h-11 rounded-lg object-cover bg-white border border-zinc-200 shrink-0" alt="${p.model_name}">
+                    <img src="${getItemImageUrl(p.image_url)}" class="w-16 h-11 rounded-lg ${fitClass} border border-zinc-200 shrink-0" alt="${p.model_name}">
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-1.5">
                             <p class="font-bold text-zinc-900 truncate">${p.asset_id} • ${p.model_name}</p>
