@@ -22,7 +22,7 @@ function getLocalDateString(dateObj = new Date()) {
     return `${year}-${month}-${day}`;
 }
 
-let sandboxMode = localStorage.getItem(MODE_STORAGE_KEY) === '0' ? '0' : '1';
+let sandboxMode = '1';
 let authLockOpen = false;
 
 let resolvedMasLogoUrl = './mas-logo.png';
@@ -47,26 +47,28 @@ let currentInspectedStaffId = null;
 let lastToastMessage = '';
 let lastToastTime = 0;
 
-let DB = {
-    employees: [],
-    pattern_assets: [],
-    cad_markers: [],
-    rmw_materials: [],
-    qc_defect_codes: [],
-    shift_assignments: [],
-    pending_requests: [],
-    cutting_orders: [],
-    qc_inspection_logs: [],
-    system_settings_audit: [],
-    department_communications: [],
-    immutable_audit_logs: [],
-    discarded_trash_vault: []
-};
+function createEmptyDatabase() {
+    return {
+        employees: [],
+        pattern_assets: [],
+        cad_markers: [],
+        rmw_materials: [],
+        qc_defect_codes: [],
+        shift_assignments: [],
+        pending_requests: [],
+        cutting_orders: [],
+        qc_inspection_logs: [],
+        system_settings_audit: [],
+        department_communications: [],
+        immutable_audit_logs: [],
+        discarded_trash_vault: []
+    };
+}
+
+let DB = createEmptyDatabase();
 
 function saveSandboxDB() {
-    if (sandboxMode === '0') {
-        localStorage.setItem(SANDBOX_DB_KEY, JSON.stringify(DB));
-    }
+    // Sandbox data is kept strictly in memory and never persisted across sessions
 }
 
 const AUTO_ID_COLS = {
@@ -152,6 +154,12 @@ function updateGatewayStatusLabel() {
 function updateModeButtonUI() {
     const btn = document.getElementById('mode-switch-btn');
     const letter = document.getElementById('mode-switch-letter');
+    const banner = document.getElementById('sandbox-warning-banner');
+
+    if (banner) {
+        banner.classList.toggle('hidden', sandboxMode !== '0');
+    }
+
     if (!btn || !letter) return;
 
     if (sandboxMode === '0') {
@@ -167,20 +175,26 @@ function updateModeButtonUI() {
 }
 
 async function toggleSandboxMode() {
+    localStorage.removeItem(SANDBOX_DB_KEY);
+    localStorage.removeItem(MODE_STORAGE_KEY);
+
     if (sandboxMode === '1') {
-        await fetchLiveSupabaseIntoDB();
         sandboxMode = '0';
-        localStorage.setItem(MODE_STORAGE_KEY, '0');
-        localStorage.setItem(SANDBOX_DB_KEY, JSON.stringify(DB));
+        DB = createEmptyDatabase();
+        if (currentMode !== 'gateway') {
+            returnToWelcomeScreenImmediate();
+        }
         updateModeButtonUI();
-        showToast('Sandbox Online (0): Temporary testing mode active.');
+        showToast('Sandbox Mode (0): Started with empty testing data.');
     } else {
-        localStorage.removeItem(SANDBOX_DB_KEY);
         sandboxMode = '1';
-        localStorage.setItem(MODE_STORAGE_KEY, '1');
+        DB = createEmptyDatabase();
+        if (currentMode !== 'gateway') {
+            returnToWelcomeScreenImmediate();
+        }
         updateModeButtonUI();
         await fetchLiveSupabaseIntoDB();
-        showToast('System Mode (1): Restored live Supabase state.');
+        showToast('Live Mode (1): Sandbox data removed and live database restored.');
     }
 }
 
@@ -390,15 +404,94 @@ function openPatternQrTagModal(assetId) {
                 <p class="text-xs font-bold text-zinc-700">${asset.model_name} (${asset.style_code})</p>
                 <p class="text-[11px] text-zinc-500">${asset.brand_buyer} • Size ${asset.size_category} • ${asset.storage_location}</p>
             </div>
-            <span class="inline-block px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                QR Code Assigned & Active in Pattern Room
-            </span>
+            <div>
+                <span class="inline-block px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
+                    QR Code Assigned & Active in Pattern Room
+                </span>
+            </div>
+            <div class="pt-2">
+                <button type="button" onclick="printQrTagOrBadge('PATTERN', '${asset.asset_id}')" class="bg-zinc-900 hover:bg-zinc-800 text-white px-5 py-2.5 rounded-xl text-xs font-semibold inline-flex items-center gap-2 shadow-sm">
+                    <i class="ph-bold ph-printer text-sm"></i>
+                    <span>Print Pattern QR Tag</span>
+                </button>
+            </div>
         </div>
     `;
     const qrBox = document.getElementById('modal-pattern-qr-box');
     if (qrBox && typeof QRCode !== 'undefined') {
         new QRCode(qrBox, { text: asset.asset_id, width: 140, height: 140 });
     }
+}
+
+function printQrTagOrBadge(kind, targetId) {
+    let heading = 'CDMS+ QR TAG';
+    let mainCode = targetId;
+    let title = '';
+    let subtitle = '';
+    let meta = '';
+
+    if (kind === 'EMPLOYEE') {
+        const emp = DB.employees.find(e => e.employee_id === targetId);
+        heading = 'BODYLINE STAFF QR BADGE';
+        title = emp ? emp.full_name : targetId;
+        subtitle = emp ? emp.role_designation : 'Cutting Department';
+        meta = emp ? `${emp.department} • ${emp.work_location_zone}` : '';
+    } else {
+        const asset = DB.pattern_assets.find(p => p.asset_id === targetId);
+        heading = asset && asset.tooling_type === 'Pattern Mold' ? '3D MOLD QR TAG' : 'PATTERN BLOCK QR TAG';
+        title = asset ? `${asset.model_name} (${asset.style_code})` : targetId;
+        subtitle = asset ? `${asset.brand_buyer} • Size ${asset.size_category}` : 'Pattern Room Asset';
+        meta = asset ? `Storage: ${asset.storage_location}` : '';
+    }
+
+    const tempDiv = document.createElement('div');
+    if (typeof QRCode !== 'undefined') {
+        new QRCode(tempDiv, { text: mainCode, width: 170, height: 170 });
+    }
+
+    setTimeout(() => {
+        const imgEl = tempDiv.querySelector('img');
+        const canvasEl = tempDiv.querySelector('canvas');
+        const qrDataUrl = (canvasEl && canvasEl.toDataURL)
+            ? canvasEl.toDataURL('image/png')
+            : (imgEl ? imgEl.src : '');
+
+        const printWin = window.open('', '_blank', 'width=460,height=580');
+        if (!printWin) {
+            return showToast('Allow pop-ups in your browser to print QR labels.', 'error');
+        }
+        printWin.document.write(`<!DOCTYPE html>
+<html>
+<head>
+    <title>Print QR — ${mainCode}</title>
+    <style>
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 92vh; margin: 0; background: #fff; color: #18181b; }
+        .card { border: 2px solid #18181b; border-radius: 16px; padding: 24px 28px; text-align: center; width: 290px; }
+        .tag-type { font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #52525b; margin-bottom: 12px; }
+        .qr-wrap { display: inline-block; padding: 12px; border: 1px solid #e4e4e7; border-radius: 12px; margin-bottom: 12px; }
+        .qr-wrap img { width: 160px; height: 160px; display: block; }
+        .code { font-family: monospace; font-size: 20px; font-weight: 900; margin: 4px 0; }
+        .title { font-size: 14px; font-weight: 700; margin: 4px 0 2px; }
+        .sub { font-size: 12px; color: #3f3f46; margin: 2px 0; }
+        .meta { font-size: 11px; color: #71717a; margin-top: 6px; }
+        @media print { .no-print { display: none; } body { min-height: auto; } }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="tag-type">${heading}</div>
+        <div class="qr-wrap"><img src="${qrDataUrl}" alt="${mainCode}"></div>
+        <div class="code">${mainCode}</div>
+        <div class="title">${title}</div>
+        <div class="sub">${subtitle}</div>
+        <div class="meta">${meta}</div>
+        <button class="no-print" onclick="window.print()" style="margin-top:16px;padding:8px 18px;background:#18181b;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">Print Label</button>
+    </div>
+    <script>window.onload = function() { setTimeout(function() { window.print(); }, 250); };<\/script>
+</body>
+</html>`);
+        printWin.document.close();
+    }, 80);
 }
 
 
@@ -658,17 +751,7 @@ async function fetchLiveSupabaseIntoDB() {
 
 async function syncFromSupabase() {
     try {
-        if (sandboxMode === '0') {
-            const savedSandbox = localStorage.getItem(SANDBOX_DB_KEY);
-            if (savedSandbox) {
-                DB = JSON.parse(savedSandbox);
-                if (!DB.discarded_trash_vault) DB.discarded_trash_vault = [];
-                await ensureEssentialRolesExist();
-            } else {
-                await fetchLiveSupabaseIntoDB();
-                localStorage.setItem(SANDBOX_DB_KEY, JSON.stringify(DB));
-            }
-        } else {
+        if (sandboxMode === '1') {
             await fetchLiveSupabaseIntoDB();
         }
 
@@ -971,6 +1054,22 @@ function updateProfileUI(emp) {
     }
 }
 
+const SANDBOX_ROLE_DEFAULTS = {
+    'DH-01': { full_name: 'Jackson Emmanuel', department: 'Cutting', role_designation: 'Cutting Dpt. Head', work_location_zone: 'CD Operations Office' },
+    'CSE-01': { full_name: 'Aaron Emmanuel', department: 'Cutting', role_designation: 'Cutting Senior Executive', work_location_zone: 'CD Operations Office' },
+    'CS-L1-01': { full_name: 'Nathaniel Perera', department: 'Cutting', role_designation: 'Cutting Supervisors', work_location_zone: 'Cutting Floor' },
+    'PR-C-PC-01': { full_name: 'Menaka Rathnayake', department: 'Cutting - Pattern', role_designation: 'Pattern Coordinators', work_location_zone: 'Pattern Room' },
+    'DDC-C-01': { full_name: 'Kavindi Perera', department: 'Design - Cutting', role_designation: 'Design Dpt. Coordinators', work_location_zone: 'Design Department' },
+    'CADC-C-01': { full_name: 'Oshadhi Perera', department: 'Cutting - CAD', role_designation: 'CAD Coordinators', work_location_zone: 'CAD Room' },
+    'SDC-C-01': { full_name: 'Tharindu Perera', department: 'Sewing - Cutting', role_designation: 'Sewing Dpt. Coordinator', work_location_zone: 'Sewing Department' },
+    'RMWC-C-01': { full_name: 'Ahamed Niyas', department: 'RMW - Cutting', role_designation: 'RMW Coordinators', work_location_zone: 'Raw Material Warehouse' },
+    'CQCE-01': { full_name: 'Imesha Fernando', department: 'QC - Cutting', role_designation: 'Quality Control Executive', work_location_zone: 'CD Operations Office' },
+    'QCI-C-01': { full_name: 'Mohamed Faiz', department: 'QC - Cutting', role_designation: 'Quality Control Inspectors', work_location_zone: 'Cutting Floor' },
+    'DT-C-CST-01': { full_name: 'Nadeeka Perera', department: 'Digital - Cutting', role_designation: 'CDMS Support Team', work_location_zone: 'CD Operations Office' },
+    'DT-C-CA-01': { full_name: 'Ashan Mendis', department: 'Digital - Cutting', role_designation: 'CDMS Admins', work_location_zone: 'CD Operations Office' },
+    'CDTE-01': { full_name: 'Arjun Rajan', department: 'Digital - Cutting', role_designation: 'Digital Team Executive', work_location_zone: 'CD Operations Office' }
+};
+
 async function executeDepartmentLogin() {
     if (isAuthBusy) return;
     let empId = authLockOpen
@@ -978,7 +1077,29 @@ async function executeDepartmentLogin() {
         : document.getElementById('login-emp-id').value.trim().toUpperCase();
     const pass = document.getElementById('login-emp-pass').value.trim();
 
-    const emp = DB.employees.find(e => e.employee_id.toUpperCase() === empId);
+    let emp = DB.employees.find(e => e.employee_id.toUpperCase() === empId);
+
+    // When Sandbox mode starts with an empty database, allow signing in with a temporary in-memory role session
+    if (!emp && sandboxMode === '0' && empId) {
+        const def = SANDBOX_ROLE_DEFAULTS[empId] || {
+            full_name: `Sandbox Tester (${empId})`,
+            department: 'Cutting',
+            role_designation: 'CDMS Admins',
+            work_location_zone: 'CD Operations Office'
+        };
+        emp = {
+            employee_id: empId,
+            full_name: def.full_name,
+            department: def.department,
+            role_designation: def.role_designation,
+            work_location_zone: def.work_location_zone,
+            active_checkout_count: 0,
+            avatar_url: '',
+            account_password: 'bodyline123',
+            account_status: 'Active'
+        };
+    }
+
     if (!emp) return showToast('Employee ID not found in directory.', 'error');
 
     if (emp.account_status && emp.account_status.startsWith('Suspended')) {
@@ -1023,12 +1144,6 @@ function openForgotPasswordModal() {
     closeModal('user-login-modal');
     const fpIdInput = document.getElementById('fp-emp-id');
     if (fpIdInput && currentTypedId) fpIdInput.value = currentTypedId;
-
-    if (currentTypedId === 'DT-C-CA-01') {
-        switchRecoveryTab('admin');
-    } else {
-        switchRecoveryTab('staff');
-    }
     document.getElementById('forgot-password-modal').classList.remove('hidden');
 }
 
@@ -1040,19 +1155,6 @@ function closeForgotPasswordModal() {
 function backToLoginFromRecovery() {
     closeModal('forgot-password-modal');
     openUserLoginModal();
-}
-
-function switchRecoveryTab(tab) {
-    const isStaff = tab === 'staff';
-    document.getElementById('rec-panel-staff').classList.toggle('hidden', !isStaff);
-    document.getElementById('rec-panel-admin').classList.toggle('hidden', isStaff);
-
-    document.getElementById('rec-tab-staff').className = isStaff
-        ? 'py-2.5 rounded-lg bg-white text-zinc-900 shadow-sm'
-        : 'py-2.5 rounded-lg text-zinc-600 hover:text-zinc-900';
-    document.getElementById('rec-tab-admin').className = !isStaff
-        ? 'py-2.5 rounded-lg bg-white text-zinc-900 shadow-sm'
-        : 'py-2.5 rounded-lg text-zinc-600 hover:text-zinc-900';
 }
 
 async function submitForgotPasswordRequest() {
@@ -1447,6 +1549,7 @@ function openStaffProfileModal(empId) {
     const qrTitle = document.getElementById('spm-qr-status-title');
     const qrSub = document.getElementById('spm-qr-status-sub');
     const qrBtn = document.getElementById('spm-assign-qr-btn');
+    const qrPrintBtn = document.getElementById('spm-print-qr-btn');
 
     if (qrCanvas) {
         qrCanvas.innerHTML = '';
@@ -1461,6 +1564,11 @@ function openStaffProfileModal(empId) {
         qrSub.innerText = qrAssigned
             ? `Active ID: ${emp.employee_id} (Cleared for floor & kiosk)`
             : 'Cannot borrow patterns or join shift pool until QR is assigned';
+    }
+    if (qrPrintBtn) {
+        qrPrintBtn.classList.toggle('hidden', !qrAssigned);
+        qrPrintBtn.classList.toggle('inline-flex', qrAssigned);
+        qrPrintBtn.onclick = () => printQrTagOrBadge('EMPLOYEE', emp.employee_id);
     }
     if (qrBtn) {
         qrBtn.disabled = qrAssigned;
@@ -3016,8 +3124,62 @@ async function resolveMutexTicket(reqId, decision) {
 const DEFAULT_SYSTEM_PARAMETERS = {
     Brand: ['Triumph', "Victoria's Secret", 'Lululemon', 'Nike'],
     Size: ['32C', '34B', '34C', '34D', '36B', '36C', '36D', '38D', 'S', 'M', 'L', 'XL'],
-    Rack: ['Rack A-01', 'Rack A-02', 'Rack B-01', 'Rack B-02', 'Rack C-01', 'Rack C-02', 'Rack D-01', 'Rack D-02', 'Mold Cabinet 01', 'Mold Cabinet 02', 'Mold Cabinet 03', 'Mold Cabinet 04']
+    Rack: ['Rack A-01', 'Rack A-02', 'Rack B-01', 'Rack B-02', 'Rack C-01', 'Rack C-02', 'Rack D-01', 'Rack D-02', 'Mold Cabinet 01', 'Mold Cabinet 02', 'Mold Cabinet 03', 'Mold Cabinet 04'],
+    Role: [
+        'Cutting Dpt. Head',
+        'Cutting Senior Executive',
+        'Cutting Supervisors',
+        'Fabric Spreaders',
+        'Cutting Machine Operators',
+        'Bundling Unit',
+        'Sewing Dpt. Coordinator',
+        'Quality Control Executive',
+        'Quality Control Inspectors',
+        'RMW Coordinators',
+        'Design Dpt. Coordinators',
+        'CAD Coordinators',
+        'Marker Makers',
+        'CAD Pattern Handlers',
+        'Pattern Coordinators',
+        'Pattern Handlers',
+        'Digital Team Executive',
+        'CDMS Support Team',
+        'CDMS Admins'
+    ]
 };
+
+const DEFAULT_QC_DEFECT_CODES = [
+    {
+        defect_code: 'DEF-01',
+        defect_name_symptom: 'Frayed or Torn Cardboard Pattern Block Edge',
+        fault_category: 'Pattern Block Fault',
+        severity_level: 'Medium',
+        target_asset_status: 'Inspection Flagged',
+        reported_by_role_id: 'QCI-C-01',
+        assigned_resolver_role_id: 'PR-C-PC-01',
+        mandatory_system_action: 'Flag pattern for Pattern Room inspection and replacement'
+    },
+    {
+        defect_code: 'DEF-02',
+        defect_name_symptom: 'Warped or Cracked 3D Plastic Pattern Mold',
+        fault_category: '3D Mold Fault',
+        severity_level: 'High',
+        target_asset_status: 'Pending Removal',
+        reported_by_role_id: 'QCI-C-01',
+        assigned_resolver_role_id: 'DH-01',
+        mandatory_system_action: 'Immediate line stop, lock mold QR, and alert Management'
+    },
+    {
+        defect_code: 'DEF-03',
+        defect_name_symptom: 'Bundle Ticket Missing Ply Numbering',
+        fault_category: 'Bundling Fault',
+        severity_level: 'Low',
+        target_asset_status: 'Active on Line (No Lock)',
+        reported_by_role_id: 'QCI-C-01',
+        assigned_resolver_role_id: 'CS-L1-01',
+        mandatory_system_action: 'Log minor symptom for shift supervisor review'
+    }
+];
 
 function getSystemParametersByCategory(category) {
     const custom = DB.system_settings_audit
@@ -3051,11 +3213,15 @@ async function renderDesignCadPortal() {
     const fabrics = DB.rmw_materials.filter(m => m.material_category === 'Cutting Floor Fabric');
 
     document.getElementById('cad-brand-select').innerHTML = brands.map(b => `<option value="${b}">${b}</option>`).join('');
-    document.getElementById('cad-fabric-select').innerHTML = fabrics.map(f => `<option value="${f.material_code}">${f.material_code} (${f.target_brand_usage})</option>`).join('');
+    document.getElementById('cad-fabric-select').innerHTML = fabrics.length > 0
+        ? fabrics.map(f => `<option value="${f.material_code}">${f.material_code} (${f.target_brand_usage})</option>`).join('')
+        : `<option value="FAB-TR-01">FAB-TR-01 (Standard Microfiber)</option><option value="FAB-VS-01">FAB-VS-01 (Soft Nylon)</option>`;
 
     const approvedMarkers = DB.cad_markers.filter(m => m.marker_status === 'Approved' || m.marker_status === 'Released to Pattern Room');
     const markersForDropdown = approvedMarkers.length > 0 ? approvedMarkers : DB.cad_markers;
-    document.getElementById('pat-style-select').innerHTML = markersForDropdown.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name})</option>`).join('');
+    document.getElementById('pat-style-select').innerHTML = markersForDropdown.length > 0
+        ? markersForDropdown.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name})</option>`).join('')
+        : `<option value="TR-TAC-01">TR-TAC-01 (Triaction Control)</option><option value="VS-BBV-10">VS-BBV-10 (Body by Victoria)</option>`;
     document.getElementById('pat-size-select').innerHTML = sizes.map(s => `<option value="${s}">${s}</option>`).join('');
     document.getElementById('pat-rack-loc').innerHTML = racks.map(r => `<option value="${r}">${r}</option>`).join('');
 
@@ -3286,9 +3452,11 @@ async function registerNewPatternAsset() {
 
     const box = document.getElementById('pattern-qr-preview-box');
     const canvas = document.getElementById('pattern-qr-canvas');
+    const printBtn = document.getElementById('pattern-qr-print-btn');
     box.classList.remove('hidden');
     canvas.innerHTML = '';
     document.getElementById('pattern-qr-label-text').innerText = id;
+    if (printBtn) printBtn.onclick = () => printQrTagOrBadge('PATTERN', id);
     new QRCode(canvas, { text: id, width: 76, height: 76 });
     await renderDesignCadPortal();
     showToast(`Registered ${id} & assigned QR code.`);
@@ -3320,7 +3488,11 @@ async function renderSupplyPortal() {
     }
 
     const sizes = getSystemParametersByCategory('Size');
-    document.getElementById('sew-style-select').innerHTML = DB.cad_markers.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name})</option>`).join('');
+    document.getElementById('sew-style-select').innerHTML = DB.cad_markers.length > 0
+        ? DB.cad_markers.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name})</option>`).join('')
+        : (DB.pattern_assets.length > 0
+            ? [...new Set(DB.pattern_assets.map(p => p.style_code))].map(sc => `<option value="${sc}">${sc}</option>`).join('')
+            : `<option value="TR-TAC-01">TR-TAC-01 (Triaction Control)</option>`);
     document.getElementById('sew-size').innerHTML = sizes.map(s => `<option value="${s}">${s}</option>`).join('');
 
     const nextOrdId = getNextSequentialId(DB.cutting_orders, 'order_id', 'ORD-');
@@ -3448,14 +3620,15 @@ function populateQcDefectCodesByTier() {
     const sel = document.getElementById('qc-defect-select');
     if (!sel) return;
 
+    const sourceList = DB.qc_defect_codes.length > 0 ? DB.qc_defect_codes : DEFAULT_QC_DEFECT_CODES;
     let matching = selectedQcSeverityTier === 'ALL'
-        ? DB.qc_defect_codes
-        : DB.qc_defect_codes.filter(d => mapDefectToTier(d) === selectedQcSeverityTier);
-    if (matching.length === 0) matching = DB.qc_defect_codes;
+        ? sourceList
+        : sourceList.filter(d => mapDefectToTier(d) === selectedQcSeverityTier);
+    if (matching.length === 0) matching = sourceList;
 
-    sel.innerHTML = matching.map(d => `<option value="${d.defect_code}">${d.defect_code} — ${d.defect_name_symptom} (${mapDefectToTier(d)})</option>`).join('');
+    sel.innerHTML = matching.map(d => `<option value="${d.defect_code}">${d.defect_code} — ${d.defect_name_symptom} (${mapDefectToTier(d)} risk)</option>`).join('');
 
-    const nextDefCode = getNextSequentialId(DB.qc_defect_codes, 'defect_code', 'DEF-', 2);
+    const nextDefCode = getNextSequentialId(sourceList, 'defect_code', 'DEF-', 2);
     const lbl = document.getElementById('next-def-code-label');
     if (lbl) lbl.innerText = nextDefCode;
 
@@ -3612,11 +3785,15 @@ async function renderQcPortal() {
 
     document.getElementById('qc-logs-list').innerHTML = DB.qc_inspection_logs.map(l => {
         const acked = Boolean(l.exec_acknowledged);
+        const riskTier = l.severity_tier || 'Medium';
+        const riskBadgeStyle = riskTier === 'High'
+            ? 'bg-rose-600 text-white'
+            : (riskTier === 'Low' ? 'bg-zinc-200 text-zinc-800' : 'bg-amber-100 text-amber-900');
         return `
             <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-wrap justify-between items-center gap-3 text-xs">
                 <div class="space-y-0.5">
                     <div class="flex items-center gap-2">
-                        <span class="px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-800 text-[10px] font-bold">${l.severity_tier || 'Med'}</span>
+                        <span class="px-2 py-0.5 rounded ${riskBadgeStyle} text-[10px] font-bold">${riskTier} risk</span>
                         <p class="font-bold text-zinc-900">${l.qc_log_id} • ${l.defect_code} on ${l.asset_id} (${l.production_line})</p>
                     </div>
                     <p class="text-zinc-500">Inspector: ${l.inspector_id} • Plies: ${l.ruined_ply_count} ${l.involved_employee_id ? `• Op: ${l.involved_employee_id}` : ''}</p>
@@ -3674,7 +3851,8 @@ async function dispatchQcInspectionCommand() {
 
 function previewDefectAction() {
     const code = document.getElementById('qc-defect-select')?.value;
-    const def = DB.qc_defect_codes.find(d => d.defect_code === code);
+    const sourceList = DB.qc_defect_codes.length > 0 ? DB.qc_defect_codes : DEFAULT_QC_DEFECT_CODES;
+    const def = sourceList.find(d => d.defect_code === code);
     if (!def) return;
     document.getElementById('qc-action-preview').innerHTML = `
         <span><strong>Status:</strong> ${def.target_asset_status} • <strong>Resolver:</strong> ${def.assigned_resolver_role_id}</span>
@@ -3691,7 +3869,8 @@ async function submitQcDefectFlag() {
     const plies = parseInt(document.getElementById('qc-ruined-plies').value) || 10;
     const involvedEmp = document.getElementById('qc-employee-select')?.value || null;
     const notes = (document.getElementById('qc-inspector-notes')?.value || '').trim();
-    const def = DB.qc_defect_codes.find(d => d.defect_code === defCode) || DB.qc_defect_codes[0];
+    const sourceList = DB.qc_defect_codes.length > 0 ? DB.qc_defect_codes : DEFAULT_QC_DEFECT_CODES;
+    const def = sourceList.find(d => d.defect_code === defCode) || sourceList[0];
 
     const tier = mapDefectToTier(def);
     let targetStatus = def.target_asset_status;
@@ -3718,10 +3897,54 @@ async function submitQcDefectFlag() {
     };
 
     await supa.from('qc_inspection_logs').insert([newLog]);
+
+    // When a High risk defect is recorded, generate an urgent alert to Management (DH-01 and CQCE-01)
+    if (tier === 'High') {
+        const senderId = currentLoggedInUser ? currentLoggedInUser.employee_id : 'QCI-C-01';
+        const senderName = currentLoggedInUser ? currentLoggedInUser.full_name : 'QC Inspector';
+        const senderRole = currentLoggedInUser ? currentLoggedInUser.role_designation : 'Quality Control Inspectors';
+        const dhEmp = DB.employees.find(e => e.employee_id === 'DH-01');
+        const qceEmp = DB.employees.find(e => e.employee_id === 'CQCE-01');
+        const alertMsg = `URGENT HIGH RISK DEFECT: ${defCode} (${def ? def.defect_name_symptom : 'Critical Fault'}) on Asset ${assetId} at ${line}. Ruined plies: ${plies}.${notes ? ` Note: ${notes}` : ''}`;
+
+        await supa.from('department_communications').insert([
+            {
+                sender_id: senderId,
+                sender_name: senderName,
+                sender_role: senderRole,
+                receiver_id: 'DH-01',
+                receiver_name: dhEmp ? dhEmp.full_name : 'Cutting Department Head',
+                receiver_role: 'Cutting Dpt. Head',
+                protocol_category: 'High Risk QC Alert',
+                linked_reference_id: logId,
+                subject_line: `URGENT: High Risk Defect on ${assetId} (${line})`,
+                message_body: alertMsg,
+                comm_status: 'Pending Approval'
+            },
+            {
+                sender_id: senderId,
+                sender_name: senderName,
+                sender_role: senderRole,
+                receiver_id: 'CQCE-01',
+                receiver_name: qceEmp ? qceEmp.full_name : 'Quality Control Executive',
+                receiver_role: 'Quality Control Executive',
+                protocol_category: 'High Risk QC Alert',
+                linked_reference_id: logId,
+                subject_line: `URGENT: High Risk Defect on ${assetId} (${line})`,
+                message_body: alertMsg,
+                comm_status: 'Pending Approval'
+            }
+        ]);
+    }
+
     await writeAuditLog('QC_DEFECT_FLAG', 'QC_Inspection_Logs', logId, newLog);
     if (document.getElementById('qc-inspector-notes')) document.getElementById('qc-inspector-notes').value = '';
     await renderQcPortal();
-    showToast(`Logged ${logId} (${defCode}) on ${assetId}.`, 'error');
+    if (tier === 'High') {
+        showToast(`Logged High risk defect ${logId} on ${assetId} & sent urgent alert to Management.`, 'error');
+    } else {
+        showToast(`Logged ${tier} risk defect ${logId} (${defCode}) on ${assetId}.`, 'error');
+    }
 }
 
 async function acknowledgeQcReportReceipt(logId) {
@@ -3762,7 +3985,9 @@ function isCurrentUserPrivilegedAdmin() {
 async function renderAdminPortal() {
     await syncFromSupabase();
 
-    const uniqueRoles = [...new Set(DB.employees.map(e => e.role_designation))];
+    const uniqueRoles = DB.employees.length > 0
+        ? [...new Set([...DEFAULT_SYSTEM_PARAMETERS.Role, ...DB.employees.map(e => e.role_designation)])]
+        : DEFAULT_SYSTEM_PARAMETERS.Role;
     document.getElementById('reg-emp-role').innerHTML = uniqueRoles.map(r => `<option value="${r}">${r}</option>`).join('');
     autoGenerateEmployeeId();
 
@@ -4152,7 +4377,14 @@ async function registerNewEmployee() {
     await writeAuditLog('REGISTER_EMPLOYEE', 'Employees', id, { id, name, dept, role, zone });
 
     const box = document.getElementById('emp-qr-preview-box');
-    box.innerHTML = `<div class="p-3 bg-white rounded-xl border border-zinc-300 inline-block"><div id="emp-qr-canvas"></div><p class="text-xs font-bold mt-1">${name} (${id})</p></div>`;
+    box.innerHTML = `
+        <div class="p-3 bg-white rounded-xl border border-zinc-300 inline-flex flex-col items-center gap-1.5">
+            <div id="emp-qr-canvas"></div>
+            <p class="text-xs font-bold text-zinc-900">${name} (${id})</p>
+            <button type="button" onclick="printQrTagOrBadge('EMPLOYEE', '${id}')" class="px-3 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-[10px] font-semibold inline-flex items-center gap-1">
+                <i class="ph-bold ph-printer"></i> Print QR Badge
+            </button>
+        </div>`;
     new QRCode(document.getElementById('emp-qr-canvas'), { text: id, width: 80, height: 80 });
 
     document.getElementById('reg-emp-name').value = '';
@@ -4227,7 +4459,16 @@ function getPermittedRecipientsForUser(user) {
     const id = user.employee_id.toUpperCase();
     const canContactDeptHead = ['CSE-01', 'CQCE-01', 'PR-C-PC-01', 'CADC-C-01', 'CDTE-01', 'DT-C-CA-01'].includes(id);
 
-    return DB.employees.filter(e => {
+    const sourceList = DB.employees.length > 0
+        ? DB.employees
+        : Object.entries(SANDBOX_ROLE_DEFAULTS).map(([empId, info]) => ({
+            employee_id: empId,
+            full_name: info.full_name,
+            role_designation: info.role_designation,
+            department: info.department
+        }));
+
+    return sourceList.filter(e => {
         if (e.employee_id === user.employee_id) return false;
         if (e.employee_id === 'DH-01' && !canContactDeptHead) return false;
         return !e.employee_id.startsWith('CW-');
@@ -4357,7 +4598,11 @@ async function saveOrSendComm(targetStatus) {
 
     if (!subj || !msg) return showToast('Enter Subject and Details.', 'error');
 
-    const recObj = DB.employees.find(e => e.employee_id === recId);
+    const recObj = DB.employees.find(e => e.employee_id === recId) || {
+        employee_id: recId,
+        full_name: SANDBOX_ROLE_DEFAULTS[recId] ? SANDBOX_ROLE_DEFAULTS[recId].full_name : recId,
+        role_designation: SANDBOX_ROLE_DEFAULTS[recId] ? SANDBOX_ROLE_DEFAULTS[recId].role_designation : 'Department Staff'
+    };
     const payload = {
         sender_id: currentLoggedInUser.employee_id,
         sender_name: currentLoggedInUser.full_name,
@@ -4583,16 +4828,16 @@ function renderGroupedReport() {
 
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5 text-[11px] bg-zinc-50 p-3 rounded-lg border border-zinc-200">
             <div><span class="text-zinc-400 block">Generated At</span><strong>${nowStr}</strong></div>
-            <div><span class="text-zinc-400 block">Recipient</span><strong>${roleFor}</strong></div>
+            <div><span class="text-zinc-400 block">Prepared For</span><strong>${roleFor}</strong></div>
             <div><span class="text-zinc-400 block">Filter</span><strong>${filterVal}</strong></div>
-            <div><span class="text-zinc-400 block">Note</span><strong>${customNote || 'System Telemetry'}</strong></div>
+            <div><span class="text-zinc-400 block">Note</span><strong>${customNote || 'Standard Report'}</strong></div>
         </div>
 
         ${bodyGroupsHtml}
 
         <div class="mt-6 pt-3 border-t border-zinc-200 flex flex-wrap justify-between items-center gap-2 text-[10px] font-mono text-zinc-400">
-            <span>CDMS+ AUTOMATED SYSTEM REPORT</span>
-            <span>GENERATED FROM POSTGRESQL DATABASE</span>
+            <span>CDMS+ DEPARTMENT REPORT</span>
+            <span>BODYLINE (PVT) LTD — HORANA PLANT 1</span>
         </div>
     `;
 }

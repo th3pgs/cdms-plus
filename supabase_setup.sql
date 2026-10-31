@@ -325,14 +325,14 @@ ON CONFLICT (Asset_ID) DO NOTHING;
 
 -- Seed QC Defect Codes
 INSERT INTO QC_Defect_Codes (Defect_Code, Defect_Name_Symptom, Fault_Category, Severity_Level, Target_Asset_Status, Reported_By_Role_ID, Assigned_Resolver_Role_ID, Mandatory_System_Action) VALUES
-('DEF-01', 'Frayed or Torn Cardboard Pattern Block Edge', 'Pattern Block Fault', 'High - Asset Lock', 'Inspection Flagged', 'QCI-C-01', 'PR-C-PH-01', 'Auto-Lock Pattern QR, Flag Asset ID as Inspection Flagged & Request CAD Replacement'),
-('DEF-02', 'Warped or Cracked 3D Plastic Pattern Mold', '3D Mold Fault', 'Critical - Halts Line', 'Pending Removal', 'QCI-C-02', 'CAD-C-CPH-01', 'Auto-Lock Mold QR, Flag Asset ID as Pending Removal & Dispatch Tooling Request'),
-('DEF-03', 'Lectra Cutter Blade Drift & Kerf Misalignment', 'Lectra Machine Fault', 'Critical - Halts Line', 'Active on Line (No Lock)', 'QCI-C-03', 'CS-L1-01', 'Halt Lectra Cutting Head, Fire Re-Cut Ticket to Supervisor & Pause Conveyor'),
-('DEF-04', 'Fabric Spreading Layer Tension Slippage & Distortion', 'Spreading Fault', 'Medium - Batch Re-Cut', 'Active on Line (No Lock)', 'QCI-C-01', 'CS-L2-01', 'Fire Re-Cut Ticket to Supervisor, Log Ply Defect & Re-assign Fabric Spreader'),
-('DEF-05', 'Fabric Roll End-to-End Shade Variation & Fiber Slubs', 'RMW Fabric Fault', 'High - Asset Lock', 'Active on Line (No Lock)', 'CQCE-01', 'RMWC-C-01', 'Quarantine Fabric Lot, Request RMW Replacement Roll & Hold Cutting Order'),
-('DEF-06', 'CAD Marker Grading Mismatch & Overlapping Cut Lines', 'CAD Marker Fault', 'Critical - Halts Line', 'Active on Line (No Lock)', 'QCI-C-02', 'CAD-C-MM-01', 'Hold Style Code, Flag CAD Marker for Re-Grading & Alert CAD Coordinator'),
-('DEF-07', 'Bundle Ticket Missing Ply Sequential Notch Numbering', 'Bundling Fault', 'Low - Warning Only', 'Active on Line (No Lock)', 'QCI-C-03', 'CS-L3-01', 'Quarantine Cut Plies, Route Bundle for Hand Trimming & Alert Bundling Lead'),
-('DEF-08', 'Delaminated Base Plate on High-Compression Contour Mold', '3D Mold Fault', 'High - Asset Lock', 'Decommissioned', 'QCI-C-01', 'CAD-C-CPH-02', 'Lock Pattern QR in Tool Crib, Flag Asset ID as Decommissioned & Trigger Mold Recasting'),
-('DEF-09', 'Vacuum Table Pressure Loss & Cut Ply Shifting', 'Lectra Machine Fault', 'Critical - Halts Line', 'Active on Line (No Lock)', 'CQCE-01', 'CS-L1-01', 'Dispatch Emergency Maintenance Ticket, Lock Cutter ID & Alert Shift Lead'),
-('DEF-10', 'Woven Selvage Bowing & Bias Distortions Across Spread', 'RMW Fabric Fault', 'Medium - Batch Re-Cut', 'Active on Line (No Lock)', 'QCI-C-02', 'RMWC-C-02', 'Log Fabric Shading Ticket, Request Replacement Roll from RMW & Notify Lead Inspector')
+('DEF-01', 'Frayed or Torn Cardboard Pattern Block Edge', 'Pattern Block Fault', 'High risk', 'Inspection Flagged', 'QCI-C-01', 'PR-C-PH-01', 'Lock Pattern QR, Flag Asset ID as Inspection Flagged & Alert Management'),
+('DEF-02', 'Warped or Cracked 3D Plastic Pattern Mold', '3D Mold Fault', 'High risk', 'Pending Removal', 'QCI-C-02', 'CAD-C-CPH-01', 'Lock Mold QR, Flag Asset ID as Pending Removal & Alert Management'),
+('DEF-03', 'Lectra Cutter Blade Drift & Kerf Misalignment', 'Lectra Machine Fault', 'High risk', 'Active on Line (No Lock)', 'QCI-C-03', 'CS-L1-01', 'Halt Cutting Head, Send Re-Cut Request to Supervisor & Alert Management'),
+('DEF-04', 'Fabric Spreading Layer Tension Slippage & Distortion', 'Spreading Fault', 'Medium risk', 'Active on Line (No Lock)', 'QCI-C-01', 'CS-L2-01', 'Send Re-Cut Request to Supervisor & Log Ply Defect'),
+('DEF-05', 'Fabric Roll End-to-End Shade Variation & Fiber Slubs', 'RMW Fabric Fault', 'High risk', 'Active on Line (No Lock)', 'CQCE-01', 'RMWC-C-01', 'Hold Fabric Lot, Request RMW Replacement Roll & Alert Management'),
+('DEF-06', 'CAD Marker Grading Mismatch & Overlapping Cut Lines', 'CAD Marker Fault', 'High risk', 'Active on Line (No Lock)', 'QCI-C-02', 'CAD-C-MM-01', 'Hold Style Code, Flag CAD Marker for Re-Grading & Alert Management'),
+('DEF-07', 'Bundle Ticket Missing Ply Sequential Notch Numbering', 'Bundling Fault', 'Low risk', 'Active on Line (No Lock)', 'QCI-C-03', 'CS-L3-01', 'Route Bundle for Hand Trimming & Notify Bundling Lead'),
+('DEF-08', 'Delaminated Base Plate on High-Compression Contour Mold', '3D Mold Fault', 'High risk', 'Decommissioned', 'QCI-C-01', 'CAD-C-CPH-02', 'Lock Pattern QR, Flag Asset ID as Decommissioned & Alert Management'),
+('DEF-09', 'Vacuum Table Pressure Loss & Cut Ply Shifting', 'Lectra Machine Fault', 'High risk', 'Active on Line (No Lock)', 'CQCE-01', 'CS-L1-01', 'Send Maintenance Request & Alert Management'),
+('DEF-10', 'Woven Selvage Bowing & Bias Distortions Across Spread', 'RMW Fabric Fault', 'Medium risk', 'Active on Line (No Lock)', 'QCI-C-02', 'RMWC-C-02', 'Log Fabric Shading Issue & Request Replacement Roll from RMW')
 ON CONFLICT (Defect_Code) DO NOTHING;
