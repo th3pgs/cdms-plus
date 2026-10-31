@@ -735,7 +735,7 @@ function openPatternQrTagModal(assetId) {
             <div>
                 <p class="font-mono text-base font-black text-zinc-900">${asset.asset_id}</p>
                 <p class="text-xs font-bold text-zinc-700">${asset.model_name} (${asset.style_code})</p>
-                <p class="text-[11px] text-zinc-500">${asset.brand_buyer} â€¢ Size ${asset.size_category} â€¢ ${asset.storage_location}</p>
+                <p class="text-[11px] text-zinc-500">${asset.brand_buyer} | Size ${asset.size_category} | ${asset.storage_location}</p>
             </div>
             <div>
                 <span class="inline-block px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
@@ -768,12 +768,12 @@ function printQrTagOrBadge(kind, targetId) {
         heading = 'BODYLINE STAFF QR BADGE';
         title = emp ? emp.full_name : targetId;
         subtitle = emp ? emp.role_designation : 'Cutting Department';
-        meta = emp ? `${emp.department} â€¢ ${emp.work_location_zone}` : '';
+        meta = emp ? `${emp.department} | ${emp.work_location_zone}` : '';
     } else {
         const asset = DB.pattern_assets.find(p => p.asset_id === targetId);
         heading = asset && asset.tooling_type === 'Pattern Mold' ? '3D MOLD QR TAG' : 'PATTERN BLOCK QR TAG';
         title = asset ? `${asset.model_name} (${asset.style_code})` : targetId;
-        subtitle = asset ? `${asset.brand_buyer} â€¢ Size ${asset.size_category}` : 'Pattern Room Asset';
+        subtitle = asset ? `${asset.brand_buyer} | Size ${asset.size_category}` : 'Pattern Room Asset';
         meta = asset ? `Storage: ${asset.storage_location}` : '';
     }
 
@@ -1974,7 +1974,7 @@ function openStaffProfileModal(empId) {
     document.getElementById('spm-avatar').src = getAvatarUrl(emp.avatar_url, emp.employee_id);
     document.getElementById('spm-name').innerText = emp.full_name;
     document.getElementById('spm-role').innerText = emp.role_designation;
-    document.getElementById('spm-dept-zone').innerText = `${emp.department} â€¢ ${emp.work_location_zone}`;
+    document.getElementById('spm-dept-zone').innerText = `${emp.department} | ${emp.work_location_zone}`;
 
     const pill = document.getElementById('spm-status-pill');
     pill.innerText = status;
@@ -3049,7 +3049,7 @@ async function renderDeptHeadPortal() {
                 <img src="${getItemImageUrl(a.image_url)}" class="w-11 h-8 rounded-lg object-cover border">
                 <div class="flex-1 min-w-0">
                     <p class="font-bold text-zinc-900 truncate">${a.model_name} (${a.asset_id})</p>
-                    <p class="text-zinc-500 truncate">${worker ? worker.full_name : (a.borrowed_by_id || 'Assigned')} â€¢ ${a.shift_checkout || 'Morning'}</p>
+                    <p class="text-zinc-500 truncate">${worker ? worker.full_name : (a.borrowed_by_id || 'Assigned')} | ${a.shift_checkout || 'Morning'}</p>
                 </div>
             </div>
         `;
@@ -3068,7 +3068,7 @@ async function renderDeptHeadPortal() {
                     <span>${l.qc_log_id} (${l.defect_code})</span>
                     <span class="px-2 py-0.5 rounded border text-[10px] font-bold ${riskStyle}">${risk}</span>
                 </div>
-                <p class="text-zinc-600">Item: <strong class="font-mono text-zinc-800">${l.asset_id}</strong> â€¢ ${l.production_line} â€¢ Plies: ${l.ruined_ply_count}</p>
+                <p class="text-zinc-600">Item: <strong class="font-mono text-zinc-800">${l.asset_id}</strong> | ${l.production_line} | Plies: ${l.ruined_ply_count}</p>
                 <span class="inline-block px-2 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 text-[10px] font-semibold">${l.resolution_status}</span>
             </div>
         `;
@@ -3232,7 +3232,7 @@ async function renderSupervisorPortal() {
             <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs flex justify-between items-center">
                 <div>
                     <p class="font-bold text-zinc-900">${p.asset_id} (${p.model_name})</p>
-                    <p class="text-[11px] text-zinc-500">${emp ? emp.full_name : p.borrowed_by_id} â€¢ ${p.shift_checkout || 'Morning'}</p>
+                    <p class="text-[11px] text-zinc-500">${emp ? emp.full_name : p.borrowed_by_id} | ${p.shift_checkout || 'Morning'}</p>
                 </div>
                 <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[10px]">Active</span>
             </div>
@@ -3330,10 +3330,10 @@ function renderCseOrderVerificationHub() {
         return `
             <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-2">
                 <div class="flex justify-between items-center">
-                    <span class="font-mono font-bold text-zinc-900">${o.order_id} â€¢ ${o.style_code} (${o.target_size})</span>
+                    <span class="font-mono font-bold text-zinc-900">${o.order_id} | ${o.style_code} (${o.target_size})</span>
                     <span class="px-2 py-0.5 rounded text-[10px] font-bold ${o.priority_level === 'Urgent' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-zinc-200 text-zinc-800'}">${o.priority_level}</span>
                 </div>
-                <p class="text-zinc-600">Qty: <strong>${o.target_bundle_qty} pcs</strong> â€¢ Status: <strong>${o.order_status}</strong></p>
+                <p class="text-zinc-600">Qty: <strong>${o.target_bundle_qty} pcs</strong> | Status: <strong>${o.order_status}</strong></p>
                 ${isQueued ? `
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                         <select id="cse-target-line-${o.order_id}" class="p-2 bg-white border border-zinc-300 rounded-lg text-xs">
@@ -3346,7 +3346,7 @@ function renderCseOrderVerificationHub() {
                         </button>
                     </div>
                 ` : `
-                    <p class="text-[11px] text-emerald-700 font-semibold">${o.assigned_line} ${o.assigned_operator_id ? `â€¢ ${o.assigned_operator_id} (${o.scheduled_date})` : ''}</p>
+                    <p class="text-[11px] text-emerald-700 font-semibold">${o.assigned_line} ${o.assigned_operator_id ? ` | ${o.assigned_operator_id} (${o.scheduled_date})` : ''}</p>
                 `}
             </div>
         `;
@@ -3395,10 +3395,10 @@ function renderSupervisorOrderExecutionHub() {
         return `
             <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-2">
                 <div class="flex justify-between items-center">
-                    <span class="font-mono font-bold text-zinc-900">${o.order_id} â€¢ ${o.style_code} (${o.target_size})</span>
+                    <span class="font-mono font-bold text-zinc-900">${o.order_id} | ${o.style_code} (${o.target_size})</span>
                     <span class="px-2 py-0.5 rounded bg-zinc-200 text-zinc-800 font-bold text-[10px]">${o.order_status}</span>
                 </div>
-                <p class="text-zinc-600">Qty: <strong>${o.target_bundle_qty} pcs</strong> â€¢ ${o.assigned_line}</p>
+                <p class="text-zinc-600">Qty: <strong>${o.target_bundle_qty} pcs</strong> | ${o.assigned_line}</p>
                 ${!isCompleted ? `
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <input id="sup-ord-date-${o.order_id}" type="date" value="${o.scheduled_date || todayStr}" min="${todayStr}" class="p-2 bg-white border border-zinc-300 rounded-lg text-xs">
@@ -3736,11 +3736,11 @@ async function renderDesignCadPortal() {
                             </div>
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-1.5">
-                                    <span class="font-mono font-bold text-zinc-900">${m.cad_marker_id} â€¢ ${m.style_code}</span>
+                                    <span class="font-mono font-bold text-zinc-900">${m.cad_marker_id} | ${m.style_code}</span>
                                     <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isPendingCad ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">${m.marker_status}</span>
                                 </div>
                                 <p class="font-bold text-zinc-800 truncate">${m.model_name} (${m.brand_buyer})</p>
-                                <p class="text-[11px] text-zinc-500 truncate">${m.cad_tooling_material_code} â€¢ ${m.cutting_floor_fabric_code}</p>
+                                <p class="text-[11px] text-zinc-500 truncate">${m.cad_tooling_material_code} | ${m.cutting_floor_fabric_code}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
@@ -3781,12 +3781,12 @@ async function renderDesignCadPortal() {
                     </div>
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-1.5">
-                            <p class="font-bold text-zinc-900 truncate">${p.asset_id} â€¢ ${p.model_name}</p>
+                            <p class="font-bold text-zinc-900 truncate">${p.asset_id} | ${p.model_name}</p>
                             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${qrOk ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}">
                                 ${qrOk ? 'QR Active' : 'No QR'}
                             </span>
                         </div>
-                        <p class="text-[11px] text-zinc-500 truncate">${p.brand_buyer} (${p.style_code}) â€¢ ${p.storage_location}</p>
+                        <p class="text-[11px] text-zinc-500 truncate">${p.brand_buyer} (${p.style_code}) | ${p.storage_location}</p>
                     </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5 sm:shrink-0">
@@ -4016,12 +4016,12 @@ async function renderSupplyPortal() {
         return `
             <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-wrap justify-between items-center gap-3 text-xs">
                 <div>
-                    <p class="font-bold text-zinc-900">${o.order_id} â€¢ ${o.style_code} (Size ${o.target_size})</p>
-                    <p class="text-zinc-500 mt-0.5">Qty: <strong>${o.target_bundle_qty} pcs</strong> â€¢ ${o.assigned_line}</p>
+                    <p class="font-bold text-zinc-900">${o.order_id} | ${o.style_code} (Size ${o.target_size})</p>
+                    <p class="text-zinc-500 mt-0.5">Qty: <strong>${o.target_bundle_qty} pcs</strong> | ${o.assigned_line}</p>
                     ${o.order_notes ? `<p class="text-[11px] text-zinc-500 italic mt-0.5">"${o.order_notes}"</p>` : ''}
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="px-2.5 py-1 rounded font-bold text-[10px] ${o.priority_level === 'Urgent' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-zinc-200 text-zinc-800'}">${o.priority_level} â€¢ ${o.order_status}</span>
+                    <span class="px-2.5 py-1 rounded font-bold text-[10px] ${o.priority_level === 'Urgent' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-zinc-200 text-zinc-800'}">${o.priority_level} | ${o.order_status}</span>
                     ${canReceiveBundles ? `
                         <button type="button" onclick="sewingConfirmBundleReceipt('${o.order_id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold text-[11px]">
                             Receive Bundles
@@ -4036,8 +4036,8 @@ async function renderSupplyPortal() {
         <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex justify-between items-center gap-3 text-xs">
             <div>
                 <p class="font-bold text-zinc-900">${m.material_code} (${m.material_category})</p>
-                <p class="text-zinc-600">${m.material_name_specs} â€¢ ${m.target_brand_usage}</p>
-                <p class="text-[11px] text-zinc-400">${m.rmw_storage_bay} â€¢ <strong class="text-zinc-800">${m.lot_status}</strong></p>
+                <p class="text-zinc-600">${m.material_name_specs} | ${m.target_brand_usage}</p>
+                <p class="text-[11px] text-zinc-400">${m.rmw_storage_bay} | <strong class="text-zinc-800">${m.lot_status}</strong></p>
             </div>
             ${userId.startsWith('RMW') ? `
                 <button type="button" onclick="dispatchRmwMaterial('${m.material_code}')" class="bg-zinc-900 hover:bg-zinc-800 text-white px-3 py-1.5 rounded-lg font-semibold text-[11px] shrink-0">
@@ -4305,9 +4305,9 @@ async function renderQcPortal() {
                 <div class="space-y-0.5">
                     <div class="flex items-center gap-2">
                         <span class="px-2 py-0.5 rounded ${riskBadgeStyle} text-[10px] font-bold">${riskTier} risk</span>
-                        <p class="font-bold text-zinc-900">${l.qc_log_id} â€¢ ${l.defect_code} on ${l.asset_id} (${l.production_line})</p>
+                        <p class="font-bold text-zinc-900">${l.qc_log_id} | ${l.defect_code} on ${l.asset_id} (${l.production_line})</p>
                     </div>
-                    <p class="text-zinc-500">Inspector: ${l.inspector_id} â€¢ Plies: ${l.ruined_ply_count} ${l.involved_employee_id ? `â€¢ Op: ${l.involved_employee_id}` : ''}</p>
+                    <p class="text-zinc-500">Inspector: ${l.inspector_id} | Plies: ${l.ruined_ply_count} ${l.involved_employee_id ? ` | Op: ${l.involved_employee_id}` : ''}</p>
                     ${l.inspector_notes ? `<p class="text-[11px] text-zinc-600 italic">"${l.inspector_notes}"</p>` : ''}
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5 ml-auto">
@@ -4366,7 +4366,7 @@ function previewDefectAction() {
     const def = sourceList.find(d => d.defect_code === code);
     if (!def) return;
     document.getElementById('qc-action-preview').innerHTML = `
-        <span><strong>Status:</strong> ${def.target_asset_status} â€¢ <strong>Resolver:</strong> ${def.assigned_resolver_role_id}</span>
+        <span><strong>Status:</strong> ${def.target_asset_status} | <strong>Resolver:</strong> ${def.assigned_resolver_role_id}</span>
     `;
 }
 
