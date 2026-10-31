@@ -322,6 +322,28 @@ function createSandboxDemoDatabase() {
         { record_id: recCounter++, record_type: 'PARAMETER', category: 'Brand', setting_value: 'Lululemon', prefix_data: 'LL', json_backup_data: './brand-logos/lululemon.svg', requested_by_id: 'DT-C-CA-01', request_status: 'Active', created_at: nowIso },
         { record_id: recCounter++, record_type: 'PARAMETER', category: 'Brand', setting_value: "Victoria's Secret", prefix_data: 'VS', json_backup_data: './brand-logos/vs.svg', requested_by_id: 'DT-C-CA-01', request_status: 'Active', created_at: nowIso },
         { record_id: recCounter++, record_type: 'PARAMETER', category: 'Brand', setting_value: 'Triumph', prefix_data: 'TR', json_backup_data: './brand-logos/triumph.svg', requested_by_id: 'DT-C-CA-01', request_status: 'Active', created_at: nowIso },
+        ...['32C', '34B', '34C', '34D', '36B', '36C', '36D', '38D', 'S', 'M', 'L', 'XL'].map(sz => ({
+            record_id: recCounter++,
+            record_type: 'PARAMETER',
+            category: 'Size',
+            setting_value: sz,
+            prefix_data: '',
+            json_backup_data: null,
+            requested_by_id: 'DT-C-CA-01',
+            request_status: 'Active',
+            created_at: nowIso
+        })),
+        ...['Rack A-01', 'Rack A-02', 'Rack B-01', 'Rack B-02', 'Rack C-01', 'Rack C-02', 'Rack D-01', 'Rack D-02', 'Mold Cabinet 01', 'Mold Cabinet 02', 'Mold Cabinet 03', 'Mold Cabinet 04'].map(rk => ({
+            record_id: recCounter++,
+            record_type: 'PARAMETER',
+            category: 'Rack',
+            setting_value: rk,
+            prefix_data: '',
+            json_backup_data: null,
+            requested_by_id: 'DT-C-CA-01',
+            request_status: 'Active',
+            created_at: nowIso
+        })),
         ...employees.map(e => ({
             record_id: recCounter++,
             record_type: 'QR_ASSIGNED',
@@ -451,10 +473,33 @@ function getAvatarUrl(url) {
 }
 
 // --- Brand Logo Pipeline ---
-// Brand logos live on the Brand parameter row (System_Settings_Audit.json_backup_data).
+// Brand logos live on the Brand parameter row (System_Settings_Audit.json_backup_data or localStorage fallback when column missing).
 // Value can be a data URL (admin upload), a relative path (./brand-logos/*.svg) or BRAND_LOGO_REMOVED.
 // Pattern images stay clean; the logo is overlaid at render time in the bottom-left corner.
 const BRAND_LOGO_REMOVED = 'NO_LOGO';
+const BRAND_LOGOS_STORAGE_KEY = 'CDMS_CUSTOM_BRAND_LOGOS';
+
+function getCustomBrandLogosStore() {
+    try {
+        return JSON.parse(localStorage.getItem(BRAND_LOGOS_STORAGE_KEY) || '{}');
+    } catch {
+        return {};
+    }
+}
+
+function setCustomBrandLogoInStore(brandName, logoData) {
+    try {
+        const store = getCustomBrandLogosStore();
+        if (logoData) {
+            store[brandName.trim().toLowerCase()] = logoData;
+        } else {
+            delete store[brandName.trim().toLowerCase()];
+        }
+        localStorage.setItem(BRAND_LOGOS_STORAGE_KEY, JSON.stringify(store));
+    } catch (e) {
+        console.warn('Could not save brand logo to localStorage fallback:', e);
+    }
+}
 const BUILT_IN_BRAND_LOGOS = [
     { match: ['nike'], url: './brand-logos/nike.svg' },
     { match: ['lululemon', 'lulu'], url: './brand-logos/lululemon.svg' },
@@ -479,10 +524,16 @@ function getBrandParamRow(brandName) {
 
 function getBrandLogoUrl(brandName) {
     if (!brandName) return '';
+    const b = String(brandName || '').toLowerCase().trim();
     const row = getBrandParamRow(brandName);
     if (row && row.json_backup_data) {
         if (row.json_backup_data === BRAND_LOGO_REMOVED) return '';
         return row.json_backup_data;
+    }
+    const stored = getCustomBrandLogosStore()[b];
+    if (stored) {
+        if (stored === BRAND_LOGO_REMOVED) return '';
+        return stored;
     }
     return getBuiltInBrandLogo(brandName);
 }
@@ -4859,6 +4910,9 @@ async function addSystemSetting() {
     if (cat === 'Brand' && logoFile && logoFile.files && logoFile.files.length > 0) {
         logoData = await readBrandLogoFile(logoFile.files[0]);
     }
+    if (cat === 'Brand' && logoData) {
+        setCustomBrandLogoInStore(val, logoData);
+    }
 
     const row = {
         record_type: 'PARAMETER',
@@ -4869,7 +4923,14 @@ async function addSystemSetting() {
         requested_by_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'DT-C-CA-01',
         request_status: 'Active'
     };
-    await supa.from('system_settings_audit').insert([row]);
+    try {
+        await supa.from('system_settings_audit').insert([row]);
+    } catch (e) {
+        // If Supabase table lacks json_backup_data, retry without that column
+        const fallbackRow = { ...row };
+        delete fallbackRow.json_backup_data;
+        await supa.from('system_settings_audit').insert([fallbackRow]);
+    }
     await writeAuditLog('ADD_PARAMETER', 'System_Settings_Audit', val, { ...row, json_backup_data: logoData ? '[logo image]' : null });
     document.getElementById('sys-val').value = '';
     document.getElementById('sys-prefix').value = '';
@@ -4902,7 +4963,13 @@ function triggerBrandLogoUpload(recId) {
         if (!file) return;
         const logoData = await readBrandLogoFile(file);
         if (!logoData) return showToast('Could not read logo file.', 'error');
-        await supa.from('system_settings_audit').update({ json_backup_data: logoData }).eq('record_id', recId);
+        setCustomBrandLogoInStore(param.setting_value, logoData);
+        param.json_backup_data = logoData;
+        try {
+            await supa.from('system_settings_audit').update({ json_backup_data: logoData }).eq('record_id', recId);
+        } catch (err) {
+            console.warn('Could not persist logo to Supabase column (saved in local store):', err);
+        }
         await writeAuditLog('UPDATE_BRAND_LOGO', 'System_Settings_Audit', param.setting_value, { brand: param.setting_value, logo_updated: true });
         await syncFromSupabase();
         await renderAdminPortal();
@@ -4916,7 +4983,13 @@ function triggerBrandLogoUpload(recId) {
 async function removeBrandLogo(recId) {
     const param = DB.system_settings_audit.find(s => s.record_id === recId);
     if (!param) return;
-    await supa.from('system_settings_audit').update({ json_backup_data: BRAND_LOGO_REMOVED }).eq('record_id', recId);
+    setCustomBrandLogoInStore(param.setting_value, BRAND_LOGO_REMOVED);
+    param.json_backup_data = BRAND_LOGO_REMOVED;
+    try {
+        await supa.from('system_settings_audit').update({ json_backup_data: BRAND_LOGO_REMOVED }).eq('record_id', recId);
+    } catch (err) {
+        console.warn('Could not persist logo removal to Supabase column (saved in local store):', err);
+    }
     await writeAuditLog('REMOVE_BRAND_LOGO', 'System_Settings_Audit', param.setting_value, { brand: param.setting_value, logo_removed: true });
     await syncFromSupabase();
     await renderAdminPortal();
