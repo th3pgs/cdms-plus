@@ -240,7 +240,7 @@ function createSandboxDemoDatabase() {
         { employee_id: 'CDTE-01', full_name: 'Arjun Rajan', department: 'Digital - Cutting', role_designation: 'Digital Team Executive', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
         { employee_id: 'DT-C-CST-01', full_name: 'Shehani Mel', department: 'Digital - Cutting', role_designation: 'CDMS Support Team', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
         { employee_id: 'DT-C-CA-01', full_name: 'Ashan Mendis', department: 'Digital - Cutting', role_designation: 'CDMS Admins', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' }
-    ];
+    ].map(e => ({ ...e, avatar_url: e.avatar_url || generateWorkforcePortraitSvg(e.employee_id) }));
 
     const rmw_materials = [
         { material_code: 'MAT-CRD-01', material_category: 'CAD Tooling Material', material_name_specs: 'Heavy Kraft Pattern Cardboard (350 GSM)', target_brand_usage: 'CAD Pattern Blocks', rmw_storage_bay: 'RMW-Bay-T1', managed_by_rmw_id: 'RMWC-C-01', lot_status: 'Dispatched to CAD' },
@@ -418,12 +418,11 @@ const NO_DATA_IMAGE_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
 </svg>`);
 
 function hasCustomPhoto(url) {
-    return Boolean(url && url.trim() !== '' && !url.includes('unsplash.com') && !url.includes('placehold.co') && !url.startsWith('./portraits/'));
+    return Boolean(url && url.trim() !== '' && url !== DEFAULT_AVATAR_SVG && !url.includes('unsplash.com') && !url.includes('placehold.co'));
 }
 
-function getAvatarUrl(url, seedKey = '') {
-    if (url && url.trim() !== '' && !url.includes('unsplash.com') && !url.includes('placehold.co')) return url;
-    if (seedKey) return generateWorkforcePortraitSvg(seedKey);
+function getAvatarUrl(url) {
+    if (hasCustomPhoto(url)) return url;
     return DEFAULT_AVATAR_SVG;
 }
 
@@ -1740,6 +1739,7 @@ async function removeItemOrStaffPhoto(targetType, targetId) {
     if (targetType === 'employee') {
         const emp = DB.employees.find(e => e.employee_id === targetId);
         if (!emp || !hasCustomPhoto(emp.avatar_url)) return;
+        emp.avatar_url = '';
         await supa.from('employees').update({ avatar_url: '' }).eq('employee_id', targetId);
         await writeAuditLog('REMOVE_STAFF_PHOTO', 'Employees', targetId, { photo_status: 'Removed (Staff Retained)' });
         await syncFromSupabase();
@@ -1749,6 +1749,7 @@ async function removeItemOrStaffPhoto(targetType, targetId) {
     } else if (targetType === 'pattern') {
         const pat = DB.pattern_assets.find(p => p.asset_id === targetId);
         if (!pat || !hasCustomPhoto(pat.image_url)) return;
+        pat.image_url = '';
         await supa.from('pattern_assets').update({ image_url: '' }).eq('asset_id', targetId);
         await writeAuditLog('REMOVE_ASSET_PHOTO', 'Pattern_Assets', targetId, { photo_status: 'Removed (Asset Retained)' });
         await syncFromSupabase();
@@ -1759,9 +1760,12 @@ async function removeItemOrStaffPhoto(targetType, targetId) {
 
 async function requestOwnAvatarRemoval() {
     if (!currentLoggedInUser || !hasCustomPhoto(currentLoggedInUser.avatar_url)) return;
+    currentLoggedInUser.avatar_url = '';
+    updateProfileUI(currentLoggedInUser);
     await supa.from('employees').update({ avatar_url: '' }).eq('employee_id', currentLoggedInUser.employee_id);
     await writeAuditLog('SELF_REMOVE_AVATAR', 'Employees', currentLoggedInUser.employee_id, { status: 'Photo Removed' });
     await syncFromSupabase();
+    if (!document.getElementById('view-admin').classList.contains('hidden')) renderAdminEmployeeList();
     closeProfilePopover();
     showToast('Your profile photo has been deleted.');
 }
@@ -1942,6 +1946,10 @@ async function submitAvatarChangeRequest(fileInput) {
     const imgData = await readAndCompressImage(fileInput, 240);
     if (!imgData) return;
 
+    await supa.from('employees').update({ avatar_url: imgData }).eq('employee_id', currentLoggedInUser.employee_id);
+    currentLoggedInUser.avatar_url = imgData;
+    updateProfileUI(currentLoggedInUser);
+
     const supportEmp = DB.employees.find(e => e.employee_id === 'DT-C-CST-01');
     const payload = {
         sender_id: currentLoggedInUser.employee_id,
@@ -1953,8 +1961,8 @@ async function submitAvatarChangeRequest(fileInput) {
         protocol_category: 'Avatar Request',
         linked_reference_id: currentLoggedInUser.employee_id,
         subject_line: `Profile Photo Update (${currentLoggedInUser.full_name})`,
-        message_body: 'Uploaded new staff profile photo for Support verification.',
-        comm_status: 'Pending Approval',
+        message_body: 'Uploaded new staff profile photo.',
+        comm_status: 'Approved',
         resolution_note: imgData
     };
 
@@ -1962,8 +1970,9 @@ async function submitAvatarChangeRequest(fileInput) {
     if (error) return showToast(error.message, 'error');
     await writeAuditLog('REQUEST_AVATAR_UPDATE', 'Employees', currentLoggedInUser.employee_id, { requested_by: currentLoggedInUser.full_name });
     await syncFromSupabase();
+    if (!document.getElementById('view-admin').classList.contains('hidden')) renderAdminEmployeeList();
     closeProfilePopover();
-    showToast('Profile photo request sent to CDMS Support Team.');
+    showToast('Profile photo updated.');
 }
 
 async function resolveAvatarRequest(commId, empId, decision) {
