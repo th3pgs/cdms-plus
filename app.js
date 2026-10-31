@@ -25,8 +25,8 @@ function getLocalDateString(dateObj = new Date()) {
 let sandboxMode = localStorage.getItem(MODE_STORAGE_KEY) === '0' ? '0' : '1';
 let authLockOpen = false;
 
-let resolvedMasLogoUrl = null;
-let resolvedBodylineLogoUrl = null;
+let resolvedMasLogoUrl = './mas-logo.png';
+let resolvedBodylineLogoUrl = './bodyline-logo.png';
 let cameraPermissionState = 'prompt';
 let html5QrScanner = null;
 let qcQrScanner = null;
@@ -231,30 +231,174 @@ function probeImageCandidates(candidates, onFound) {
 }
 
 function resolveRepoLogos() {
-    const masCandidates = [
-        './mas-logo.png', './mas-logo.png.png', './mas-logo.jpg', './mas-logo.jpeg', './mas-logo.svg', './mas-logo.webp',
-        './MAS-logo.png', './mas.png', './MAS.png', './mas_logo.png', './MAS_logo.png'
-    ];
-    const bodylineCandidates = [
-        './bodyline-logo.png', './bodyline-logo.png.png', './bodyline-logo.jpg', './bodyline-logo.jpeg', './bodyline-logo.svg', './bodyline-logo.webp',
-        './Bodyline-logo.png', './bodyline.png', './Bodyline.png', './BODYLINE.png', './bodyline_logo.png'
-    ];
+    const masImg = document.getElementById('top-mas-logo');
+    const masFb = document.getElementById('top-mas-fallback');
+    if (masImg && masImg.getAttribute('src')) {
+        resolvedMasLogoUrl = masImg.getAttribute('src');
+    } else {
+        probeImageCandidates(['./mas-logo.png', './mas.png', './MAS-logo.png'], (foundUrl) => {
+            resolvedMasLogoUrl = foundUrl;
+            if (masImg) { masImg.src = foundUrl; masImg.classList.remove('hidden'); }
+            if (masFb) masFb.classList.add('hidden');
+        });
+    }
 
-    probeImageCandidates(masCandidates, (foundUrl) => {
-        resolvedMasLogoUrl = foundUrl;
-        const img = document.getElementById('top-mas-logo');
-        const fb = document.getElementById('top-mas-fallback');
-        if (img) { img.src = foundUrl; img.classList.remove('hidden'); }
-        if (fb) fb.classList.add('hidden');
-    });
+    const bodyImg = document.getElementById('top-bodyline-logo');
+    const bodyFb = document.getElementById('top-bodyline-fallback');
+    if (bodyImg && bodyImg.getAttribute('src')) {
+        resolvedBodylineLogoUrl = bodyImg.getAttribute('src');
+    } else {
+        probeImageCandidates(['./bodyline-logo.png', './bodyline.png', './Bodyline-logo.png'], (foundUrl) => {
+            resolvedBodylineLogoUrl = foundUrl;
+            if (bodyImg) { bodyImg.src = foundUrl; bodyImg.classList.remove('hidden'); }
+            if (bodyFb) bodyFb.classList.add('hidden');
+        });
+    }
+}
 
-    probeImageCandidates(bodylineCandidates, (foundUrl) => {
-        resolvedBodylineLogoUrl = foundUrl;
-        const img = document.getElementById('top-bodyline-logo');
-        const fb = document.getElementById('top-bodyline-fallback');
-        if (img) { img.src = foundUrl; img.classList.remove('hidden'); }
-        if (fb) fb.classList.add('hidden');
-    });
+// --- QR Code Assignment & Verification Helpers ---
+// Stores QR activation records inside system_settings_audit (TBL-10) so existing database diagrams remain unchanged.
+
+function isPatternQrAssigned(assetId) {
+    if (!assetId) return false;
+    const upper = String(assetId).toUpperCase();
+    const asset = DB.pattern_assets.find(p => p.asset_id.toUpperCase() === upper);
+    if (asset && asset.qr_assigned === true) return true;
+    return DB.system_settings_audit.some(
+        s => s.record_type === 'QR_ASSIGNED' && s.category === 'PATTERN_QR' && String(s.setting_value).toUpperCase() === upper
+    );
+}
+
+function isEmployeeQrAssigned(empId) {
+    if (!empId) return false;
+    const upper = String(empId).toUpperCase();
+    const emp = DB.employees.find(e => e.employee_id.toUpperCase() === upper);
+    if (emp && emp.qr_assigned === true) return true;
+    return DB.system_settings_audit.some(
+        s => s.record_type === 'QR_ASSIGNED' && s.category === 'EMPLOYEE_QR' && String(s.setting_value).toUpperCase() === upper
+    );
+}
+
+async function assignPatternQrCode(assetId, silent = false) {
+    const asset = DB.pattern_assets.find(p => p.asset_id === assetId);
+    if (!asset) return;
+    if (isPatternQrAssigned(assetId)) {
+        if (!silent) openPatternQrTagModal(assetId);
+        return;
+    }
+
+    const row = {
+        record_type: 'QR_ASSIGNED',
+        category: 'PATTERN_QR',
+        setting_value: asset.asset_id,
+        prefix_data: asset.style_code || 'QR',
+        requested_by_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'PR-C-PC-01',
+        request_status: 'Active'
+    };
+    await supa.from('system_settings_audit').insert([row]);
+    await writeAuditLog('ASSIGN_PATTERN_QR', 'Pattern_Assets', asset.asset_id, { asset_id: asset.asset_id, style_code: asset.style_code });
+    await syncFromSupabase();
+
+    if (!silent) {
+        if (!document.getElementById('view-design-cad').classList.contains('hidden')) renderDesignCadPortal();
+        if (!document.getElementById('view-tracker').classList.contains('hidden')) renderPatternGrid();
+        openPatternQrTagModal(asset.asset_id);
+        showToast(`Assigned & activated QR code for ${asset.asset_id}.`);
+    }
+}
+
+async function batchAssignAllPatternQrCodes() {
+    const unassigned = DB.pattern_assets.filter(p => !isPatternQrAssigned(p.asset_id));
+    if (unassigned.length === 0) return showToast('All patterns already have QR codes assigned.');
+
+    const actorId = currentLoggedInUser ? currentLoggedInUser.employee_id : 'PR-C-PC-01';
+    const rows = unassigned.map(p => ({
+        record_type: 'QR_ASSIGNED',
+        category: 'PATTERN_QR',
+        setting_value: p.asset_id,
+        prefix_data: p.style_code || 'QR',
+        requested_by_id: actorId,
+        request_status: 'Active'
+    }));
+
+    await supa.from('system_settings_audit').insert(rows);
+    await writeAuditLog('BATCH_ASSIGN_PATTERN_QR', 'Pattern_Assets', 'ALL', { count: rows.length });
+    await syncFromSupabase();
+    renderDesignCadPortal();
+    showToast(`Assigned QR codes to ${rows.length} pattern items.`);
+}
+
+async function assignEmployeeQrCode(empId, silent = false) {
+    const emp = DB.employees.find(e => e.employee_id === empId);
+    if (!emp) return;
+    if (isEmployeeQrAssigned(empId)) {
+        if (!silent) showToast(`QR badge is already active for ${emp.employee_id}.`);
+        return;
+    }
+
+    const row = {
+        record_type: 'QR_ASSIGNED',
+        category: 'EMPLOYEE_QR',
+        setting_value: emp.employee_id,
+        prefix_data: emp.department.substring(0, 12),
+        requested_by_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'DT-C-CA-01',
+        request_status: 'Active'
+    };
+    await supa.from('system_settings_audit').insert([row]);
+    await writeAuditLog('ASSIGN_EMPLOYEE_QR', 'Employees', emp.employee_id, { employee_id: emp.employee_id, name: emp.full_name });
+    await syncFromSupabase();
+
+    if (!silent) {
+        renderAdminEmployeeList();
+        if (currentInspectedStaffId === emp.employee_id) openStaffProfileModal(emp.employee_id);
+        showToast(`Assigned QR badge to ${emp.full_name} (${emp.employee_id}).`);
+    }
+}
+
+async function batchAssignAllEmployeeQrCodes() {
+    const unassigned = DB.employees.filter(e => !isEmployeeQrAssigned(e.employee_id));
+    if (unassigned.length === 0) return showToast('All staff members already have QR badges assigned.');
+
+    const actorId = currentLoggedInUser ? currentLoggedInUser.employee_id : 'DT-C-CA-01';
+    const rows = unassigned.map(e => ({
+        record_type: 'QR_ASSIGNED',
+        category: 'EMPLOYEE_QR',
+        setting_value: e.employee_id,
+        prefix_data: e.department.substring(0, 12),
+        requested_by_id: actorId,
+        request_status: 'Active'
+    }));
+
+    await supa.from('system_settings_audit').insert(rows);
+    await writeAuditLog('BATCH_ASSIGN_EMPLOYEE_QR', 'Employees', 'ALL', { count: rows.length });
+    await syncFromSupabase();
+    renderAdminEmployeeList();
+    showToast(`Assigned QR badges to ${rows.length} staff members.`);
+}
+
+function openPatternQrTagModal(assetId) {
+    const asset = DB.pattern_assets.find(p => p.asset_id === assetId);
+    if (!asset) return;
+    document.getElementById('modal-title').innerText = `QR Tag — ${asset.asset_id}`;
+    document.getElementById('verify-modal').classList.remove('hidden');
+    const area = document.getElementById('modal-dynamic-area');
+    area.innerHTML = `
+        <div class="text-center space-y-3 py-3">
+            <div id="modal-pattern-qr-box" class="inline-block p-4 bg-white rounded-2xl border-2 border-zinc-900 shadow-sm mx-auto"></div>
+            <div>
+                <p class="font-mono text-base font-black text-zinc-900">${asset.asset_id}</p>
+                <p class="text-xs font-bold text-zinc-700">${asset.model_name} (${asset.style_code})</p>
+                <p class="text-[11px] text-zinc-500">${asset.brand_buyer} • Size ${asset.size_category} • ${asset.storage_location}</p>
+            </div>
+            <span class="inline-block px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
+                QR Code Assigned & Active in Pattern Room
+            </span>
+        </div>
+    `;
+    const qrBox = document.getElementById('modal-pattern-qr-box');
+    if (qrBox && typeof QRCode !== 'undefined') {
+        new QRCode(qrBox, { text: asset.asset_id, width: 140, height: 140 });
+    }
 }
 
 
@@ -1297,6 +1441,33 @@ function openStaffProfileModal(empId) {
         isSuspended ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
     }`;
 
+    // Employee QR Badge status & generator inside the '...' Staff Profile Modal
+    const qrAssigned = isEmployeeQrAssigned(emp.employee_id);
+    const qrCanvas = document.getElementById('spm-qr-canvas');
+    const qrTitle = document.getElementById('spm-qr-status-title');
+    const qrSub = document.getElementById('spm-qr-status-sub');
+    const qrBtn = document.getElementById('spm-assign-qr-btn');
+
+    if (qrCanvas) {
+        qrCanvas.innerHTML = '';
+        if (qrAssigned && typeof QRCode !== 'undefined') {
+            new QRCode(qrCanvas, { text: emp.employee_id, width: 52, height: 52 });
+        } else {
+            qrCanvas.innerHTML = `<div class="w-[52px] h-[52px] flex items-center justify-center text-[10px] font-mono text-zinc-400 bg-zinc-100 rounded">NO QR</div>`;
+        }
+    }
+    if (qrTitle) qrTitle.innerText = qrAssigned ? 'QR Badge Assigned' : 'No QR Badge Assigned';
+    if (qrSub) {
+        qrSub.innerText = qrAssigned
+            ? `Active ID: ${emp.employee_id} (Cleared for floor & kiosk)`
+            : 'Cannot borrow patterns or join shift pool until QR is assigned';
+    }
+    if (qrBtn) {
+        qrBtn.disabled = qrAssigned;
+        qrBtn.innerText = qrAssigned ? 'QR Active' : 'Assign QR';
+        qrBtn.onclick = () => assignEmployeeQrCode(emp.employee_id);
+    }
+
     // Photo Editor buttons (Delete Photo is grayed out / disabled if no custom photo exists)
     const upBtn = document.getElementById('spm-upload-photo-btn');
     const upTxt = document.getElementById('spm-upload-photo-text');
@@ -1692,8 +1863,9 @@ function populatePatternRoomFilterDropdowns() {
     const currentBrand = brandSel.value || 'ALL';
     const currentRack = rackSel.value || 'ALL';
 
-    const brands = [...new Set(DB.pattern_assets.map(p => p.brand_buyer))].sort();
-    const racks = [...new Set(DB.pattern_assets.map(p => p.storage_location))].sort();
+    const qrApprovedPatterns = DB.pattern_assets.filter(p => isPatternQrAssigned(p.asset_id));
+    const brands = [...new Set(qrApprovedPatterns.map(p => p.brand_buyer))].sort();
+    const racks = [...new Set(qrApprovedPatterns.map(p => p.storage_location))].sort();
 
     brandSel.innerHTML = `<option value="ALL">All Brands (${brands.length})</option>` +
         brands.map(b => `<option value="${b}">${b}</option>`).join('');
@@ -1776,7 +1948,11 @@ function renderPatternCardHtml(p) {
 }
 
 function renderPatternGrid(query = '', brandFilter = 'ALL', rackFilter = 'ALL') {
-    let list = DB.pattern_assets;
+    // Only patterns with an assigned & approved QR code appear in the Pattern Room kiosk
+    const totalInDb = DB.pattern_assets.length;
+    let list = DB.pattern_assets.filter(p => isPatternQrAssigned(p.asset_id));
+    const unassignedCount = totalInDb - list.length;
+
     if (brandFilter !== 'ALL') list = list.filter(p => p.brand_buyer === brandFilter);
     if (rackFilter !== 'ALL') list = list.filter(p => p.storage_location === rackFilter);
     if (query) {
@@ -1795,10 +1971,18 @@ function renderPatternGrid(query = '', brandFilter = 'ALL', rackFilter = 'ALL') 
     document.getElementById('count-active-patterns').innerText = `${activeItems.length} items`;
     document.getElementById('count-inactive-patterns').innerText = `${inactiveItems.length} items`;
 
+    const emptyQrNotice = unassignedCount > 0
+        ? `<div class="col-span-full p-4 rounded-2xl bg-zinc-100 border border-zinc-200 text-xs text-zinc-600 flex flex-wrap justify-between items-center gap-2">
+               <span><strong>${unassignedCount} pattern(s)</strong> in the database do not have an assigned QR code yet and are hidden from the Pattern Room kiosk.</span>
+               <span class="font-mono text-[11px] text-zinc-500">Sign in as Pattern Coordinator (PR-C-PC-01) to assign QR codes.</span>
+           </div>`
+        : '<p class="text-xs text-zinc-400 col-span-full py-4">No matching QR-assigned inventory items.</p>';
+
     document.getElementById('tracker-grid-active').innerHTML = activeItems.map(renderPatternCardHtml).join('') ||
-        '<p class="text-xs text-zinc-400 col-span-full py-4">No items currently checked out to cutting lines.</p>';
-    document.getElementById('tracker-grid-inactive').innerHTML = inactiveItems.map(renderPatternCardHtml).join('') ||
-        '<p class="text-xs text-zinc-400 col-span-full py-4">No matching inventory items.</p>';
+        '<p class="text-xs text-zinc-400 col-span-full py-4">No QR-assigned items currently checked out to cutting lines.</p>';
+    document.getElementById('tracker-grid-inactive').innerHTML = inactiveItems.length > 0
+        ? inactiveItems.map(renderPatternCardHtml).join('')
+        : emptyQrNotice;
 }
 
 function renderCameraSectionHtml(scanContext, assetId = '') {
@@ -1877,15 +2061,16 @@ function openQuickQrScanner() {
     document.getElementById('verify-modal').classList.remove('hidden');
     const area = document.getElementById('modal-dynamic-area');
 
+    const qrAssignedAssets = DB.pattern_assets.filter(p => isPatternQrAssigned(p.asset_id));
     const sandboxItemsHtml = sandboxMode === '0' ? `
         <div class="border-t border-zinc-200 pt-3 mt-3">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-2">Sandbox Sample Triggers</p>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-2">Sandbox QR Triggers (${qrAssignedAssets.length} QR-Assigned)</p>
             <div class="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
-                ${DB.pattern_assets.map(p => `
+                ${qrAssignedAssets.map(p => `
                     <button type="button" onclick="openScannerForAsset('${p.asset_id}')" class="p-2 rounded-lg bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-left text-xs truncate">
                         <strong class="font-mono text-zinc-900">${p.asset_id}</strong> <span class="text-zinc-500">${p.model_name}</span>
                     </button>
-                `).join('')}
+                `).join('') || '<p class="col-span-2 text-xs text-zinc-400 py-2">No patterns have QR codes assigned yet.</p>'}
             </div>
         </div>
     ` : '';
@@ -1909,6 +2094,9 @@ function openQuickQrScanner() {
             startHtml5CameraStream((scannedAssetId) => {
                 const found = DB.pattern_assets.find(a => a.asset_id.toUpperCase() === scannedAssetId);
                 if (!found) return showToast(`Code ${scannedAssetId} not found.`, 'error');
+                if (!isPatternQrAssigned(found.asset_id)) {
+                    return showToast(`Pattern ${found.asset_id} does not have an assigned QR code yet.`, 'error');
+                }
                 openScannerForAsset(found.asset_id);
             });
         }, 60);
@@ -1920,12 +2108,18 @@ function submitManualQuickAssetLocate() {
     if (!val) return showToast('Enter an Asset ID.', 'error');
     const found = DB.pattern_assets.find(a => a.asset_id.toUpperCase() === val);
     if (!found) return showToast(`Asset ${val} not found.`, 'error');
+    if (!isPatternQrAssigned(found.asset_id)) {
+        return showToast(`Asset ${found.asset_id} has not been assigned a QR code yet.`, 'error');
+    }
     openScannerForAsset(found.asset_id);
 }
 
 function openScannerForAsset(assetId) {
     const asset = DB.pattern_assets.find(a => a.asset_id === assetId);
     if (!asset) return;
+    if (!isPatternQrAssigned(asset.asset_id)) {
+        return showToast(`Asset ${asset.asset_id} has not been assigned a QR code yet.`, 'error');
+    }
     document.getElementById('modal-title').innerText = `${asset.asset_id} (${asset.model_name})`;
     document.getElementById('verify-modal').classList.remove('hidden');
     const area = document.getElementById('modal-dynamic-area');
@@ -1942,7 +2136,7 @@ function openScannerForAsset(assetId) {
         return;
     }
 
-    const floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-'));
+    const floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-') && isEmployeeQrAssigned(e.employee_id));
     const todayStr = getLocalDateString();
 
     if (asset.operational_status === 'Active on Line') {
@@ -2068,6 +2262,9 @@ function submitManualBorrowWithTick(assetId) {
     if (!empId) return showToast('Enter your Employee ID.', 'error');
     const emp = DB.employees.find(e => e.employee_id.toUpperCase() === empId);
     if (!emp) return showToast(`Employee ID ${empId} not found.`, 'error');
+    if (!isEmployeeQrAssigned(emp.employee_id)) {
+        return showToast(`Employee ${emp.employee_id} does not have an assigned QR badge yet.`, 'error');
+    }
     if (!ticked) return showToast('Tick the confirmation box to proceed.', 'error');
 
     executeAssetBorrow(assetId, emp.employee_id);
@@ -2080,12 +2277,21 @@ function submitManualReturnWithTick(assetId) {
     if (!empId) return showToast('Enter your Employee ID.', 'error');
     const emp = DB.employees.find(e => e.employee_id.toUpperCase() === empId);
     if (!emp) return showToast(`Employee ID ${empId} not found.`, 'error');
+    if (!isEmployeeQrAssigned(emp.employee_id)) {
+        return showToast(`Employee ${emp.employee_id} does not have an assigned QR badge yet.`, 'error');
+    }
     if (!ticked) return showToast('Tick the confirmation box to return.', 'error');
 
     executeAssetReturn(assetId, emp.employee_id);
 }
 
 async function executeAssetBorrow(assetId, operatorId) {
+    if (!isPatternQrAssigned(assetId)) {
+        return showToast(`Pattern ${assetId} does not have an assigned QR code yet.`, 'error');
+    }
+    if (!isEmployeeQrAssigned(operatorId)) {
+        return showToast(`Operator ${operatorId} does not have an assigned QR badge yet.`, 'error');
+    }
     const shift = document.getElementById('scan-shift-select')?.value || 'Morning';
     const todayStr = getLocalDateString();
     const assetObj = DB.pattern_assets.find(a => a.asset_id === assetId);
@@ -2442,7 +2648,10 @@ async function renderSupervisorPortal() {
         `;
     }).join('') || '<p class="text-xs text-zinc-400 text-center py-8">No active deployments.</p>';
 
-    let floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-') && (!e.account_status || e.account_status === 'Active'));
+    const allActiveCwOps = DB.employees.filter(e => e.employee_id.startsWith('CW-') && (!e.account_status || e.account_status === 'Active'));
+    let floorOps = allActiveCwOps.filter(e => isEmployeeQrAssigned(e.employee_id));
+    const unQrOpsCount = allActiveCwOps.length - floorOps.length;
+
     if (supervisorPoolLineFilter !== 'ALL') {
         floorOps = floorOps.filter(e => e.work_location_zone.includes(supervisorPoolLineFilter));
     }
@@ -2450,6 +2659,10 @@ async function renderSupervisorPortal() {
     const opInd = document.getElementById('selected-op-indicator');
     if (isExec && opInd) {
         opInd.innerText = 'Operator Pool (Read-Only)';
+    } else if (opInd && !selectedOperatorForAssign) {
+        opInd.innerText = unQrOpsCount > 0
+            ? `Tap Worker to Select (${unQrOpsCount} awaiting QR badge in Admin)`
+            : 'Tap Worker to Select';
     }
 
     document.getElementById('operator-pool').innerHTML = floorOps.map(op => {
@@ -2463,7 +2676,7 @@ async function renderSupervisorPortal() {
                 </div>
             </div>
         `;
-    }).join('');
+    }).join('') || '<p class="col-span-full text-xs text-zinc-400 py-4 text-center">No floor operators have an assigned QR badge yet. Assign QR badges in the Admin Staff Directory first.</p>';
 
     const grid = document.getElementById('calendar-grid');
     const shifts = ['Morning', 'Afternoon', 'Night'];
@@ -2583,7 +2796,7 @@ function renderSupervisorOrderExecutionHub() {
     const container = document.getElementById('sup-forwarded-orders-list');
     if (!container) return;
 
-    const floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-'));
+    const floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-') && isEmployeeQrAssigned(e.employee_id));
     const todayStr = getLocalDateString();
 
     container.innerHTML = DB.cutting_orders.map(o => {
@@ -2604,7 +2817,9 @@ function renderSupervisorOrderExecutionHub() {
                             <option value="Night" ${o.scheduled_shift === 'Night' ? 'selected' : ''}>Night</option>
                         </select>
                         <select id="sup-ord-op-${o.order_id}" class="p-2 bg-white border border-zinc-300 rounded-lg text-xs">
-                            ${floorOps.map(op => `<option value="${op.employee_id}" ${o.assigned_operator_id === op.employee_id ? 'selected' : ''}>${op.full_name}</option>`).join('')}
+                            ${floorOps.length > 0
+                                ? floorOps.map(op => `<option value="${op.employee_id}" ${o.assigned_operator_id === op.employee_id ? 'selected' : ''}>${op.full_name}</option>`).join('')
+                                : '<option value="">No QR-Assigned Operators</option>'}
                         </select>
                     </div>
                     <label class="flex items-center gap-2 cursor-pointer select-none text-xs text-zinc-800 bg-white p-2 rounded-lg border border-zinc-200">
@@ -2633,9 +2848,12 @@ async function supervisorExecuteOrderSchedule(orderId) {
 
     const dateVal = document.getElementById(`sup-ord-date-${orderId}`)?.value || getLocalDateString();
     const shiftVal = document.getElementById(`sup-ord-shift-${orderId}`)?.value || 'Morning';
-    const opVal = document.getElementById(`sup-ord-op-${orderId}`)?.value || 'CW-L1-CMO-01';
+    const opVal = document.getElementById(`sup-ord-op-${orderId}`)?.value || '';
     const boxCleared = Boolean(document.getElementById(`sup-ord-box-${orderId}`)?.checked);
 
+    if (!opVal || !isEmployeeQrAssigned(opVal)) {
+        return showToast('Assign a QR badge to a floor operator before scheduling.', 'error');
+    }
     if (isShiftSlotInPast(dateVal, shiftVal)) {
         return showToast('Cannot schedule into a past shift.', 'error');
     }
@@ -2870,18 +3088,34 @@ async function renderDesignCadPortal() {
         }).join('') || '<p class="text-xs text-zinc-400 py-4 text-center">No styles in CAD pipeline.</p>';
     }
 
+    const unassignedPatterns = DB.pattern_assets.filter(p => !isPatternQrAssigned(p.asset_id));
+    const batchPatQrBtn = document.getElementById('batch-assign-pattern-qr-btn');
+    if (batchPatQrBtn) {
+        batchPatQrBtn.classList.toggle('hidden', unassignedPatterns.length === 0);
+        batchPatQrBtn.innerText = `Assign All QRs (${unassignedPatterns.length})`;
+    }
+
     document.getElementById('cad-markers-mini-list').innerHTML = DB.pattern_assets.map(p => {
         const hasPhoto = hasCustomPhoto(p.image_url);
+        const qrOk = isPatternQrAssigned(p.asset_id);
         return `
             <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div class="flex items-center gap-2.5">
                     <img src="${getItemImageUrl(p.image_url)}" class="w-11 h-8 rounded-lg object-cover border">
                     <div>
-                        <p class="font-bold text-zinc-900">${p.asset_id} • ${p.model_name}</p>
+                        <div class="flex items-center gap-1.5">
+                            <p class="font-bold text-zinc-900">${p.asset_id} • ${p.model_name}</p>
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${qrOk ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}">
+                                ${qrOk ? 'QR Active' : 'No QR'}
+                            </span>
+                        </div>
                         <p class="text-[11px] text-zinc-500">${p.brand_buyer} (${p.style_code}) • ${p.storage_location}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-1 ml-auto">
+                    <button type="button" onclick="assignPatternQrCode('${p.asset_id}')" class="px-2 py-1 rounded-lg ${qrOk ? 'bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-300' : 'bg-zinc-900 hover:bg-zinc-800 text-white'} font-semibold text-[10px]">
+                        <i class="ph-bold ph-qr-code"></i> ${qrOk ? 'QR Tag' : 'Assign QR'}
+                    </button>
                     <button type="button" onclick="triggerSingleRowPhotoUpload('pattern', '${p.asset_id}')" class="px-2 py-1 rounded-lg bg-white hover:bg-zinc-100 border border-zinc-300 text-zinc-800 font-semibold text-[10px]">
                         ${hasPhoto ? 'Photo' : '+ Photo'}
                     </button>
@@ -2908,6 +3142,16 @@ async function createStyleAndMarker() {
     const sketchFile = document.getElementById('cad-sketch-file');
 
     if (!style || !model) return showToast('Enter Style Code and Model Name.', 'error');
+
+    // Prevent duplicate style codes or duplicate model names under the same brand
+    const duplicateStyle = DB.cad_markers.find(
+        m => m.style_code.toUpperCase() === style ||
+             (m.brand_buyer.toLowerCase() === brand.toLowerCase() && m.model_name.trim().toLowerCase() === model.toLowerCase())
+    );
+    if (duplicateStyle) {
+        return showToast(`Duplicate style blocked: ${duplicateStyle.style_code} (${duplicateStyle.model_name}) already exists in database.`, 'error');
+    }
+
     const uploadedImg = await readAndCompressImage(sketchFile);
     const mkId = getNextSequentialId(DB.cad_markers, 'cad_marker_id', 'CAD-MK-', 2);
 
@@ -2951,6 +3195,14 @@ async function designAddFabricDirect() {
     const brand = document.getElementById('cad-brand-select').value;
     if (!code || !specs) return showToast('Enter Fabric ID and Composition.', 'error');
 
+    const duplicateFab = DB.rmw_materials.find(
+        m => m.material_code.toUpperCase() === code ||
+             (m.target_brand_usage.toLowerCase() === brand.toLowerCase() && m.material_name_specs.trim().toLowerCase() === specs.toLowerCase())
+    );
+    if (duplicateFab) {
+        return showToast(`Duplicate fabric blocked: ${duplicateFab.material_code} is already registered.`, 'error');
+    }
+
     const newFab = {
         material_code: code,
         material_category: 'Cutting Floor Fabric',
@@ -2988,6 +3240,20 @@ async function registerNewPatternAsset() {
     const photoInput = document.getElementById('pat-photo-file');
 
     if (!id) return showToast('Asset ID is required.', 'error');
+
+    // Prevent duplicate Asset ID or identical Style + Tooling Type + Size combination
+    const dupById = DB.pattern_assets.find(p => p.asset_id.toUpperCase() === id) ||
+                    (DB.discarded_trash_vault || []).find(t => t.original_table === 'pattern_assets' && t.record_id.toUpperCase() === id);
+    if (dupById) {
+        return showToast(`Asset ID ${id} already exists in the database.`, 'error');
+    }
+    const dupBySpec = DB.pattern_assets.find(
+        p => p.style_code === styleCode && p.tooling_type === type && p.size_category === size
+    );
+    if (dupBySpec) {
+        return showToast(`Duplicate ${type} blocked: ${dupBySpec.asset_id} already exists for Style ${styleCode} (Size ${size}).`, 'error');
+    }
+
     const uploadedImg = await readAndCompressImage(photoInput);
     const styleObj = DB.cad_markers.find(m => m.style_code === styleCode) || { model_name: 'Custom Style', brand_buyer: 'Triumph' };
 
@@ -3005,6 +3271,17 @@ async function registerNewPatternAsset() {
 
     const { error } = await supa.from('pattern_assets').insert([newAsset]);
     if (error) return showToast(error.message, 'error');
+
+    // Automatically assign and activate the QR code in the database upon registration
+    await supa.from('system_settings_audit').insert([{
+        record_type: 'QR_ASSIGNED',
+        category: 'PATTERN_QR',
+        setting_value: id,
+        prefix_data: styleCode || 'QR',
+        requested_by_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'PR-C-PC-01',
+        request_status: 'Active'
+    }]);
+
     await writeAuditLog('REGISTER_PATTERN_ASSET', 'Pattern_Assets', id, newAsset);
 
     const box = document.getElementById('pattern-qr-preview-box');
@@ -3014,7 +3291,7 @@ async function registerNewPatternAsset() {
     document.getElementById('pattern-qr-label-text').innerText = id;
     new QRCode(canvas, { text: id, width: 76, height: 76 });
     await renderDesignCadPortal();
-    showToast(`Registered ${id}.`);
+    showToast(`Registered ${id} & assigned QR code.`);
 }
 
 
@@ -3191,6 +3468,11 @@ async function registerNewCustomDefectCode() {
     const sev = document.getElementById('new-def-severity')?.value || 'Medium';
     if (!symptom) return showToast('Enter a defect reason/symptom.', 'error');
 
+    const dupDefect = DB.qc_defect_codes.find(d => d.defect_name_symptom.trim().toLowerCase() === symptom.toLowerCase());
+    if (dupDefect) {
+        return showToast(`Duplicate defect blocked: ${dupDefect.defect_code} (${dupDefect.defect_name_symptom}) already exists.`, 'error');
+    }
+
     const newCode = getNextSequentialId(DB.qc_defect_codes, 'defect_code', 'DEF-', 2);
     const targetStatus = sev === 'High'
         ? 'Decommissioned'
@@ -3249,6 +3531,9 @@ async function toggleQcQrScanner() {
                 await stopQcQrScanner();
                 const found = DB.pattern_assets.find(p => p.asset_id.toUpperCase() === code);
                 if (!found) return showToast(`Scanned QR (${code}) not found.`, 'error');
+                if (!isPatternQrAssigned(found.asset_id)) {
+                    return showToast(`Pattern ${found.asset_id} does not have an assigned QR code yet.`, 'error');
+                }
                 const sel = document.getElementById('qc-asset-select');
                 if (sel) {
                     sel.value = found.asset_id;
@@ -3305,9 +3590,14 @@ async function renderQcPortal() {
         topBar.classList.add('hidden');
     }
 
-    document.getElementById('qc-asset-select').innerHTML = DB.pattern_assets.map(p => `<option value="${p.asset_id}">${p.asset_id} (${p.model_name})</option>`).join('');
+    const qrPatterns = DB.pattern_assets.filter(p => isPatternQrAssigned(p.asset_id));
+    document.getElementById('qc-asset-select').innerHTML = qrPatterns.length > 0
+        ? qrPatterns.map(p => `<option value="${p.asset_id}">${p.asset_id} (${p.model_name})</option>`).join('')
+        : '<option value="">No QR-Assigned Patterns Available</option>';
 
-    const floorWorkers = DB.employees.filter(e => e.employee_id.startsWith('CW-') || e.employee_id.startsWith('CS-'));
+    const floorWorkers = DB.employees.filter(
+        e => (e.employee_id.startsWith('CW-') || e.employee_id.startsWith('CS-')) && isEmployeeQrAssigned(e.employee_id)
+    );
     const empSel = document.getElementById('qc-employee-select');
     if (empSel) {
         empSel.innerHTML = `<option value="">Operator (Optional)</option>` +
@@ -3393,6 +3683,9 @@ function previewDefectAction() {
 
 async function submitQcDefectFlag() {
     const assetId = document.getElementById('qc-asset-select').value;
+    if (!assetId || !isPatternQrAssigned(assetId)) {
+        return showToast('Select a QR-assigned pattern or mold to log a defect.', 'error');
+    }
     const defCode = document.getElementById('qc-defect-select').value;
     const line = document.getElementById('qc-line-select').value;
     const plies = parseInt(document.getElementById('qc-ruined-plies').value) || 10;
@@ -3543,9 +3836,17 @@ function renderAdminEmployeeList() {
             : `Employee Directory (${totalStaff} Staff)`;
     }
 
+    const unassignedStaff = DB.employees.filter(e => !isEmployeeQrAssigned(e.employee_id));
+    const batchEmpQrBtn = document.getElementById('batch-assign-emp-qr-btn');
+    if (batchEmpQrBtn) {
+        batchEmpQrBtn.classList.toggle('hidden', unassignedStaff.length === 0);
+        batchEmpQrBtn.innerText = `Assign All Staff QRs (${unassignedStaff.length})`;
+    }
+
     document.getElementById('admin-emp-tbody').innerHTML = list.map(e => {
         const status = e.account_status || 'Active';
         const isSuspended = status.startsWith('Suspended');
+        const qrOk = isEmployeeQrAssigned(e.employee_id);
 
         return `
             <tr class="hover:bg-zinc-50">
@@ -3561,9 +3862,12 @@ function renderAdminEmployeeList() {
                     <span class="block text-zinc-800">${e.department}</span>
                     <span class="text-[10px] text-zinc-400">${e.work_location_zone}</span>
                 </td>
-                <td class="p-2.5">
+                <td class="p-2.5 space-x-1">
                     <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isSuspended ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">
                         ${isSuspended ? 'Suspended' : 'Active'}
+                    </span>
+                    <span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${qrOk ? 'bg-zinc-900 text-white' : 'bg-amber-50 text-amber-800 border border-amber-200'}">
+                        ${qrOk ? 'QR' : 'No QR'}
                     </span>
                 </td>
                 <td class="p-2.5 text-right">
@@ -3802,6 +4106,22 @@ async function registerNewEmployee() {
     const photoInput = document.getElementById('reg-emp-photo');
 
     if (!id || !name) return showToast('Enter Employee ID and Full Name.', 'error');
+
+    // Prevent duplicate Employee ID or duplicate staff member in the same role/department
+    const dupEmpById = DB.employees.find(e => e.employee_id.toUpperCase() === id) ||
+                       (DB.discarded_trash_vault || []).find(t => t.original_table === 'employees' && t.record_id.toUpperCase() === id);
+    if (dupEmpById) {
+        return showToast(`Employee ID ${id} already exists in the database.`, 'error');
+    }
+    const normalizedName = name.replace(/\s+/g, ' ').toLowerCase();
+    const dupEmpByName = DB.employees.find(
+        e => e.full_name.trim().replace(/\s+/g, ' ').toLowerCase() === normalizedName &&
+             (e.department === dept || e.role_designation === role)
+    );
+    if (dupEmpByName) {
+        return showToast(`Duplicate employee blocked: ${dupEmpByName.full_name} (${dupEmpByName.employee_id}) is already registered in ${dupEmpByName.department}.`, 'error');
+    }
+
     const avatarData = await readAndCompressImage(photoInput, 220);
 
     const newEmp = {
@@ -3818,6 +4138,17 @@ async function registerNewEmployee() {
 
     const { error } = await supa.from('employees').insert([newEmp]);
     if (error) return showToast(error.message, 'error');
+
+    // Automatically assign and activate the employee's QR badge upon registration
+    await supa.from('system_settings_audit').insert([{
+        record_type: 'QR_ASSIGNED',
+        category: 'EMPLOYEE_QR',
+        setting_value: id,
+        prefix_data: dept.substring(0, 12),
+        requested_by_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'DT-C-CA-01',
+        request_status: 'Active'
+    }]);
+
     await writeAuditLog('REGISTER_EMPLOYEE', 'Employees', id, { id, name, dept, role, zone });
 
     const box = document.getElementById('emp-qr-preview-box');
@@ -3827,7 +4158,7 @@ async function registerNewEmployee() {
     document.getElementById('reg-emp-name').value = '';
     if (document.getElementById('reg-emp-init-pass')) document.getElementById('reg-emp-init-pass').value = '';
     await renderAdminPortal();
-    showToast(`Registered ${name} (${id}).`);
+    showToast(`Registered ${name} (${id}) & assigned QR badge.`);
 }
 
 async function addSystemSetting() {
@@ -3835,6 +4166,13 @@ async function addSystemSetting() {
     const val = document.getElementById('sys-val').value.trim();
     const prefix = document.getElementById('sys-prefix').value.trim().toUpperCase();
     if (!val) return showToast('Enter parameter value.', 'error');
+
+    const dupParam = DB.system_settings_audit.find(
+        s => s.record_type === 'PARAMETER' && s.category === cat && s.setting_value.trim().toLowerCase() === val.toLowerCase()
+    );
+    if (dupParam) {
+        return showToast(`Parameter "${val}" already exists under ${cat}.`, 'error');
+    }
 
     const row = {
         record_type: 'PARAMETER',

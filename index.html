@@ -6,6 +6,8 @@
     <title>CDMS+ | Bodyline</title>
 
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23ffffff' stroke='%2318181b' stroke-width='3'/%3E%3Ctext x='32' y='39' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-weight='900' font-size='15' letter-spacing='-0.8' fill='%2318181b'%3ECDMS%3Ctspan fill='%23dc2626' font-weight='900' font-size='18'%3E+%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+    <link rel="preload" as="image" href="./mas-logo.png">
+    <link rel="preload" as="image" href="./bodyline-logo.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -32,16 +34,16 @@
         <div id="top-bar-inner" class="mx-auto bg-white border border-zinc-200 shadow-sm rounded-2xl px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3 compact-bar">
 
             <div class="flex items-center h-8 sm:h-9 shrink-0">
-                <img id="top-mas-logo" src="" class="hidden h-6 sm:h-7 w-auto max-w-[105px] sm:max-w-[140px] object-contain" alt="MAS">
-                <span id="top-mas-fallback" class="font-black text-zinc-900 text-xs sm:text-sm tracking-tight uppercase">MAS HOLDINGS</span>
+                <img id="top-mas-logo" src="./mas-logo.png" onerror="this.classList.add('hidden'); document.getElementById('top-mas-fallback').classList.remove('hidden');" class="h-6 sm:h-7 w-auto max-w-[105px] sm:max-w-[140px] object-contain" alt="MAS">
+                <span id="top-mas-fallback" class="hidden font-black text-zinc-900 text-xs sm:text-sm tracking-tight uppercase">MAS HOLDINGS</span>
             </div>
 
             <div id="top-bar-compact-divider" class="h-5 w-px bg-zinc-200 mx-2 sm:mx-4 shrink-0"></div>
 
             <div class="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
                 <div class="flex items-center h-8 sm:h-9">
-                    <img id="top-bodyline-logo" src="" class="hidden h-6 sm:h-7 w-auto max-w-[105px] sm:max-w-[140px] object-contain" alt="Bodyline">
-                    <span id="top-bodyline-fallback" class="font-extrabold text-zinc-900 text-xs sm:text-sm tracking-widest uppercase">BODYLINE</span>
+                    <img id="top-bodyline-logo" src="./bodyline-logo.png" onerror="this.classList.add('hidden'); document.getElementById('top-bodyline-fallback').classList.remove('hidden');" class="h-6 sm:h-7 w-auto max-w-[105px] sm:max-w-[140px] object-contain" alt="Bodyline">
+                    <span id="top-bodyline-fallback" class="hidden font-extrabold text-zinc-900 text-xs sm:text-sm tracking-widest uppercase">BODYLINE</span>
                 </div>
 
                 <div id="top-bar-session-controls" class="hidden items-center gap-2 pl-2.5 border-l border-zinc-200 shrink-0">
@@ -505,11 +507,16 @@
 
                 <!-- Pattern Room Inventory & Photo Manager -->
                 <div id="panel-pattern-inventory-list" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
-                    <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Pattern Inventory</h3>
-                        <button type="button" onclick="openDiscardVaultModal()" class="text-[11px] font-bold text-zinc-700 hover:text-zinc-900 underline flex items-center gap-1">
-                            <i class="ph-bold ph-archive-box"></i> Vault
-                        </button>
+                    <div class="flex flex-wrap justify-between items-center gap-2 border-b border-zinc-100 pb-2.5">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Pattern Inventory & QR Status</h3>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="batch-assign-pattern-qr-btn" onclick="batchAssignAllPatternQrCodes()" class="hidden px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-[10px] font-bold">
+                                Assign All QRs
+                            </button>
+                            <button type="button" onclick="openDiscardVaultModal()" class="text-[11px] font-bold text-zinc-700 hover:text-zinc-900 underline flex items-center gap-1">
+                                <i class="ph-bold ph-archive-box"></i> Vault
+                            </button>
+                        </div>
                     </div>
                     <div id="cad-markers-mini-list" class="space-y-2 overflow-y-auto max-h-[500px] pr-1 custom-scroll"></div>
                 </div>
@@ -735,7 +742,12 @@
                     <div class="lg:col-span-2 bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col h-[580px]">
                         <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
                             <h4 id="admin-emp-count-label" class="text-xs font-bold uppercase tracking-wider text-zinc-700">Employee Directory (0 Staff)</h4>
-                            <input id="admin-emp-search" type="text" oninput="renderAdminEmployeeList()" placeholder="Filter by Name, ID or Role..." class="px-3 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs outline-none">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button type="button" id="batch-assign-emp-qr-btn" onclick="batchAssignAllEmployeeQrCodes()" class="hidden px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-semibold">
+                                    Assign All Staff QRs
+                                </button>
+                                <input id="admin-emp-search" type="text" oninput="renderAdminEmployeeList()" placeholder="Filter by Name, ID or Role..." class="px-3 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs outline-none">
+                            </div>
                         </div>
                         <div class="flex-1 overflow-auto custom-scroll bg-white rounded-xl border border-zinc-200">
                             <table class="w-full text-left text-xs">
@@ -1114,7 +1126,19 @@
             </div>
 
             <div class="space-y-1.5">
-                <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">Profile Photo Editor</label>
+                <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">Employee QR Badge & Photo</label>
+                <div id="spm-qr-badge-box" class="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center justify-between gap-3 mb-2">
+                    <div class="flex items-center gap-3">
+                        <div id="spm-qr-canvas" class="bg-white p-1.5 rounded-lg border border-zinc-200 shrink-0"></div>
+                        <div>
+                            <p id="spm-qr-status-title" class="text-xs font-bold text-zinc-900">QR Badge Assigned</p>
+                            <p id="spm-qr-status-sub" class="text-[11px] text-zinc-500">Cleared for kiosk & shift pool</p>
+                        </div>
+                    </div>
+                    <button type="button" id="spm-assign-qr-btn" class="px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold shrink-0">
+                        Assign QR
+                    </button>
+                </div>
                 <div class="grid grid-cols-2 gap-2 text-xs">
                     <button type="button" id="spm-upload-photo-btn" class="bg-zinc-900 hover:bg-zinc-800 text-white py-2.5 px-3 rounded-xl font-semibold flex items-center justify-center gap-1.5">
                         <i class="ph-bold ph-camera"></i>
