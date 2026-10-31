@@ -1,21 +1,11 @@
 /*
-  Project: CDMS+ Application Script
-  Version: v14
-
-  v14 Changelog & Upgrades:
-  - Separated top logo bar from workspace navigation tabs with short, clean tab names
-  - Added toggleInfoTip() for compact (i) info buttons, removing verbose text banners
-  - Added '...' Staff Profile Modal (openStaffProfileModal) with grayed-out Delete Photo state when no custom photo exists
-  - Added confirmation-gated Staff Suspension & Archive drawer inside the Staff Profile Modal
-  - Added Department Head Staff Suspension Directive workflow -> Digital Unit Execution -> Browsable Staff Status Reports (REP-05)
-  - Added standalone spacious Password Recovery Center with Staff Reset and Dual-Custody Admin Lockout tabs
-  - Added custom Quality Control Defect Code generator (+ New Defect) and subtle All/Low/Med/High filter
-*/
+ * CDMS+ Application Script
+ * Handles Supabase synchronization, local sandbox mode, role-based portals,
+ * Pattern Room QR kiosk workflows, and printable A4 reports.
+ */
 
 
-// ============================================================================
-// SECTION 1: DATABASE CONNECTION & SANDBOX MODE (1 = LIVE, 0 = SANDBOX)
-// ============================================================================
+// --- Database Connection & Sandbox State (1 = Live Supabase, 0 = Local Sandbox) ---
 
 const SUPABASE_URL = 'https://uvfmircbplfqkgkmzssb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_NZNswR7y9y-oSJIC-unRvw_wioNx760';
@@ -23,6 +13,14 @@ const liveSupabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const MODE_STORAGE_KEY = 'CDMS_ACTIVE_MODE_1_0';
 const SANDBOX_DB_KEY = 'CDMS_TESTING_SANDBOX_DB';
+
+// Formats a Date as YYYY-MM-DD in local plant time so shifts after midnight don't roll back to UTC yesterday
+function getLocalDateString(dateObj = new Date()) {
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
 
 let sandboxMode = localStorage.getItem(MODE_STORAGE_KEY) === '0' ? '0' : '1';
 let authLockOpen = false;
@@ -187,9 +185,8 @@ async function toggleSandboxMode() {
 }
 
 
-// ============================================================================
-// SECTION 2: PLACEHOLDER GRAPHICS & LOGO LOADER
-// ============================================================================
+// --- Placeholder Graphics & Brand Logo Loader ---
+// Uses inline SVGs when an employee or pattern asset has no custom photo uploaded.
 
 const DEFAULT_AVATAR_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
@@ -261,9 +258,8 @@ function resolveRepoLogos() {
 }
 
 
-// ============================================================================
-// SECTION 3: CUSTOM DROPDOWNS, INFO POPOVERS & FULLSCREEN PANELS
-// ============================================================================
+// --- Custom Dropdown Menus, Info Popovers & Fullscreen Panels ---
+// Replaces native <select> elements with styled menus and handles panel expansion.
 
 let activeCustomSelectEl = null;
 
@@ -395,9 +391,8 @@ function closeAllFullscreenPanels() {
 }
 
 
-// ============================================================================
-// SECTION 4: TOP BAR LAYOUT CONTROLLER
-// ============================================================================
+// --- Top Bar Layout Controller ---
+// Switches the header between compact (gateway), expanded (kiosk), and portal (with sub-nav) states.
 
 function setTopBarState(state) {
     const header = document.getElementById('unified-top-bar');
@@ -441,18 +436,17 @@ function setTopBarState(state) {
 }
 
 
-// ============================================================================
-// SECTION 5: SUPABASE DATA SYNC, MISSING ROLE SEEDER & AUDIT LOGGING
-// ============================================================================
+// --- Supabase Sync, Essential Role Seeder & Audit Trail ---
+// Keeps the in-memory DB object synced with live Supabase or localStorage sandbox data.
 
 async function ensureEssentialRolesExist() {
     const requiredStaff = [
         {
             employee_id: 'QCI-C-01',
-            full_name: 'Kasun Rajapaksha',
+            full_name: 'Mohamed Faiz',
             department: 'QC - Cutting',
             role_designation: 'Quality Control Inspectors',
-            work_location_zone: 'Cutting Floor - Line 1',
+            work_location_zone: 'Cutting Floor',
             active_checkout_count: 0,
             avatar_url: '',
             account_password: 'bodyline123',
@@ -460,9 +454,9 @@ async function ensureEssentialRolesExist() {
         },
         {
             employee_id: 'CDTE-01',
-            full_name: 'Dilshan Silva',
+            full_name: 'Arjun Rajan',
             department: 'Digital - Cutting',
-            role_designation: 'Cutting Digital Team Executive',
+            role_designation: 'Digital Team Executive',
             work_location_zone: 'CD Operations Office',
             active_checkout_count: 0,
             avatar_url: '',
@@ -565,9 +559,8 @@ async function writeAuditLog(actionVerb, targetEntity, targetId, snapshotObj) {
 }
 
 
-// ============================================================================
-// SECTION 6: INITIALIZATION, NOTIFICATIONS & IDLE RESET
-// ============================================================================
+// --- App Initialization, Toast Notifications & 5-Minute Idle Timeout ---
+// Sets up event listeners, camera cleanup, and automatic session sign-out on inactivity.
 
 document.addEventListener('DOMContentLoaded', async () => {
     setTopBarState('compact');
@@ -733,9 +726,8 @@ function readAndCompressImage(fileInput, maxWidth = 360) {
 }
 
 
-// ============================================================================
-// SECTION 7: AUTHENTICATION, EYE REVEAL & STANDALONE PASSWORD RECOVERY WINDOW
-// ============================================================================
+// --- Staff Authentication, Password Recovery & Kiosk Access ---
+// Handles role sign-in, temporary password resets, break-glass admin recovery, and kiosk locks.
 
 function togglePasswordVisibility(inputId, iconId) {
     const input = document.getElementById(inputId);
@@ -912,10 +904,10 @@ function switchRecoveryTab(tab) {
     document.getElementById('rec-panel-admin').classList.toggle('hidden', isStaff);
 
     document.getElementById('rec-tab-staff').className = isStaff
-        ? 'py-2.5 rounded-lg bg-white text-zinc-900 shadow-xs'
+        ? 'py-2.5 rounded-lg bg-white text-zinc-900 shadow-sm'
         : 'py-2.5 rounded-lg text-zinc-600 hover:text-zinc-900';
     document.getElementById('rec-tab-admin').className = !isStaff
-        ? 'py-2.5 rounded-lg bg-white text-zinc-900 shadow-xs'
+        ? 'py-2.5 rounded-lg bg-white text-zinc-900 shadow-sm'
         : 'py-2.5 rounded-lg text-zinc-600 hover:text-zinc-900';
 }
 
@@ -947,12 +939,13 @@ async function submitForgotPasswordRequest() {
         return showToast('A password reset request for this account is already pending.', 'error');
     }
 
+    const supportEmp = DB.employees.find(e => e.employee_id === 'DT-C-CST-01');
     const payload = {
         sender_id: emp.employee_id,
         sender_name: emp.full_name,
         sender_role: emp.role_designation,
         receiver_id: 'DT-C-CST-01',
-        receiver_name: 'Shehani Mel',
+        receiver_name: supportEmp ? supportEmp.full_name : 'Nadeeka Perera',
         receiver_role: 'CDMS Support Team',
         protocol_category: 'Password Reset',
         linked_reference_id: emp.employee_id,
@@ -1053,8 +1046,18 @@ function promptPatternRoomAccess() {
 async function executeKioskAuthAction() {
     if (isAuthBusy) return;
     const pass = document.getElementById('kiosk-auth-password').value.trim();
-    if (!authLockOpen && !pass) {
-        return showToast('Please enter the Pattern Room password.', 'error');
+    if (!authLockOpen) {
+        if (!pass) {
+            return showToast('Please enter the Pattern Room password.', 'error');
+        }
+        // Validate against plant kiosk password or Pattern Room / Admin staff credentials
+        const validKioskStaff = DB.employees.some(e =>
+            (e.employee_id.startsWith('PR-') || e.employee_id.startsWith('DT-') || e.employee_id.startsWith('CDTE') || e.employee_id.startsWith('DH')) &&
+            ((e.account_password && e.account_password === pass) || (e.temp_password && e.temp_password === pass))
+        );
+        if (pass !== 'bodyline123' && !validKioskStaff) {
+            return showToast('Incorrect Pattern Room kiosk password.', 'error');
+        }
     }
 
     isAuthBusy = true;
@@ -1106,6 +1109,10 @@ function triggerCredentialedLogout() {
 function returnToWelcomeScreenImmediate() {
     currentMode = 'gateway';
     currentLoggedInUser = null;
+    if (mutexPollInterval) {
+        clearInterval(mutexPollInterval);
+        mutexPollInterval = null;
+    }
     stopActiveQrCamera();
     stopQcQrScanner();
     closeAllFullscreenPanels();
@@ -1119,9 +1126,8 @@ function returnToWelcomeScreenImmediate() {
 }
 
 
-// ============================================================================
-// SECTION 8: AUTO-ID GENERATORS (EMPLOYEES, PATTERNS, ORDERS, QC)
-// ============================================================================
+// --- Sequential ID Generators (Employees, Patterns, Orders & Defects) ---
+// Builds standardized prefixes (e.g. TR-PB-01, CW-L1-CMO-01) from selected attributes.
 
 function getBrandPrefix(brandName) {
     const b = (brandName || '').toLowerCase();
@@ -1211,9 +1217,8 @@ function getNextSequentialId(list, keyField, prefix, padLen = 3) {
 }
 
 
-// ============================================================================
-// SECTION 9: PHOTO EDITOR, STAFF PROFILE MODAL ('...') & DISCARD VAULT
-// ============================================================================
+// --- Photo Uploads, Staff Profile Modal & Discard Vault ---
+// Manages profile/asset photos, confirmation-gated suspensions, and soft-delete archiving.
 
 function triggerSingleRowPhotoUpload(targetType, targetId) {
     const fileInput = document.getElementById('single-row-photo-input');
@@ -1349,9 +1354,9 @@ async function executeConfirmedStaffAction() {
 
     let untilDate = null;
     if (actionType.includes('7-Day')) {
-        untilDate = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+        untilDate = getLocalDateString(new Date(Date.now() + 7 * 86400000));
     } else if (actionType.includes('30-Day')) {
-        untilDate = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+        untilDate = getLocalDateString(new Date(Date.now() + 30 * 86400000));
     }
 
     await supa.from('employees').update({
@@ -1413,12 +1418,13 @@ async function submitAvatarChangeRequest(fileInput) {
     const imgData = await readAndCompressImage(fileInput, 240);
     if (!imgData) return;
 
+    const supportEmp = DB.employees.find(e => e.employee_id === 'DT-C-CST-01');
     const payload = {
         sender_id: currentLoggedInUser.employee_id,
         sender_name: currentLoggedInUser.full_name,
         sender_role: currentLoggedInUser.role_designation,
         receiver_id: 'DT-C-CST-01',
-        receiver_name: 'Shehani Mel',
+        receiver_name: supportEmp ? supportEmp.full_name : 'Nadeeka Perera',
         receiver_role: 'CDMS Support Team',
         protocol_category: 'Avatar Request',
         linked_reference_id: currentLoggedInUser.employee_id,
@@ -1571,9 +1577,8 @@ async function restoreFromDiscardVault(trashId) {
 }
 
 
-// ============================================================================
-// SECTION 10: CLEAN ROLE-ISOLATED WORKSPACE NAVIGATION
-// ============================================================================
+// --- Role-Based Workspace Navigation ---
+// Builds the sub-navigation tabs based on the signed-in employee's department prefix.
 
 function buildRoleIsolatedTabs(emp) {
     const id = emp.employee_id.toUpperCase();
@@ -1676,9 +1681,8 @@ function switchPortalView(viewKey) {
 }
 
 
-// ============================================================================
-// SECTION 11: PATTERN ROOM CATALOG, FILTERS & QR CAMERA SCANNER
-// ============================================================================
+// --- Pattern Room Kiosk: Search, QR Scanner & 15-Minute Lock Workflow ---
+// Handles asset borrowing, returns, and unscheduled checkout locks at the floor kiosk.
 
 function populatePatternRoomFilterDropdowns() {
     const brandSel = document.getElementById('filter-brand-select');
@@ -1939,7 +1943,7 @@ function openScannerForAsset(assetId) {
     }
 
     const floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-'));
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
 
     if (asset.operational_status === 'Active on Line') {
         const sandboxReturnBtns = sandboxMode === '0' ? `
@@ -2083,9 +2087,10 @@ function submitManualReturnWithTick(assetId) {
 
 async function executeAssetBorrow(assetId, operatorId) {
     const shift = document.getElementById('scan-shift-select')?.value || 'Morning';
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     const assetObj = DB.pattern_assets.find(a => a.asset_id === assetId);
 
+    // Operators pre-scheduled on the roster or cleared via Pattern Box Permission skip the 15-minute lock
     const isScheduledOnMatrix = DB.shift_assignments.some(
         s => s.borrower_id === operatorId && s.assigned_date === todayStr && s.shift_type === shift
     );
@@ -2146,6 +2151,7 @@ async function executeAssetReturn(assetId, returningOperatorId = '') {
     showToast(`${assetId} returned to Pattern Room.`);
 }
 
+// Polls Supabase every 4 seconds during a 15-minute unscheduled lock and releases the asset if time expires
 function startMutexBarCountdown(assetId, operatorId, shift) {
     const bar = document.getElementById('mutex-bar');
     const msg = document.getElementById('mutex-msg');
@@ -2162,6 +2168,25 @@ function startMutexBarCountdown(assetId, operatorId, shift) {
     if (mutexPollInterval) clearInterval(mutexPollInterval);
     mutexPollInterval = setInterval(async () => {
         secs--;
+        if (secs <= 0) {
+            clearInterval(mutexPollInterval);
+            mutexPollInterval = null;
+            timer.innerText = 'EXPIRED';
+            msg.innerText = `15-Min Lock Expired for ${assetId} — Released to Room`;
+            await supa.from('pattern_assets').update({
+                operational_status: 'Available in Room',
+                borrowed_by_id: null
+            }).eq('asset_id', assetId);
+            const pendingReq = DB.pending_requests.find(r => r.pattern_id === assetId && r.borrower_id === operatorId && r.request_status === 'Pending');
+            if (pendingReq) {
+                await supa.from('pending_requests').update({ request_status: 'Expired' }).eq('request_id', pendingReq.request_id);
+            }
+            await syncFromSupabase();
+            handlePatternSearch();
+            setTimeout(() => bar.classList.add('hidden'), 3500);
+            return;
+        }
+
         const m = Math.floor(secs / 60).toString().padStart(2, '0');
         const s = (secs % 60).toString().padStart(2, '0');
         timer.innerText = `${m}:${s}`;
@@ -2171,12 +2196,14 @@ function startMutexBarCountdown(assetId, operatorId, shift) {
             const req = DB.pending_requests.find(r => r.pattern_id === assetId && r.borrower_id === operatorId);
             if (req && req.request_status === 'Approved') {
                 clearInterval(mutexPollInterval);
+                mutexPollInterval = null;
                 timer.innerText = 'APPROVED';
                 msg.innerText = `Supervisor Approved ${assetId}`;
                 btn.classList.remove('hidden');
                 btn.onclick = () => { bar.classList.add('hidden'); handlePatternSearch(); };
             } else if (req && req.request_status === 'Declined') {
                 clearInterval(mutexPollInterval);
+                mutexPollInterval = null;
                 timer.innerText = 'DENIED';
                 setTimeout(() => bar.classList.add('hidden'), 3000);
             }
@@ -2194,9 +2221,8 @@ function dismissMutexBar() {
 }
 
 
-// ============================================================================
-// SECTION 12: DEPARTMENT HEAD OVERVIEW & STAFF SUSPENSION DIRECTIVES
-// ============================================================================
+// --- Department Head Portal & Suspension Directives ---
+// Displays plant-wide KPIs, approval queues, active deployments, and disciplinary reports.
 
 async function renderDeptHeadPortal() {
     await syncFromSupabase();
@@ -2328,9 +2354,8 @@ function openStaffReportQuickView() {
 }
 
 
-// ============================================================================
-// SECTION 13: SENIOR EXECUTIVE (CSE-01) vs SUPERVISOR (CS-L1-01) PORTAL
-// ============================================================================
+// --- Senior Executive & Line Supervisor Portal ---
+// Routes incoming sewing cut orders, clears pattern boxes, and manages the 7-day shift roster.
 
 function isCurrentUserSeniorExecutive() {
     return Boolean(currentLoggedInUser && currentLoggedInUser.employee_id.toUpperCase().startsWith('CSE'));
@@ -2338,7 +2363,7 @@ function isCurrentUserSeniorExecutive() {
 
 function isShiftSlotInPast(dateStr, shiftType) {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = getLocalDateString(now);
     if (dateStr < todayStr) return true;
     if (dateStr > todayStr) return false;
 
@@ -2447,7 +2472,7 @@ async function renderSupervisorPortal() {
     for (let i = 0; i < 7; i++) {
         const d = new Date();
         d.setDate(d.getDate() + i);
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = getLocalDateString(d);
         const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
         html += `
@@ -2559,7 +2584,7 @@ function renderSupervisorOrderExecutionHub() {
     if (!container) return;
 
     const floorOps = DB.employees.filter(e => e.employee_id.startsWith('CW-'));
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
 
     container.innerHTML = DB.cutting_orders.map(o => {
         const isCompleted = o.order_status === 'Bundled for Sewing' || o.order_status === 'Received by Sewing';
@@ -2606,7 +2631,7 @@ async function supervisorExecuteOrderSchedule(orderId) {
     const ord = DB.cutting_orders.find(o => o.order_id === orderId);
     if (!ord) return;
 
-    const dateVal = document.getElementById(`sup-ord-date-${orderId}`)?.value || new Date().toISOString().split('T')[0];
+    const dateVal = document.getElementById(`sup-ord-date-${orderId}`)?.value || getLocalDateString();
     const shiftVal = document.getElementById(`sup-ord-shift-${orderId}`)?.value || 'Morning';
     const opVal = document.getElementById(`sup-ord-op-${orderId}`)?.value || 'CW-L1-CMO-01';
     const boxCleared = Boolean(document.getElementById(`sup-ord-box-${orderId}`)?.checked);
@@ -2736,18 +2761,22 @@ async function resolveMutexTicket(reqId, decision) {
     const req = DB.pending_requests.find(r => r.request_id === reqId);
     if (!req) return;
     if (decision === 'Approve') {
+        const opObj = DB.employees.find(e => e.employee_id === req.borrower_id);
+        const lineMatch = opObj?.work_location_zone.match(/Line\s*\d/i);
         await supa.from('pending_requests').update({ request_status: 'Approved' }).eq('request_id', reqId);
         await supa.from('shift_assignments').insert([{
             borrower_id: req.borrower_id,
             supervisor_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'CS-L1-01',
             assigned_date: req.requested_date,
             shift_type: req.requested_shift,
-            production_line: 'Line 1'
+            production_line: lineMatch ? lineMatch[0] : 'Line 1'
         }]);
         await supa.from('pattern_assets').update({
             operational_status: 'Active on Line',
             borrowed_by_id: req.borrower_id,
-            shift_checkout: req.requested_shift
+            shift_checkout: req.requested_shift,
+            checkout_time: new Date().toISOString(),
+            last_used_date: getLocalDateString()
         }).eq('asset_id', req.pattern_id);
         showToast(`Approved ${req.pattern_id}.`);
     } else {
@@ -2763,9 +2792,21 @@ async function resolveMutexTicket(reqId, decision) {
 }
 
 
-// ============================================================================
-// SECTION 14: DESIGN (DDC), CAD (CADC) & PATTERN ROOM (PR)
-// ============================================================================
+// --- Design Studio, CAD Pipeline & Pattern Asset Registration ---
+// Moves styles from Design brief to CAD marker approval and Pattern Room QR tagging.
+
+const DEFAULT_SYSTEM_PARAMETERS = {
+    Brand: ['Triumph', "Victoria's Secret", 'Lululemon', 'Nike'],
+    Size: ['32C', '34B', '34C', '34D', '36B', '36C', '36D', '38D', 'S', 'M', 'L', 'XL'],
+    Rack: ['Rack A-01', 'Rack A-02', 'Rack B-01', 'Rack B-02', 'Rack C-01', 'Rack C-02', 'Rack D-01', 'Rack D-02', 'Mold Cabinet 01', 'Mold Cabinet 02', 'Mold Cabinet 03', 'Mold Cabinet 04']
+};
+
+function getSystemParametersByCategory(category) {
+    const custom = DB.system_settings_audit
+        .filter(s => s.record_type === 'PARAMETER' && s.category === category)
+        .map(s => s.setting_value);
+    return custom.length > 0 ? custom : (DEFAULT_SYSTEM_PARAMETERS[category] || []);
+}
 
 async function renderDesignCadPortal() {
     await syncFromSupabase();
@@ -2786,21 +2827,21 @@ async function renderDesignCadPortal() {
         if (panelDesign) panelDesign.classList.add('hidden');
     }
 
-    const brands = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Brand');
-    const sizes = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Size');
-    const racks = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Rack');
+    const brands = getSystemParametersByCategory('Brand');
+    const sizes = getSystemParametersByCategory('Size');
+    const racks = getSystemParametersByCategory('Rack');
     const fabrics = DB.rmw_materials.filter(m => m.material_category === 'Cutting Floor Fabric');
 
-    document.getElementById('cad-brand-select').innerHTML = brands.map(b => `<option value="${b.setting_value}">${b.setting_value}</option>`).join('');
+    document.getElementById('cad-brand-select').innerHTML = brands.map(b => `<option value="${b}">${b}</option>`).join('');
     document.getElementById('cad-fabric-select').innerHTML = fabrics.map(f => `<option value="${f.material_code}">${f.material_code} (${f.target_brand_usage})</option>`).join('');
 
     const approvedMarkers = DB.cad_markers.filter(m => m.marker_status === 'Approved' || m.marker_status === 'Released to Pattern Room');
     const markersForDropdown = approvedMarkers.length > 0 ? approvedMarkers : DB.cad_markers;
     document.getElementById('pat-style-select').innerHTML = markersForDropdown.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name})</option>`).join('');
-    document.getElementById('pat-size-select').innerHTML = sizes.map(s => `<option value="${s.setting_value}">${s.setting_value}</option>`).join('');
-    document.getElementById('pat-rack-loc').innerHTML = racks.map(r => `<option value="${r.setting_value}">${r.setting_value}</option>`).join('');
+    document.getElementById('pat-size-select').innerHTML = sizes.map(s => `<option value="${s}">${s}</option>`).join('');
+    document.getElementById('pat-rack-loc').innerHTML = racks.map(r => `<option value="${r}">${r}</option>`).join('');
 
-    const nextCadId = `CAD-MK-${String(DB.cad_markers.length + 1).padStart(2, '0')}`;
+    const nextCadId = getNextSequentialId(DB.cad_markers, 'cad_marker_id', 'CAD-MK-', 2);
     const badgeEl = document.getElementById('next-cad-id-badge');
     if (badgeEl) badgeEl.innerText = nextCadId;
 
@@ -2868,7 +2909,7 @@ async function createStyleAndMarker() {
 
     if (!style || !model) return showToast('Enter Style Code and Model Name.', 'error');
     const uploadedImg = await readAndCompressImage(sketchFile);
-    const mkId = `CAD-MK-${String(DB.cad_markers.length + 1).padStart(2, '0')}`;
+    const mkId = getNextSequentialId(DB.cad_markers, 'cad_marker_id', 'CAD-MK-', 2);
 
     const isDesignUser = currentLoggedInUser && currentLoggedInUser.employee_id.startsWith('DDC');
     const initialStatus = isDesignUser ? 'Sent to CAD' : 'Approved';
@@ -2915,7 +2956,7 @@ async function designAddFabricDirect() {
         material_category: 'Cutting Floor Fabric',
         material_name_specs: specs,
         target_brand_usage: brand,
-        rmw_storage_bay: `RMW-Bay-F${DB.rmw_materials.length + 1}`,
+        rmw_storage_bay: getNextSequentialId(DB.rmw_materials, 'rmw_storage_bay', 'RMW-Bay-F', 1),
         managed_by_rmw_id: 'RMWC-C-01',
         lot_status: 'In Warehouse'
     };
@@ -2977,9 +3018,8 @@ async function registerNewPatternAsset() {
 }
 
 
-// ============================================================================
-// SECTION 15: SEWING CUT ORDERS (SDC) vs RMW WAREHOUSE (RMWC)
-// ============================================================================
+// --- Sewing Cut Orders & Raw Material Warehouse (RMW) Dispatch ---
+// Allows Sewing to request cut bundles and RMW coordinators to dispatch fabric/tooling lots.
 
 async function renderSupplyPortal() {
     await syncFromSupabase();
@@ -3002,9 +3042,9 @@ async function renderSupplyPortal() {
         gridWrap.className = 'grid grid-cols-1 lg:grid-cols-2 gap-5';
     }
 
-    const sizes = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER' && s.category === 'Size');
+    const sizes = getSystemParametersByCategory('Size');
     document.getElementById('sew-style-select').innerHTML = DB.cad_markers.map(m => `<option value="${m.style_code}">${m.style_code} (${m.model_name})</option>`).join('');
-    document.getElementById('sew-size').innerHTML = sizes.map(s => `<option value="${s.setting_value}">${s.setting_value}</option>`).join('');
+    document.getElementById('sew-size').innerHTML = sizes.map(s => `<option value="${s}">${s}</option>`).join('');
 
     const nextOrdId = getNextSequentialId(DB.cutting_orders, 'order_id', 'ORD-');
     const ordBadge = document.getElementById('next-order-id-badge');
@@ -3099,9 +3139,8 @@ async function dispatchRmwMaterial(matCode) {
 }
 
 
-// ============================================================================
-// SECTION 16: QUALITY CONTROL (MINIMALISTIC + CUSTOM DEFECT REGISTRATION)
-// ============================================================================
+// --- Quality Control Portal & Floor Defect Logging ---
+// Logs ply defects, triggers automatic asset locks on high-severity faults, and tracks resolution.
 
 function mapDefectToTier(def) {
     const sev = (def.severity_level || '').toLowerCase();
@@ -3325,9 +3364,9 @@ async function dispatchQcInspectionCommand() {
     const payload = {
         sender_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'CQCE-01',
         sender_name: currentLoggedInUser ? currentLoggedInUser.full_name : 'Imesha Fernando',
-        sender_role: 'Cutting Quality Control Executive',
+        sender_role: 'Quality Control Executive',
         receiver_id: 'QCI-C-01',
-        receiver_name: inspEmp ? inspEmp.full_name : 'Kasun Rajapaksha',
+        receiver_name: inspEmp ? inspEmp.full_name : 'Mohamed Faiz',
         receiver_role: 'Quality Control Inspectors',
         protocol_category: 'QC Escalation',
         linked_reference_id: line,
@@ -3418,9 +3457,8 @@ async function resolveQcLog(logId, assetId) {
 }
 
 
-// ============================================================================
-// SECTION 17: DIGITAL TEAM ADMIN & SUPPORT CONSOLE
-// ============================================================================
+// --- Digital Team Admin & Support Console ---
+// Manages staff directory, password reset escalations, leadership handovers, and system parameters.
 
 function isCurrentUserPrivilegedAdmin() {
     if (!currentLoggedInUser) return false;
@@ -3622,8 +3660,8 @@ async function executeDhSuspensionDirective(commId) {
     }
 
     const untilDate = actionType.includes('7-Day')
-        ? new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
-        : (actionType.includes('30-Day') ? new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0] : null);
+        ? getLocalDateString(new Date(Date.now() + 7 * 86400000))
+        : (actionType.includes('30-Day') ? getLocalDateString(new Date(Date.now() + 30 * 86400000)) : null);
 
     await supa.from('employees').update({
         account_status: actionType,
@@ -3822,9 +3860,8 @@ async function deleteSystemParam(recId) {
 }
 
 
-// ============================================================================
-// SECTION 18: TASK & APPROVAL COMMUNICATOR DRAWER
-// ============================================================================
+// --- Inter-Department Communicator Drawer ---
+// Handles internal requests, drafts, and executive approvals across departments.
 
 function updateCommUnreadBadge() {
     if (!currentLoggedInUser) return;
@@ -4029,9 +4066,8 @@ async function resolveCommItem(commId, decision) {
 }
 
 
-// ============================================================================
-// SECTION 19: SYSTEM REPORTS (INCLUDING REP-05 STAFF STATUS) & DB EXPLORER
-// ============================================================================
+// --- Printable Management Reports (REP-01 to REP-05) & Database Explorer ---
+// Generates A4 print layouts and provides a live table viewer for all 13 system tables.
 
 function switchReportMode(mode) {
     closeCustomSelectMenu();

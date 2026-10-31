@@ -1,9 +1,11 @@
 -- ============================================================================
--- CDMS+ (CUTTING DEPARTMENT MANAGEMENT SYSTEM PLUS) - SUPABASE SCHEMA & SEED
--- Run this entire script inside Supabase -> SQL Editor -> New Query
+-- CDMS+ (Cutting Department Management System) - Supabase Schema & Seed Data
+-- Run this script in Supabase -> SQL Editor -> New Query to initialize tables.
 -- ============================================================================
 
--- 1. EMPLOYEES TABLE (TBL-01)
+
+-- 1. Employees Directory (TBL-01)
+-- Stores floor workers, coordinators, supervisors, executives, and admins.
 CREATE TABLE IF NOT EXISTS Employees (
     Employee_ID VARCHAR(20) PRIMARY KEY,
     Full_Name VARCHAR(100) NOT NULL,
@@ -11,10 +13,18 @@ CREATE TABLE IF NOT EXISTS Employees (
     Role_Designation VARCHAR(60) NOT NULL,
     Work_Location_Zone VARCHAR(60) NOT NULL,
     Active_Checkout_Count INT DEFAULT 0,
-    Password_Hash VARCHAR(100) DEFAULT 'bodyline123'
+    Password_Hash VARCHAR(100) DEFAULT 'bodyline123',
+    Account_Password VARCHAR(100) DEFAULT 'bodyline123',
+    Temp_Password VARCHAR(100),
+    Must_Reset_Password BOOLEAN DEFAULT FALSE,
+    Account_Status VARCHAR(40) DEFAULT 'Active',
+    Suspension_Until DATE,
+    Avatar_URL TEXT DEFAULT ''
 );
 
--- 2. RMW MATERIALS TABLE (TBL-04)
+
+-- 2. Raw Material Warehouse (RMW) Inventory (TBL-04)
+-- Tracks CAD tooling materials (cardboard, plastic resin) and cutting floor fabrics.
 CREATE TABLE IF NOT EXISTS RMW_Materials (
     Material_Code VARCHAR(20) PRIMARY KEY,
     Material_Category VARCHAR(40) NOT NULL,
@@ -22,10 +32,12 @@ CREATE TABLE IF NOT EXISTS RMW_Materials (
     Target_Brand_Usage VARCHAR(50) NOT NULL,
     RMW_Storage_Bay VARCHAR(30) NOT NULL,
     Managed_By_RMW_ID VARCHAR(20) REFERENCES Employees(Employee_ID),
-    Lot_Status VARCHAR(30) DEFAULT 'In Warehouse'
+    Lot_Status VARCHAR(40) DEFAULT 'In Warehouse'
 );
 
--- 3. CAD MARKERS & GARMENT STYLES TABLE (TBL-03)
+
+-- 3. CAD Markers & Garment Styles (TBL-03)
+-- Links garment styles from Design to CAD plotting and RMW fabric requirements.
 CREATE TABLE IF NOT EXISTS CAD_Markers (
     CAD_Marker_ID VARCHAR(20) PRIMARY KEY,
     Style_Code VARCHAR(20) UNIQUE NOT NULL,
@@ -35,10 +47,13 @@ CREATE TABLE IF NOT EXISTS CAD_Markers (
     CAD_Handler_ID VARCHAR(20) REFERENCES Employees(Employee_ID),
     CAD_Tooling_Material_Code VARCHAR(20) REFERENCES RMW_Materials(Material_Code),
     Cutting_Floor_Fabric_Code VARCHAR(20) REFERENCES RMW_Materials(Material_Code),
-    Marker_Status VARCHAR(30) DEFAULT 'Approved'
+    Marker_Status VARCHAR(35) DEFAULT 'Approved',
+    Sketch_URL TEXT DEFAULT ''
 );
 
--- 4. PATTERN ASSETS TABLE - BLOCKS & 3D MOLDS (TBL-02)
+
+-- 4. Pattern Room Assets - Blocks & 3D Molds (TBL-02)
+-- Physical tooling assets tracked via QR codes at the Pattern Room kiosk.
 CREATE TABLE IF NOT EXISTS Pattern_Assets (
     Asset_ID VARCHAR(20) PRIMARY KEY,
     Tooling_Type VARCHAR(30) NOT NULL,
@@ -52,10 +67,13 @@ CREATE TABLE IF NOT EXISTS Pattern_Assets (
     Shift_Checkout VARCHAR(20),
     Checkout_Time TIMESTAMPTZ,
     Lock_Expires_At TIMESTAMPTZ,
-    Last_Used_Date DATE DEFAULT CURRENT_DATE
+    Last_Used_Date DATE DEFAULT CURRENT_DATE,
+    Image_URL TEXT DEFAULT ''
 );
 
--- 5. QC DEFECT CODES TABLE (TBL-05)
+
+-- 5. Quality Control Defect Codes (TBL-05)
+-- Standardized fault codes and automated lock rules for floor inspections.
 CREATE TABLE IF NOT EXISTS QC_Defect_Codes (
     Defect_Code VARCHAR(15) PRIMARY KEY,
     Defect_Name_Symptom VARCHAR(120) NOT NULL,
@@ -67,7 +85,9 @@ CREATE TABLE IF NOT EXISTS QC_Defect_Codes (
     Mandatory_System_Action VARCHAR(150) NOT NULL
 );
 
--- 6. SHIFT ASSIGNMENTS TABLE (TBL-06)
+
+-- 6. Shift Roster Assignments (TBL-06)
+-- Weekly shift schedule managed by cutting supervisors; pre-clears operators for borrowing.
 CREATE TABLE IF NOT EXISTS Shift_Assignments (
     Assignment_ID SERIAL PRIMARY KEY,
     Borrower_ID VARCHAR(20) REFERENCES Employees(Employee_ID),
@@ -77,7 +97,9 @@ CREATE TABLE IF NOT EXISTS Shift_Assignments (
     Production_Line VARCHAR(25) DEFAULT 'Line 1'
 );
 
--- 7. PENDING CLEARANCE REQUESTS - 15-MIN MUTEX LOCK (TBL-07)
+
+-- 7. Pending Clearance Requests - 15-Minute Lock Queue (TBL-07)
+-- Holds checkout requests when an unscheduled worker scans a pattern at the kiosk.
 CREATE TABLE IF NOT EXISTS Pending_Requests (
     Request_ID SERIAL PRIMARY KEY,
     Borrower_ID VARCHAR(20) REFERENCES Employees(Employee_ID),
@@ -88,7 +110,9 @@ CREATE TABLE IF NOT EXISTS Pending_Requests (
     Request_Status VARCHAR(20) DEFAULT 'Pending'
 );
 
--- 8. SEWING CUTTING ORDERS TABLE (TBL-08)
+
+-- 8. Sewing Department Cutting Orders (TBL-08)
+-- Cut requests submitted by Sewing, verified by Senior Exec, and scheduled by Supervisors.
 CREATE TABLE IF NOT EXISTS Cutting_Orders (
     Order_ID VARCHAR(20) PRIMARY KEY,
     Style_Code VARCHAR(20) REFERENCES CAD_Markers(Style_Code),
@@ -98,10 +122,17 @@ CREATE TABLE IF NOT EXISTS Cutting_Orders (
     Target_Bundle_Qty INT NOT NULL,
     Priority_Level VARCHAR(20) DEFAULT 'Normal',
     Assigned_Line VARCHAR(25) DEFAULT 'Unassigned',
-    Order_Status VARCHAR(30) DEFAULT 'Queued'
+    Order_Status VARCHAR(35) DEFAULT 'Queued',
+    Order_Notes TEXT DEFAULT '',
+    Scheduled_Date DATE,
+    Scheduled_Shift VARCHAR(20),
+    Assigned_Operator_ID VARCHAR(20) REFERENCES Employees(Employee_ID),
+    Pattern_Box_Cleared BOOLEAN DEFAULT FALSE
 );
 
--- 9. QC INSPECTION & RE-CUT LOGS TABLE (TBL-09)
+
+-- 9. Quality Control Inspection & Defect Logs (TBL-09)
+-- Floor inspection incidents logged by QC inspectors and resolved by QC executives.
 CREATE TABLE IF NOT EXISTS QC_Inspection_Logs (
     QC_Log_ID VARCHAR(20) PRIMARY KEY,
     Asset_ID VARCHAR(20) REFERENCES Pattern_Assets(Asset_ID),
@@ -111,13 +142,20 @@ CREATE TABLE IF NOT EXISTS QC_Inspection_Logs (
     Production_Line VARCHAR(25) DEFAULT 'Line 1',
     Ruined_Ply_Count INT DEFAULT 0,
     Logged_Timestamp TIMESTAMPTZ DEFAULT NOW(),
-    Resolution_Status VARCHAR(25) DEFAULT 'Open'
+    Resolution_Status VARCHAR(35) DEFAULT 'Open',
+    Severity_Tier VARCHAR(20) DEFAULT 'Medium',
+    Involved_Employee_ID VARCHAR(20) REFERENCES Employees(Employee_ID),
+    Inspector_Notes TEXT DEFAULT '',
+    Exec_Acknowledged BOOLEAN DEFAULT FALSE,
+    Acknowledged_By_ID VARCHAR(20) REFERENCES Employees(Employee_ID)
 );
 
--- 10. SYSTEM SETTINGS, PARAMETER REQUESTS & AUDIT LOG (TBL-10)
+
+-- 10. System Settings & Dropdown Parameters (TBL-10)
+-- Configurable dropdown values (Brands, Sizes, Racks, Roles) managed by Digital Team Admins.
 CREATE TABLE IF NOT EXISTS System_Settings_Audit (
     Record_ID SERIAL PRIMARY KEY,
-    Record_Type VARCHAR(30) NOT NULL, -- 'PARAMETER', 'PARAM_REQUEST', 'AUDIT_LOG'
+    Record_Type VARCHAR(30) NOT NULL,
     Category VARCHAR(40) NOT NULL,
     Setting_Value VARCHAR(100) NOT NULL,
     Prefix_Data VARCHAR(20),
@@ -127,7 +165,62 @@ CREATE TABLE IF NOT EXISTS System_Settings_Audit (
     Created_At TIMESTAMPTZ DEFAULT NOW()
 );
 
--- SEED REPRESENTATIVE EMPLOYEES FROM SPREADSHEET
+
+-- 11. Inter-Department Communications & Directives (TBL-11)
+-- Handles approval requests, password resets, photo approvals, and suspension directives.
+CREATE TABLE IF NOT EXISTS Department_Communications (
+    Comm_ID SERIAL PRIMARY KEY,
+    Sender_ID VARCHAR(20),
+    Sender_Name VARCHAR(100),
+    Sender_Role VARCHAR(60),
+    Receiver_ID VARCHAR(20),
+    Receiver_Name VARCHAR(100),
+    Receiver_Role VARCHAR(60),
+    Protocol_Category VARCHAR(40) NOT NULL,
+    Linked_Reference_ID VARCHAR(40),
+    Subject_Line VARCHAR(150) NOT NULL,
+    Message_Body TEXT,
+    Comm_Status VARCHAR(40) DEFAULT 'Pending Approval',
+    Resolution_Note TEXT,
+    Logged_Timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+
+-- 12. Immutable System Audit Logs (TBL-12)
+-- Append-only trail of user sign-ins, asset movements, and administrative actions.
+CREATE TABLE IF NOT EXISTS Immutable_Audit_Logs (
+    Audit_ID SERIAL PRIMARY KEY,
+    Actor_ID VARCHAR(20),
+    Actor_Name VARCHAR(100),
+    Actor_Role VARCHAR(60),
+    Action_Verb VARCHAR(50) NOT NULL,
+    Target_Entity VARCHAR(50) NOT NULL,
+    Target_ID VARCHAR(40) NOT NULL,
+    Immutable_Snapshot TEXT,
+    Created_At TIMESTAMPTZ DEFAULT NOW()
+);
+
+
+-- 13. Discard Vault / Recoverable Archive (TBL-13)
+-- Holds soft-deleted employee profiles and pattern assets so admins can restore them.
+CREATE TABLE IF NOT EXISTS Discarded_Trash_Vault (
+    Trash_ID SERIAL PRIMARY KEY,
+    Original_Table VARCHAR(40) NOT NULL,
+    Record_ID VARCHAR(30) NOT NULL,
+    Item_Label VARCHAR(150),
+    Deleted_By_ID VARCHAR(20),
+    Deleted_By_Name VARCHAR(100),
+    Deleted_By_Role VARCHAR(60),
+    Full_Record_JSON TEXT NOT NULL,
+    Deleted_At TIMESTAMPTZ DEFAULT NOW()
+);
+
+
+-- ============================================================================
+-- INITIAL SEED DATA
+-- ============================================================================
+
+-- Seed Employees
 INSERT INTO Employees (Employee_ID, Full_Name, Department, Role_Designation, Work_Location_Zone) VALUES
 ('DH-01', 'Jackson Emmanuel', 'Cutting', 'Cutting Dpt. Head', 'CD Operations Office'),
 ('CSE-01', 'Aaron Emmanuel', 'Cutting', 'Cutting Senior Executive', 'CD Operations Office'),
@@ -157,7 +250,7 @@ INSERT INTO Employees (Employee_ID, Full_Name, Department, Role_Designation, Wor
 ('DDC-C-01', 'Kavindi Perera', 'Design - Cutting', 'Design Dpt. Coordinators', 'Design Department'),
 ('DDC-C-02', 'Mohamed Irfan', 'Design - Cutting', 'Design Dpt. Coordinators', 'Design Department'),
 ('DDC-C-03', 'Dilan Jayasuriya', 'Design - Cutting', 'Design Dpt. Coordinators', 'Design Department'),
-('CADC-C-01', 'oshadhi Perera', 'Cutting - CAD', 'CAD Coordinators', 'CAD Room'),
+('CADC-C-01', 'Oshadhi Perera', 'Cutting - CAD', 'CAD Coordinators', 'CAD Room'),
 ('CAD-C-MM-01', 'Ayesha Nazeer', 'Cutting - CAD', 'Marker Makers', 'CAD Room'),
 ('CAD-C-MM-02', 'Joshua Martin', 'Cutting - CAD', 'Marker Makers', 'CAD Room'),
 ('CAD-C-CPH-01', 'Rizwan Ashraff', 'Cutting - CAD', 'CAD Pattern Handlers', 'CAD Room'),
@@ -172,8 +265,9 @@ INSERT INTO Employees (Employee_ID, Full_Name, Department, Role_Designation, Wor
 ('DT-C-CA-02', 'Zainab Farook', 'Digital - Cutting', 'CDMS Admins', 'CD Operations Office')
 ON CONFLICT (Employee_ID) DO NOTHING;
 
--- SEED RMW MATERIALS (TAB 4)
-INSERT INTO RMW_Materials VALUES
+
+-- Seed RMW Materials
+INSERT INTO RMW_Materials (Material_Code, Material_Category, Material_Name_Specs, Target_Brand_Usage, RMW_Storage_Bay, Managed_By_RMW_ID, Lot_Status) VALUES
 ('MAT-CRD-01', 'CAD Tooling Material', 'Heavy Kraft Pattern Cardboard (350 GSM Calendered)', 'CAD Pattern Blocks', 'RMW-Bay-T1', 'RMWC-C-01', 'Dispatched to CAD'),
 ('MAT-PLS-01', 'CAD Tooling Material', 'ABS Thermo-Molding Plastic Resin (3.0mm Polymer)', 'CAD 3D Molds', 'RMW-Bay-T2', 'RMWC-C-02', 'In Warehouse'),
 ('FAB-TR-01', 'Cutting Floor Fabric', 'High-Elastane Microfiber Jersey (78% Polyamide, 22% Elastane)', 'Triumph', 'RMW-Bay-F1', 'RMWC-C-03', 'Dispatched to Line 1'),
@@ -186,8 +280,9 @@ INSERT INTO RMW_Materials VALUES
 ('FAB-NK-02', 'Cutting Floor Fabric', 'Ultra-Lightweight AeroVent Mesh (88% Polyester, 12% Spandex)', 'Nike', 'RMW-Bay-F8', 'RMWC-C-01', 'In Warehouse')
 ON CONFLICT (Material_Code) DO NOTHING;
 
--- SEED CAD MARKERS & STYLES (TAB 3)
-INSERT INTO CAD_Markers VALUES
+
+-- Seed CAD Markers & Garment Styles
+INSERT INTO CAD_Markers (CAD_Marker_ID, Style_Code, Brand_Buyer, Model_Name, Design_Coordinator_ID, CAD_Handler_ID, CAD_Tooling_Material_Code, Cutting_Floor_Fabric_Code, Marker_Status) VALUES
 ('CAD-MK-01', 'TR-TAC-01', 'Triumph', 'Triaction Control', 'DDC-C-01', 'CAD-C-CPH-01', 'MAT-CRD-01', 'FAB-TR-01', 'Approved'),
 ('CAD-MK-02', 'TR-BMU-02', 'Triumph', 'Body Make-Up', 'DDC-C-01', 'CAD-C-CPH-02', 'MAT-CRD-01', 'FAB-TR-02', 'Approved'),
 ('CAD-MK-03', 'TR-AMC-01', 'Triumph', 'Amourette Charm', 'DDC-C-02', 'CAD-C-CPH-03', 'MAT-PLS-01', 'FAB-TR-01', 'Approved'),
@@ -206,28 +301,30 @@ INSERT INTO CAD_Markers VALUES
 ('CAD-MK-16', 'AQ4184', 'Nike', 'Rival Molded Cup', 'DDC-C-03', 'CAD-C-CPH-01', 'MAT-PLS-01', 'FAB-NK-02', 'Decommissioned')
 ON CONFLICT (CAD_Marker_ID) DO NOTHING;
 
--- SEED PATTERN ASSETS (TAB 2)
+
+-- Seed Pattern Room Assets
 INSERT INTO Pattern_Assets (Asset_ID, Tooling_Type, Model_Name, Style_Code, Brand_Buyer, Size_Category, Storage_Location, Operational_Status, Borrowed_By_ID, Shift_Checkout, Last_Used_Date) VALUES
 ('TR-PB-01', 'Pattern Block', 'Triaction Control', 'TR-TAC-01', 'Triumph', '34C', 'Rack A-01', 'Active on Line', 'CW-L1-CMO-01', 'Morning', '2026-10-28'),
 ('TR-PB-02', 'Pattern Block', 'Body Make-Up', 'TR-BMU-02', 'Triumph', '36C', 'Rack A-02', 'Available in Room', NULL, NULL, '2026-10-25'),
-('TR-PM-01', 'Pattern Mold', 'Amourette Charm', 'TR-AMC-01', 'Triumph', '34D', 'Mold Cabinet 01', 'In Production', 'CW-L1-CMO-02', 'Morning', '2026-10-28'),
+('TR-PM-01', 'Pattern Mold', 'Amourette Charm', 'TR-AMC-01', 'Triumph', '34D', 'Mold Cabinet 01', 'Available in Room', NULL, NULL, '2026-10-28'),
 ('TR-PM-02', 'Pattern Mold', 'Modal Triangle', 'TR-MTR-02', 'Triumph', '38D', 'Mold Cabinet 02', 'Pending Removal', NULL, NULL, '2026-02-10'),
 ('VS-PB-01', 'Pattern Block', 'Body by Victoria', 'VS-BBV-10', 'Victoria''s Secret', '34B', 'Rack B-01', 'Available in Room', NULL, NULL, '2026-10-27'),
 ('VS-PB-02', 'Pattern Block', 'Dream Angels Demi', 'VS-DAD-11', 'Victoria''s Secret', '36D', 'Rack B-02', 'Active on Line', 'CW-L2-CMO-01', 'Morning', '2026-10-28'),
-('VS-PM-01', 'Pattern Mold', 'Smooth Memory Contour', 'VS-SMC-20', 'Victoria''s Secret', '36B', 'Mold Cabinet 03', 'In Production', 'CW-L2-CMO-02', 'Afternoon', '2026-10-28'),
+('VS-PM-01', 'Pattern Mold', 'Smooth Memory Contour', 'VS-SMC-20', 'Victoria''s Secret', '36B', 'Mold Cabinet 03', 'Available in Room', NULL, NULL, '2026-10-28'),
 ('VS-PM-02', 'Pattern Mold', 'Bombshell Push-Up', 'VS-BSH-21', 'Victoria''s Secret', '32C', 'Mold Cabinet 04', 'Inspection Flagged', NULL, NULL, '2026-10-26'),
 ('LL-PB-01', 'Pattern Block', 'Energy Longline', 'W2AS4S', 'Lululemon', 'S', 'Rack C-01', 'Available in Room', NULL, NULL, '2026-10-24'),
 ('LL-PB-02', 'Pattern Block', 'Align Wirefree', 'W2BL8S', 'Lululemon', 'M', 'Rack C-02', 'Active on Line', 'CW-L3-CMO-01', 'Morning', '2026-10-28'),
 ('LL-PM-01', 'Pattern Mold', 'Like a Cloud', 'W2CC1S', 'Lululemon', 'M', 'Mold Cabinet 01', 'Available in Room', NULL, NULL, '2026-10-20'),
-('LL-PM-02', 'Pattern Mold', 'Free to Be', 'W2DW3S', 'Lululemon', 'L', 'Mold Cabinet 02', 'In Production', NULL, NULL, '2026-10-28'),
-('NK-PB-01', 'Pattern Block', 'Swoosh Medium-Support', 'BV3636', 'Nike', 'M', 'Rack D-01', 'Active on Line', NULL, NULL, '2026-10-28'),
+('LL-PM-02', 'Pattern Mold', 'Free to Be', 'W2DW3S', 'Lululemon', 'L', 'Mold Cabinet 02', 'Available in Room', NULL, NULL, '2026-10-28'),
+('NK-PB-01', 'Pattern Block', 'Swoosh Medium-Support', 'BV3636', 'Nike', 'M', 'Rack D-01', 'Available in Room', NULL, NULL, '2026-10-28'),
 ('NK-PB-02', 'Pattern Block', 'Indy Light-Support', 'CZ4456', 'Nike', 'S', 'Rack D-02', 'Available in Room', NULL, NULL, '2026-10-22'),
-('NK-PM-01', 'Pattern Mold', 'Alpha High-Support', 'AJ0340', 'Nike', 'L', 'Mold Cabinet 03', 'In Production', NULL, NULL, '2026-10-28'),
+('NK-PM-01', 'Pattern Mold', 'Alpha High-Support', 'AJ0340', 'Nike', 'L', 'Mold Cabinet 03', 'Available in Room', NULL, NULL, '2026-10-28'),
 ('NK-PM-02', 'Pattern Mold', 'Rival Molded Cup', 'AQ4184', 'Nike', 'XL', 'Mold Cabinet 04', 'Decommissioned', NULL, NULL, '2025-11-15')
 ON CONFLICT (Asset_ID) DO NOTHING;
 
--- SEED QC DEFECT CODES (TAB 5)
-INSERT INTO QC_Defect_Codes VALUES
+
+-- Seed QC Defect Codes
+INSERT INTO QC_Defect_Codes (Defect_Code, Defect_Name_Symptom, Fault_Category, Severity_Level, Target_Asset_Status, Reported_By_Role_ID, Assigned_Resolver_Role_ID, Mandatory_System_Action) VALUES
 ('DEF-01', 'Frayed or Torn Cardboard Pattern Block Edge', 'Pattern Block Fault', 'High - Asset Lock', 'Inspection Flagged', 'QCI-C-01', 'PR-C-PH-01', 'Auto-Lock Pattern QR, Flag Asset ID as Inspection Flagged & Request CAD Replacement'),
 ('DEF-02', 'Warped or Cracked 3D Plastic Pattern Mold', '3D Mold Fault', 'Critical - Halts Line', 'Pending Removal', 'QCI-C-02', 'CAD-C-CPH-01', 'Auto-Lock Mold QR, Flag Asset ID as Pending Removal & Dispatch Tooling Request'),
 ('DEF-03', 'Lectra Cutter Blade Drift & Kerf Misalignment', 'Lectra Machine Fault', 'Critical - Halts Line', 'Active on Line (No Lock)', 'QCI-C-03', 'CS-L1-01', 'Halt Lectra Cutting Head, Fire Re-Cut Ticket to Supervisor & Pause Conveyor'),

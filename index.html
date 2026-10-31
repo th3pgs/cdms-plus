@@ -1,17 +1,3 @@
-<!--
-  Project: CDMS+ (Cutting Department Management System)
-  Organization: Bodyline (Pvt) Ltd - Horana Plant 1
-  Version: v14
-  
-  v14 Minimalistic Architecture Upgrades:
-  - Top bar strictly holds MAS Logo, Bodyline Logo, and Profile/Sign-Out (Navigation moved cleanly below)
-  - Stripped verbose role announcement banners; replaced long explanations with compact (i) info toggles
-  - Replaced inline Employee Directory action buttons with a '...' button opening a Staff Profile Modal
-  - Added disabled/grayed-out Delete Photo state when no custom photo exists, plus confirmation-gated Suspension/Archive
-  - Added Department Head Staff Suspension Directive & non-intrusive Disciplinary Status Report browser
-  - Added spacious Password Recovery & Dual-Custody Admin Lockout window
-  - Added custom Defect Code registration (+ New Defect) and subtle Low/Med/High filter in Quality Control
--->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -19,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CDMS+ | Bodyline</title>
 
-    <!-- Site Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23ffffff' stroke='%2318181b' stroke-width='3'/%3E%3Ctext x='32' y='39' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-weight='900' font-size='15' letter-spacing='-0.8' fill='%2318181b'%3ECDMS%3Ctspan fill='%23dc2626' font-weight='900' font-size='18'%3E+%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -33,49 +18,40 @@
 <body class="bg-zinc-50 text-zinc-900 antialiased min-h-[100dvh] flex flex-col font-sans relative overflow-x-hidden">
 
 
-    <!-- ================================================================= -->
-    <!-- SECTION 1: NOTIFICATIONS, DROPDOWN LAYER & FULLSCREEN BACKDROP    -->
-    <!-- ================================================================= -->
+    <!-- Global Overlays: Toast notifications, custom dropdown menu, and fullscreen backdrop -->
     <div id="toast-container" class="fixed bottom-4 left-4 right-4 sm:right-auto z-[260] flex flex-col gap-2 sm:max-w-sm w-auto pointer-events-none"></div>
 
     <div id="custom-select-backdrop" onclick="closeCustomSelectMenu()" class="hidden fixed inset-0 z-[240] bg-zinc-900/20 backdrop-blur-[1px] sm:bg-transparent sm:backdrop-blur-none"></div>
     <div id="custom-select-menu" class="hidden fixed z-[245] bg-white border border-zinc-300 rounded-2xl shadow-2xl overflow-hidden flex-col max-h-[280px]"></div>
 
-    <div id="fullscreen-panel-backdrop" onclick="closeAllFullscreenPanels()" class="hidden fixed inset-0 z-[200] bg-zinc-900/50 backdrop-blur-xs"></div>
+    <div id="fullscreen-panel-backdrop" onclick="closeAllFullscreenPanels()" class="hidden fixed inset-0 z-[200] bg-zinc-900/50 backdrop-blur-sm"></div>
 
 
-    <!-- ================================================================= -->
-    <!-- SECTION 2: STICKY TOP BAR (STRICTLY LOGOS & PROFILE ONLY)         -->
-    <!-- ================================================================= -->
+    <!-- Sticky Top Header: Logos, User Profile Popover, and Role Navigation Strip -->
     <header id="unified-top-bar" data-bar-mode="compact" class="sticky top-0 z-[180] bg-zinc-50/95 backdrop-blur-md pt-2.5 sm:pt-3.5 pb-2 px-3 sm:px-6 w-full transition-all">
-        <div id="top-bar-inner" class="mx-auto bg-white border border-zinc-200 shadow-sm rounded-2xl px-4 sm:px-6 h-14 sm:h-15 flex items-center justify-between gap-3 compact-bar">
-            
-            <!-- Left: MAS Holdings Logo -->
+        <div id="top-bar-inner" class="mx-auto bg-white border border-zinc-200 shadow-sm rounded-2xl px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3 compact-bar">
+
             <div class="flex items-center h-8 sm:h-9 shrink-0">
                 <img id="top-mas-logo" src="" class="hidden h-6 sm:h-7 w-auto max-w-[105px] sm:max-w-[140px] object-contain" alt="MAS">
                 <span id="top-mas-fallback" class="font-black text-zinc-900 text-xs sm:text-sm tracking-tight uppercase">MAS HOLDINGS</span>
             </div>
 
-            <!-- Center Divider (only shown on Welcome screen when bar is compact) -->
             <div id="top-bar-compact-divider" class="h-5 w-px bg-zinc-200 mx-2 sm:mx-4 shrink-0"></div>
 
-            <!-- Right: Bodyline Logo + Profile Avatar / Kiosk Sign Out -->
             <div class="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
                 <div class="flex items-center h-8 sm:h-9">
                     <img id="top-bodyline-logo" src="" class="hidden h-6 sm:h-7 w-auto max-w-[105px] sm:max-w-[140px] object-contain" alt="Bodyline">
                     <span id="top-bodyline-fallback" class="font-extrabold text-zinc-900 text-xs sm:text-sm tracking-widest uppercase">BODYLINE</span>
                 </div>
 
-                <!-- Session Controls -->
                 <div id="top-bar-session-controls" class="hidden items-center gap-2 pl-2.5 border-l border-zinc-200 shrink-0">
-                    
-                    <!-- User Profile Avatar Button & Popover -->
+
                     <div id="header-profile-wrapper" class="relative flex items-center">
                         <button type="button" onclick="toggleProfilePopover(event)" title="Account Profile" class="w-9 h-9 rounded-full p-0.5 border-2 border-zinc-300 hover:border-zinc-900 transition-colors flex items-center justify-center overflow-hidden bg-zinc-100 shrink-0">
                             <img id="header-user-avatar" src="" class="w-full h-full rounded-full object-cover" alt="Profile">
                         </button>
 
-                        <!-- Account Popover Window -->
+                        <!-- Account Profile Popover -->
                         <div id="profile-popover-menu" onclick="event.stopPropagation()" class="hidden fixed sm:absolute right-3 sm:right-0 top-[66px] sm:top-12 w-[calc(100vw-1.5rem)] max-w-[280px] bg-zinc-100 rounded-3xl border border-zinc-300 shadow-2xl p-4 z-[230]">
                             <div class="flex justify-between items-center mb-2 px-1">
                                 <span id="popover-user-id" class="font-mono text-xs font-bold text-zinc-600"></span>
@@ -86,7 +62,7 @@
 
                             <div class="bg-white rounded-2xl p-3.5 flex flex-col items-center text-center border border-zinc-200/80 mb-2.5">
                                 <div class="relative mb-2">
-                                    <img id="popover-user-avatar" src="" class="w-15 h-15 rounded-full object-cover border border-zinc-300" alt="Profile">
+                                    <img id="popover-user-avatar" src="" class="w-16 h-16 rounded-full object-cover border border-zinc-300" alt="Profile">
                                     <label for="popover-avatar-input" title="Update Profile Photo" class="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-white hover:bg-zinc-100 text-zinc-900 border border-zinc-300 flex items-center justify-center cursor-pointer shadow-sm">
                                         <i class="ph-bold ph-pencil-simple text-xs"></i>
                                     </label>
@@ -112,7 +88,6 @@
                         </div>
                     </div>
 
-                    <!-- Pattern Room Kiosk Sign-Out Button -->
                     <button type="button" id="kiosk-header-signout-btn" onclick="triggerCredentialedLogout()" title="Sign Out Kiosk" class="hidden bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 h-9 px-3 rounded-xl text-xs font-semibold items-center gap-1.5 transition-colors shrink-0">
                         <i class="ph-bold ph-sign-out text-sm"></i>
                         <span>Sign Out</span>
@@ -121,23 +96,18 @@
             </div>
         </div>
 
-        <!-- Dedicated Separate Navigation Strip Below Top Bar (Never clashes with Logos) -->
+        <!-- Role Workspace Tabs (shown below the header when signed into a portal) -->
         <div id="portal-subnav-bar" class="max-w-7xl mx-auto mt-2 justify-center">
-            <nav id="role-workspace-tabs" class="bg-white border border-zinc-200 rounded-xl p-1 flex items-center gap-1 overflow-x-auto no-scrollbar shadow-xs"></nav>
+            <nav id="role-workspace-tabs" class="bg-white border border-zinc-200 rounded-xl p-1 flex items-center gap-1 overflow-x-auto no-scrollbar shadow-sm"></nav>
         </div>
     </header>
 
 
-
-    <!-- ================================================================= -->
-    <!-- SECTION 3: MAIN VIEW CONTAINER                                    -->
-    <!-- ================================================================= -->
+    <!-- Main Workspace Stage: Contains all role views and the kiosk view -->
     <div id="stage-wrapper" class="flex-1 flex flex-col w-full max-w-[100vw] overflow-x-hidden">
 
 
-        <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.1: WELCOME SCREEN (HOME GATEWAY)                       -->
-        <!-- ------------------------------------------------------------- -->
+        <!-- View 1: Gateway / Welcome Screen -->
         <main id="view-gateway" class="flex-1 flex flex-col justify-between p-4 sm:p-8 bg-zinc-50">
             <div class="max-w-xl mx-auto w-full my-auto py-8 sm:py-12 text-center">
                 <p class="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Bodyline (Pvt) Ltd</p>
@@ -157,7 +127,7 @@
                     </button>
                 </div>
 
-                <!-- Lock/Unlock Button & 1/0 Sandbox Switch -->
+                <!-- Quick-Login Lock Toggle & Live/Sandbox (1/0) Switch -->
                 <div class="mt-6 sm:mt-7 flex items-center justify-center gap-3">
                     <button type="button" id="auth-lock-btn" onclick="toggleAuthLock()" title="Lock / Unlock Quick Login" class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-all ctrl-btn-minimal-light select-none">
                         <i id="auth-lock-icon" class="ph-fill ph-lock-key text-xl"></i>
@@ -175,10 +145,7 @@
         </main>
 
 
-
-        <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.2: PATTERN ROOM KIOSK                                  -->
-        <!-- ------------------------------------------------------------- -->
+        <!-- View 2: Pattern Room Kiosk (QR Borrow & Return Terminal) -->
         <main id="view-tracker" class="hidden flex-1 flex-col p-4 sm:p-8 max-w-6xl mx-auto w-full pb-28 relative">
             <div class="max-w-xl mx-auto w-full text-center mt-2 mb-8 sm:mb-10 relative">
                 <p class="text-xs font-black uppercase tracking-widest text-zinc-900">CDMS<span class="text-red-600">+</span></p>
@@ -187,7 +154,7 @@
                 <div class="relative flex items-center w-full rounded-full bg-white border border-zinc-300 shadow-sm focus-within:border-zinc-900 transition-all">
                     <i class="ph-bold ph-magnifying-glass absolute left-4 sm:left-5 text-lg text-zinc-400"></i>
                     <input type="text" id="searchInput" oninput="handlePatternSearch()" autocomplete="off" placeholder="Search Asset ID, Brand, Style or Rack..." class="w-full py-3 sm:py-3.5 pl-11 sm:pl-12 pr-28 bg-transparent outline-none text-zinc-900 text-sm rounded-full">
-                    
+
                     <div class="absolute right-2.5 sm:right-3 flex items-center gap-1">
                         <button type="button" onclick="clearSearch()" id="clearBtn" title="Clear Search" class="w-8 h-8 rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 flex items-center justify-center hidden">
                             <i class="ph-bold ph-x text-base"></i>
@@ -203,7 +170,7 @@
                     </div>
                 </div>
 
-                <!-- Filter Popover Card -->
+                <!-- Brand & Rack Filter Popover -->
                 <div id="search-filter-popover" onclick="event.stopPropagation()" class="hidden absolute left-0 right-0 mt-2 bg-white rounded-2xl border border-zinc-200 shadow-xl p-4 z-50 text-left">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5 mb-3">
                         <span class="text-xs font-bold text-zinc-900">Filter Pattern Room</span>
@@ -242,10 +209,11 @@
                 <div id="tracker-grid-inactive" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
             </div>
 
-            <button type="button" onclick="openQuickQrScanner()" title="Scan Item QR Code" class="fixed bottom-16 right-5 bg-zinc-900 hover:bg-zinc-800 text-white w-13 h-13 sm:w-14 sm:h-14 rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-105 z-[130]">
+            <button type="button" onclick="openQuickQrScanner()" title="Scan Item QR Code" class="fixed bottom-16 right-5 bg-zinc-900 hover:bg-zinc-800 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-105 z-[130]">
                 <i class="ph-bold ph-qr-code text-2xl"></i>
             </button>
 
+            <!-- 15-Minute Unscheduled Checkout Lock Banner -->
             <div id="mutex-bar" class="hidden fixed bottom-0 left-0 w-full bg-zinc-900 border-t border-zinc-700 text-white px-4 py-3 text-xs font-mono flex flex-wrap justify-between items-center gap-2 z-[140] shadow-2xl">
                 <div class="flex items-center gap-2">
                     <i class="ph-bold ph-spinner animate-spin text-zinc-300 text-base"></i>
@@ -260,16 +228,13 @@
         </main>
 
 
-
-        <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.3: DEPARTMENT HEAD OVERVIEW                            -->
-        <!-- ------------------------------------------------------------- -->
+        <!-- View 3: Department Head Overview (KPIs, Approvals, Active Line, QC & Staff Reports) -->
         <main id="view-dept-head" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="bg-white p-4 rounded-2xl border border-zinc-200 mb-5 flex flex-wrap justify-between items-center gap-3">
                 <h2 class="text-sm sm:text-base font-bold text-zinc-900">Department Head Overview</h2>
                 <div class="flex flex-wrap gap-2">
                     <button type="button" onclick="openDhSuspensionRequestModal()" class="bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-300 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5">
-                        <i class="ph-bold ph-user-Minus"></i> Staff Suspension Order
+                        <i class="ph-bold ph-user-minus"></i> Staff Suspension Order
                     </button>
                     <button type="button" onclick="openDiscardVaultModal()" class="bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5">
                         <i class="ph-bold ph-archive-box"></i> Vault
@@ -316,7 +281,6 @@
                     <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5 mb-3">QC Defect Logs</h3>
                     <div id="dh-qc-oversight" class="space-y-2.5 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
                 </div>
-                <!-- Non-Bothersome Browsable Staff Status & Disciplinary Reports -->
                 <div class="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5 mb-3">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Staff Status Reports</h3>
@@ -328,13 +292,10 @@
         </main>
 
 
-
-        <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.4: SCHEDULE & CUT COMMANDS (SUPERVISOR / SENIOR EXEC)  -->
-        <!-- ------------------------------------------------------------- -->
+        <!-- View 4: Supervisor & Senior Executive Portal (Cut Orders, 15m Locks, Weekly Roster) -->
         <main id="view-supervisor" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
-            
-            <!-- Senior Executive Order Verification Hub (CSE-01 only) -->
+
+            <!-- Senior Executive Cut Order Routing Hub -->
             <div id="cse-command-hub" class="hidden bg-white p-4 rounded-2xl border border-zinc-200 mb-5">
                 <div class="flex flex-wrap justify-between items-center gap-2 border-b border-zinc-100 pb-2.5 mb-3">
                     <div class="flex items-center gap-2">
@@ -351,7 +312,7 @@
                 <div id="cse-orders-verification-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto custom-scroll pr-1"></div>
             </div>
 
-            <!-- Supervisor Cut Order Execution & Box Clearance Hub (CS-L1-01 only) -->
+            <!-- Line Supervisor Cut Order Execution & Pattern Box Clearance -->
             <div id="sup-order-execution-hub" class="hidden bg-white p-4 rounded-2xl border border-zinc-200 mb-5">
                 <div class="flex items-center gap-2 border-b border-zinc-100 pb-2.5 mb-3">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-800">Assigned Cut Orders & Pattern Box Permission</h3>
@@ -363,11 +324,10 @@
                 <div id="sup-forwarded-orders-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto custom-scroll pr-1"></div>
             </div>
 
-            <!-- Top 3 Cards with Full-Screen Expand Buttons -->
+            <!-- Live Floor Queues & Operator Pool -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-                
-                <!-- Card 1: 15-Min Lock Clearance Tickets -->
-                <div id="panel-clearance-tickets" class="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col h-68 transition-all">
+
+                <div id="panel-clearance-tickets" class="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col h-72 transition-all">
                     <div class="border-b border-zinc-100 pb-2 mb-2.5 flex justify-between items-center gap-2">
                         <div class="flex items-center gap-2">
                             <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider">15-Min Lock Tickets</h3>
@@ -380,8 +340,7 @@
                     <div id="supervisor-queue-list" class="space-y-2 overflow-y-auto flex-1 pr-1 custom-scroll"></div>
                 </div>
 
-                <!-- Card 2: Active Borrowed Items -->
-                <div id="panel-borrowed-items" class="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col h-68 transition-all">
+                <div id="panel-borrowed-items" class="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col h-72 transition-all">
                     <div class="border-b border-zinc-100 pb-2 mb-2.5 flex justify-between items-center gap-2">
                         <div class="flex items-center gap-2">
                             <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Active Borrowed Items</h3>
@@ -394,8 +353,7 @@
                     <div id="supervisor-active-list" class="space-y-2 overflow-y-auto flex-1 pr-1 custom-scroll"></div>
                 </div>
 
-                <!-- Card 3: Operator Pool -->
-                <div id="panel-operator-pool" class="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col h-68 transition-all">
+                <div id="panel-operator-pool" class="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col h-72 transition-all">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2 mb-2 gap-2">
                         <span class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Operator Pool</span>
                         <div class="flex items-center gap-1">
@@ -415,7 +373,7 @@
                 </div>
             </div>
 
-            <!-- Weekly Shift Assignment Card -->
+            <!-- 7-Day Shift Roster Calendar -->
             <div id="panel-shift-calendar" class="bg-white p-4 rounded-2xl border border-zinc-200 transition-all">
                 <div class="flex flex-wrap justify-between items-center gap-2 mb-3 border-b border-zinc-100 pb-2.5">
                     <div class="flex items-center gap-2">
@@ -435,14 +393,11 @@
         </main>
 
 
-
-        <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.5: DESIGN (DDC), CAD (CADC) & PATTERN ROOM (PR)        -->
-        <!-- ------------------------------------------------------------- -->
+        <!-- View 5: Design Studio, CAD Marker Pipeline & Pattern Asset Registration -->
         <main id="view-design-cad" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                
-                <!-- STAGE 1 PANEL: DESIGN DEPARTMENT (DDC-C-01) -->
+
+                <!-- Design Coordinator Panel -->
                 <div id="panel-role-design" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-800">Style Brief & Fabric Studio</h3>
@@ -473,7 +428,6 @@
                         Send Style Brief to CAD
                     </button>
 
-                    <!-- Compact Fabric Specification with (i) Info Toggle -->
                     <div class="border-t border-zinc-100 pt-3 mt-1 space-y-2">
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-bold text-zinc-700">Add New Cloth Fabric Type</span>
@@ -502,7 +456,7 @@
                     </p>
                 </div>
 
-                <!-- STAGE 2 PANEL: CAD MARKER PROCESSING (CADC-C-01) -->
+                <!-- CAD Coordinator Marker Pipeline Panel -->
                 <div id="panel-role-cad" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-800">CAD Marker Pipeline</h3>
@@ -514,7 +468,7 @@
                     <div id="cad-stage-pipeline-list" class="space-y-2.5 overflow-y-auto max-h-[520px] pr-1 custom-scroll flex-1"></div>
                 </div>
 
-                <!-- STAGE 3 PANEL: PATTERN ROOM REGISTRATION (PR-C-PC-01) -->
+                <!-- Pattern Coordinator Asset Registration Panel -->
                 <div id="panel-role-pattern" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-800">Register Pattern Block / 3D Mold</h3>
@@ -549,7 +503,7 @@
                     </div>
                 </div>
 
-                <!-- INVENTORY & PHOTO / VAULT MANAGER -->
+                <!-- Pattern Room Inventory & Photo Manager -->
                 <div id="panel-pattern-inventory-list" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Pattern Inventory</h3>
@@ -563,14 +517,11 @@
         </main>
 
 
-
-        <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.6: SEWING CUT ORDERS (SDC) vs RMW WAREHOUSE (RMWC)     -->
-        <!-- ------------------------------------------------------------- -->
+        <!-- View 6: Sewing Cut Orders & Raw Material Warehouse (RMW) Dispatch -->
         <main id="view-supply" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div id="supply-grid-wrapper" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                
-                <!-- SEWING DEPARTMENT WORKSPACE (SDC-C-01) -->
+
+                <!-- Sewing Coordinator Cut Order Submission -->
                 <div id="panel-sewing-workspace" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3.5">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
                         <div class="flex items-center gap-2">
@@ -582,7 +533,7 @@
                     <p id="tip-sewing-flow" class="hidden text-[11px] text-zinc-500 bg-zinc-50 p-2.5 rounded-xl border border-zinc-200">
                         Submit cut orders to the Cutting Senior Executive (`CSE-01`) and confirm receipt once the Cutting Bundling Unit dispatches finished garment bundles.
                     </p>
-                    
+
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <select id="sew-style-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
                         <select id="sew-size" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
@@ -593,7 +544,7 @@
                         </select>
                     </div>
                     <input id="sew-order-notes" type="text" placeholder="Cut Note (Optional)" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs">
-                    
+
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button type="button" onclick="submitSewingOrder()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
                             Submit Cut Request
@@ -606,7 +557,7 @@
                     <div id="sewing-orders-list" class="space-y-2.5 overflow-y-auto max-h-96 pr-1 custom-scroll pt-1"></div>
                 </div>
 
-                <!-- RAW MATERIAL WAREHOUSE WORKSPACE (RMWC-C-01) -->
+                <!-- RMW Warehouse Lot Dispatch -->
                 <div id="panel-rmw-workspace" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3.5">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-800">Raw Material Warehouse (RMW) Dispatch</h3>
@@ -617,18 +568,14 @@
         </main>
 
 
-
-        <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.7: QUALITY CONTROL (MINIMALISTIC + NEW DEFECT CREATOR) -->
-        <!-- ------------------------------------------------------------- -->
+        <!-- View 7: Quality Control (Floor Defect Logging & Executive Resolution) -->
         <main id="view-qc" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
-            
-            <!-- Compact QC Executive Command Bar (Only shown if logged in as CQCE-01 or when Inspector has active commands) -->
+
             <div id="qc-role-top-bar" class="hidden bg-white p-3.5 rounded-2xl border border-zinc-200 mb-5"></div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                
-                <!-- Left Column: Minimalistic Defect Logger & New Defect Creator -->
+
+                <!-- Floor Defect Logger & Custom Defect Code Creator -->
                 <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-800">Log Floor Defect</h3>
@@ -647,7 +594,6 @@
                     </div>
                     <select id="qc-asset-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
 
-                    <!-- Subtle Low / Med / High Filter + "+ New Defect" Toggle -->
                     <div class="flex justify-between items-center pt-1">
                         <label class="text-xs font-semibold text-zinc-600">2. Defect Reason</label>
                         <div class="flex items-center gap-1">
@@ -663,7 +609,6 @@
                         </div>
                     </div>
 
-                    <!-- Collapsible Register New Defect Reason Box -->
                     <div id="new-defect-creator-box" class="hidden p-3 rounded-xl bg-zinc-50 border border-zinc-200 space-y-2 text-xs">
                         <div class="flex justify-between items-center">
                             <span class="font-bold text-zinc-800 text-[11px]">Register New Defect Code</span>
@@ -703,7 +648,7 @@
                     </button>
                 </div>
 
-                <!-- Right Column: Live Defect Queue -->
+                <!-- Logged Defect Records Queue -->
                 <div class="lg:col-span-2 bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5 mb-3">
                         Logged QC Defect Records
@@ -714,13 +659,10 @@
         </main>
 
 
-
-        <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.8: DIGITAL TEAM ADMIN & SUPPORT CONSOLE                -->
-        <!-- ------------------------------------------------------------- -->
+        <!-- View 8: Digital Team Admin & Support Console -->
         <main id="view-admin" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 mb-6">
-                
+
                 <div class="flex flex-wrap gap-2 border-b border-zinc-200 pb-3 mb-5 text-xs font-semibold">
                     <button type="button" onclick="switchAdminSubTab('emp')" id="adm-sub-emp" class="px-3.5 py-2 rounded-xl bg-zinc-900 text-white">1. Staff Directory</button>
                     <button type="button" onclick="switchAdminSubTab('security')" id="adm-sub-security" class="px-3.5 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">2. Passwords, Suspensions & Leadership</button>
@@ -728,7 +670,7 @@
                     <button type="button" onclick="switchAdminSubTab('records')" id="adm-sub-records" class="px-3.5 py-2 rounded-xl bg-zinc-100 text-zinc-700 hover:bg-zinc-200">4. Audit Log & Vault</button>
                 </div>
 
-                <!-- TAB 1: STAFF DIRECTORY (CLEAN '...' PROFILE TRIGGER) -->
+                <!-- Sub-Tab 1: Employee Directory, Photo Approvals & Registration -->
                 <div id="admin-panel-emp" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="space-y-4">
                         <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 space-y-2">
@@ -812,7 +754,7 @@
                     </div>
                 </div>
 
-                <!-- TAB 2: PASSWORD RESETS, DEPT HEAD SUSPENSION REQUESTS & LEADERSHIP -->
+                <!-- Sub-Tab 2: Password Reset Queue, Suspension Directives & Leadership Handover -->
                 <div id="admin-panel-security" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="space-y-4">
                         <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-3">
@@ -826,7 +768,6 @@
                             <div id="password-reset-tickets-list" class="space-y-2 max-h-64 overflow-y-auto custom-scroll pr-1"></div>
                         </div>
 
-                        <!-- Incoming Suspension Directives from Cutting Department Head -->
                         <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-3">
                             <div class="flex justify-between items-center border-b border-zinc-200 pb-2">
                                 <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-800">Department Head Suspension Orders</h4>
@@ -871,7 +812,7 @@
                     </div>
                 </div>
 
-                <!-- TAB 3: SYSTEM PARAMETERS -->
+                <!-- Sub-Tab 3: Configurable System Dropdown Parameters -->
                 <div id="admin-panel-params" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-3 h-fit">
                         <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Add System Parameter</h4>
@@ -894,7 +835,7 @@
                     </div>
                 </div>
 
-                <!-- TAB 4: AUDIT LOG & DISCARD VAULT -->
+                <!-- Sub-Tab 4: Immutable Audit Trail & Discard Vault -->
                 <div id="admin-panel-records" class="hidden flex flex-col gap-4">
                     <div class="flex flex-wrap justify-between items-center gap-2 text-xs text-zinc-500">
                         <span>PostgreSQL System Audit Log</span>
@@ -918,10 +859,7 @@
         </main>
 
 
-
-        <!-- ------------------------------------------------------------- -->
-        <!-- VIEW 3.9: SYSTEM REPORTS & DATABASE EXPLORER                  -->
-        <!-- ------------------------------------------------------------- -->
+        <!-- View 9: Printable Management Reports & Visual Database Explorer -->
         <main id="view-reports" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
             <div class="bg-white p-4 rounded-2xl border border-zinc-200 mb-5 flex flex-wrap justify-between items-center gap-3 no-print">
                 <div class="flex flex-wrap gap-2 text-xs font-semibold">
@@ -988,10 +926,7 @@
     <input id="single-row-photo-input" type="file" accept="image/*" class="hidden">
 
 
-
-    <!-- ================================================================= -->
-    <!-- SECTION 4: REQUESTS & APPROVALS COMMUNICATOR DRAWER               -->
-    <!-- ================================================================= -->
+    <!-- Floating Inter-Department Communicator Dock -->
     <div id="comm-floating-Dock" class="hidden fixed bottom-4 right-4 z-[120]">
         <button type="button" onclick="toggleCommDrawer()" id="comm-launcher-btn" class="bg-zinc-900 hover:bg-zinc-800 text-white px-4 py-3 rounded-full shadow-xl flex items-center gap-2 text-xs font-semibold transition-all">
             <i class="ph-bold ph-chat-teardrop-text text-base"></i>
@@ -1017,12 +952,9 @@
     </div>
 
 
+    <!-- Application Modals -->
 
-    <!-- ================================================================= -->
-    <!-- SECTION 5: MODALS (LOGIN, RECOVERY, STAFF PROFILE, DH ORDER)      -->
-    <!-- ================================================================= -->
-
-    <!-- Modal 5.1: Staff Login Modal -->
+    <!-- Staff Portal Sign-In Modal -->
     <div id="user-login-modal" onclick="if(event.target===this) closeLoginModal()" class="fixed inset-0 bg-zinc-900/40 backdrop-blur-md z-[210] flex items-center justify-center hidden p-3 sm:p-4">
         <div class="bg-white w-full max-w-md max-h-[90dvh] overflow-y-auto custom-scroll rounded-2xl border border-zinc-200 p-5 sm:p-7 shadow-2xl relative">
             <button type="button" onclick="closeLoginModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 p-1"><i class="ph-bold ph-x text-lg"></i></button>
@@ -1035,27 +967,25 @@
                 <h3 id="login-dynamic-title" class="font-bold text-lg sm:text-xl text-zinc-900 mt-1">Staff Portal Sign In</h3>
             </div>
 
-            <!-- Quick Role Dropdown -->
             <div id="quick-role-box" class="hidden mb-4">
                 <label class="text-xs font-semibold text-zinc-600 block mb-1.5">Select Position</label>
                 <select id="quick-role-select" onchange="onQuickRoleChange()" class="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold text-zinc-900 outline-none focus:border-zinc-900">
                     <option value="DH-01">Cutting Department Head (Jackson Emmanuel)</option>
                     <option value="CSE-01">Cutting Senior Executive (Aaron Emmanuel)</option>
                     <option value="CS-L1-01">Cutting Supervisor Line 1 (Nathaniel Perera)</option>
-                    <option value="PR-C-PC-01">Pattern Coordinator (Kavya Tharmalingam)</option>
+                    <option value="PR-C-PC-01">Pattern Coordinator (Menaka Rathnayake)</option>
                     <option value="DDC-C-01">Design Dept Coordinator (Kavindi Perera)</option>
-                    <option value="CADC-C-01">CAD Coordinator (Sachith Perera)</option>
+                    <option value="CADC-C-01">CAD Coordinator (Oshadhi Perera)</option>
                     <option value="SDC-C-01">Sewing Dept Coordinator (Tharindu Perera)</option>
                     <option value="RMWC-C-01">RMW Warehouse Coordinator (Ahamed Niyas)</option>
                     <option value="CQCE-01">Quality Control Executive (Imesha Fernando)</option>
-                    <option value="QCI-C-01">Quality Control Inspector (Kasun Rajapaksha)</option>
-                    <option value="DT-C-CST-01">CDMS Support Team (Shehani Mel)</option>
+                    <option value="QCI-C-01">Quality Control Inspector (Mohamed Faiz)</option>
+                    <option value="DT-C-CST-01">CDMS Support Team (Nadeeka Perera)</option>
                     <option value="DT-C-CA-01">CDMS Admin (Ashan Mendis)</option>
-                    <option value="CDTE-01">Digital Team Executive (Dilshan Silva)</option>
+                    <option value="CDTE-01">Digital Team Executive (Arjun Rajan)</option>
                 </select>
             </div>
 
-            <!-- Standard ID & Password Inputs -->
             <div id="standard-login-inputs" class="space-y-3">
                 <div>
                     <label class="text-xs font-semibold text-zinc-600 block mb-1">Employee ID</label>
@@ -1081,7 +1011,7 @@
         </div>
     </div>
 
-    <!-- Modal 5.2: Spacious Standalone Password Recovery & Admin Lockout Window -->
+    <!-- Password Recovery & Dual-Custody Admin Lockout Modal -->
     <div id="forgot-password-modal" onclick="if(event.target===this) closeForgotPasswordModal()" class="fixed inset-0 bg-zinc-900/50 backdrop-blur-md z-[225] flex items-center justify-center hidden p-3 sm:p-6">
         <div class="bg-white w-full max-w-xl rounded-3xl border border-zinc-200 p-6 sm:p-8 shadow-2xl space-y-5 relative">
             <div class="flex justify-between items-center border-b border-zinc-100 pb-4">
@@ -1100,19 +1030,16 @@
                 </div>
             </div>
 
-            <!-- Compact Info Toggle (Hidden unless (i) is pressed) -->
             <div id="tip-recovery-modal" class="hidden p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200 text-xs text-zinc-600 space-y-1.5 leading-relaxed">
                 <p><strong>Staff Recovery:</strong> Submitting a request does not lock your active password. Support (<code class="font-mono">DT-C-CST-01</code>) verifies your zone and escalates to Admin (<code class="font-mono">DT-C-CA-01</code>) to issue a one-time Temporary Password.</p>
                 <p><strong>Admin Lockout:</strong> If <code class="font-mono">DT-C-CA-01</code> is locked out, Digital Team Executive (<code class="font-mono">CDTE-01</code>) and Department Head (<code class="font-mono">DH-01</code>) can authorize an emergency reset using key <code class="font-mono">MAS-BODYLINE-RECOVERY</code>.</p>
             </div>
 
-            <!-- Clean Mode Tabs -->
             <div class="grid grid-cols-2 gap-2 bg-zinc-100 p-1 rounded-xl border border-zinc-200 text-xs font-bold">
-                <button type="button" onclick="switchRecoveryTab('staff')" id="rec-tab-staff" class="py-2.5 rounded-lg bg-white text-zinc-900 shadow-xs">Staff Password Reset</button>
+                <button type="button" onclick="switchRecoveryTab('staff')" id="rec-tab-staff" class="py-2.5 rounded-lg bg-white text-zinc-900 shadow-sm">Staff Password Reset</button>
                 <button type="button" onclick="switchRecoveryTab('admin')" id="rec-tab-admin" class="py-2.5 rounded-lg text-zinc-600 hover:text-zinc-900">Admin Lockout Recovery</button>
             </div>
 
-            <!-- Tab 1: Standard Staff Recovery -->
             <div id="rec-panel-staff" class="space-y-4 text-xs">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
@@ -1126,7 +1053,7 @@
                 </div>
                 <div>
                     <label class="font-bold text-zinc-700 block mb-1.5">Contact Email or Floor Extension</label>
-                    <input id="fp-contact-info" type="text" placeholder="e.g. kavya@bodyline.lk or Ext 402" class="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm outline-none focus:border-zinc-900">
+                    <input id="fp-contact-info" type="text" placeholder="e.g. menaka@bodyline.lk or Ext 402" class="w-full p-3 bg-zinc-50 border border-zinc-300 rounded-xl text-sm outline-none focus:border-zinc-900">
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" onclick="backToLoginFromRecovery()" class="px-4 py-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-semibold">Back to Sign In</button>
@@ -1136,7 +1063,6 @@
                 </div>
             </div>
 
-            <!-- Tab 2: Admin Dual-Custody Break-Glass Recovery -->
             <div id="rec-panel-admin" class="hidden space-y-4 text-xs">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
@@ -1167,7 +1093,7 @@
         </div>
     </div>
 
-    <!-- Modal 5.3: Staff Profile & Disciplinary Window (Opened via '...' in Employee Directory) -->
+    <!-- Staff Profile, Photo Editor & Disciplinary Modal -->
     <div id="staff-profile-modal" onclick="if(event.target===this) closeModal('staff-profile-modal')" class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-[230] flex items-center justify-center hidden p-3 sm:p-4">
         <div class="bg-white w-full max-w-md rounded-3xl border border-zinc-200 p-5 sm:p-6 shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b border-zinc-100 pb-3">
@@ -1177,7 +1103,6 @@
                 </button>
             </div>
 
-            <!-- Staff Profile Card -->
             <div class="flex items-center gap-4 bg-zinc-50 p-4 rounded-2xl border border-zinc-200">
                 <img id="spm-avatar" src="" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm shrink-0" alt="Staff">
                 <div class="min-w-0 flex-1">
@@ -1188,7 +1113,6 @@
                 </div>
             </div>
 
-            <!-- Photo Editor Section (Delete Photo is grayed out / disabled if no custom photo exists) -->
             <div class="space-y-1.5">
                 <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">Profile Photo Editor</label>
                 <div class="grid grid-cols-2 gap-2 text-xs">
@@ -1203,7 +1127,6 @@
                 </div>
             </div>
 
-            <!-- Secondary Collapsible Disciplinary & Account Status Section (Admin Only, With Confirmation) -->
             <div id="spm-admin-disciplinary-wrapper" class="border-t border-zinc-200 pt-3">
                 <button type="button" onclick="document.getElementById('spm-disciplinary-drawer').classList.toggle('hidden')" class="w-full flex justify-between items-center text-xs font-semibold text-zinc-500 hover:text-zinc-900 py-1">
                     <span>Account Status & Disciplinary Actions</span>
@@ -1237,7 +1160,7 @@
         </div>
     </div>
 
-    <!-- Modal 5.4: Department Head Staff Suspension Directive Modal -->
+    <!-- Department Head Staff Suspension Directive Modal -->
     <div id="dh-suspension-modal" onclick="if(event.target===this) closeModal('dh-suspension-modal')" class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-[230] flex items-center justify-center hidden p-3 sm:p-4">
         <div class="bg-white w-full max-w-md rounded-3xl border border-zinc-200 p-5 sm:p-6 shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b border-zinc-100 pb-3">
@@ -1273,7 +1196,7 @@
         </div>
     </div>
 
-    <!-- Modal 5.5: Set / Rename Account Password Modal -->
+    <!-- Account Password Update Modal -->
     <div id="change-password-modal" class="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm z-[235] flex items-center justify-center hidden p-3 sm:p-4">
         <div class="bg-white w-full max-w-sm rounded-2xl border border-zinc-200 p-5 sm:p-6 shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b border-zinc-100 pb-3">
@@ -1309,7 +1232,7 @@
         </div>
     </div>
 
-    <!-- Modal 5.6: Pattern Room Kiosk Password Modal -->
+    <!-- Pattern Room Kiosk Unlock / Sign-Out Modal -->
     <div id="kiosk-auth-modal" onclick="if(event.target===this) closeKioskAuthModal()" class="fixed inset-0 bg-zinc-900/40 backdrop-blur-md z-[210] flex items-center justify-center hidden p-3 sm:p-4">
         <div class="bg-white w-full max-w-sm max-h-[88dvh] overflow-y-auto custom-scroll rounded-2xl border border-zinc-200 p-5 sm:p-7 shadow-2xl relative">
             <button type="button" onclick="closeKioskAuthModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900 p-1"><i class="ph-bold ph-x text-lg"></i></button>
@@ -1338,7 +1261,7 @@
         </div>
     </div>
 
-    <!-- Modal 5.7: Discard Vault Modal -->
+    <!-- Discard Vault (Recoverable Archive) Modal -->
     <div id="discard-vault-modal" onclick="if(event.target===this) closeModal('discard-vault-modal')" class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-[225] flex items-center justify-center hidden p-3 sm:p-4">
         <div class="bg-white w-full max-w-2xl rounded-2xl border border-zinc-200 overflow-hidden shadow-2xl flex flex-col max-h-[85dvh]">
             <div class="bg-zinc-900 text-white px-5 py-3.5 flex justify-between items-center">
@@ -1349,7 +1272,7 @@
         </div>
     </div>
 
-    <!-- Modal 5.8: Item Details & QR Verification Modal -->
+    <!-- Pattern Asset Details, QR Borrow & Return Modal -->
     <div id="verify-modal" onclick="if(event.target===this) closeVerifyModal()" class="fixed inset-0 bg-zinc-900/50 backdrop-blur-sm z-[210] flex items-center justify-center hidden p-3 sm:p-4">
         <div class="bg-white border border-zinc-200 w-full max-w-lg rounded-2xl flex flex-col overflow-hidden max-h-[88dvh] shadow-2xl">
             <div class="bg-zinc-50 px-5 py-3.5 border-b border-zinc-200 flex justify-between items-center shrink-0">
