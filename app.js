@@ -594,7 +594,7 @@ async function batchAssignAllEmployeeQrCodes() {
 function openPatternQrTagModal(assetId) {
     const asset = DB.pattern_assets.find(p => p.asset_id === assetId);
     if (!asset) return;
-    document.getElementById('modal-title').innerText = `QR Tag — ${asset.asset_id}`;
+    document.getElementById('modal-title').innerText = `QR Tag (${asset.asset_id})`;
     document.getElementById('verify-modal').classList.remove('hidden');
     const area = document.getElementById('modal-dynamic-area');
     area.innerHTML = `
@@ -664,7 +664,7 @@ function printQrTagOrBadge(kind, targetId) {
         printWin.document.write(`<!DOCTYPE html>
 <html>
 <head>
-    <title>Print QR — ${mainCode}</title>
+    <title>Print QR (${mainCode})</title>
     <style>
         body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 92vh; margin: 0; background: #fff; color: #18181b; }
         .card { border: 2px solid #18181b; border-radius: 16px; padding: 24px 28px; text-align: center; width: 290px; }
@@ -1258,7 +1258,7 @@ function populateQuickRoleSelect() {
 
     sel.innerHTML = portalStaff.map(emp => {
         const cleanId = emp.employee_id.trim();
-        return `<option value="${cleanId}">${emp.role_designation} — ${emp.full_name} (${cleanId})</option>`;
+        return `<option value="${cleanId}">${emp.role_designation} (${emp.full_name})</option>`;
     }).join('');
 
     if (previousVal && portalStaff.some(e => e.employee_id === previousVal)) {
@@ -1899,7 +1899,7 @@ async function executeConfirmedStaffAction() {
         receiver_role: 'Cutting Dpt. Head',
         protocol_category: 'Staff Status Report',
         linked_reference_id: emp.employee_id,
-        subject_line: `${emp.full_name} (${emp.employee_id}) -> ${actionType}`,
+        subject_line: `${emp.full_name} (${actionType})`,
         message_body: `Role: ${emp.role_designation} | Action: ${actionType} ${untilDate ? `(Until ${untilDate})` : ''} | Reason: ${reason}`,
         comm_status: 'Filed Report'
     }]);
@@ -2017,7 +2017,7 @@ async function softDeleteRecord(tableName, recordId, customReason = 'Archived to
             receiver_role: 'Cutting Dpt. Head',
             protocol_category: 'Staff Status Report',
             linked_reference_id: recordId,
-            subject_line: `${target.full_name} (${recordId}) -> Archived to Vault`,
+            subject_line: `${target.full_name} (Archived to Vault)`,
             message_body: `Role: ${target.role_designation} (${target.work_location_zone}) | Action: Archived to Discard Vault | Reason: ${customReason}`,
             comm_status: 'Filed Report'
         }]);
@@ -2731,7 +2731,7 @@ function startMutexBarCountdown(assetId, operatorId, shift) {
             clearInterval(mutexPollInterval);
             mutexPollInterval = null;
             timer.innerText = 'EXPIRED';
-            msg.innerText = `15-Min Lock Expired for ${assetId} — Released to Room`;
+            msg.innerText = `15-Min Lock Expired for ${assetId} (Released to Room)`;
             await supa.from('pattern_assets').update({
                 operational_status: 'Available in Room',
                 borrowed_by_id: null
@@ -2868,7 +2868,7 @@ function openDhSuspensionRequestModal() {
     const eligibleStaff = DB.employees.filter(e => !['DH-01', 'DT-C-CA-01', 'CDTE-01'].includes(e.employee_id));
     const sel = document.getElementById('dh-susp-emp-select');
     if (sel) {
-        sel.innerHTML = eligibleStaff.map(e => `<option value="${e.employee_id}">${e.full_name} (${e.employee_id} - ${e.role_designation})</option>`).join('');
+        sel.innerHTML = eligibleStaff.map(e => `<option value="${e.employee_id}">${e.full_name} (${e.role_designation})</option>`).join('');
     }
     document.getElementById('dh-susp-reason').value = '';
     document.getElementById('dh-susp-confirm-tick').checked = false;
@@ -3887,7 +3887,7 @@ function populateQcDefectCodesByTier() {
         : sourceList.filter(d => mapDefectToTier(d) === selectedQcSeverityTier);
     if (matching.length === 0) matching = sourceList;
 
-    sel.innerHTML = matching.map(d => `<option value="${d.defect_code}">${d.defect_code} — ${d.defect_name_symptom} (${mapDefectToTier(d)} risk)</option>`).join('');
+    sel.innerHTML = matching.map(d => `<option value="${d.defect_code}">${d.defect_code} (${d.defect_name_symptom})</option>`).join('');
 
     const nextDefCode = getNextSequentialId(sourceList, 'defect_code', 'DEF-', 2);
     const lbl = document.getElementById('next-def-code-label');
@@ -4473,7 +4473,7 @@ async function executeDhSuspensionDirective(commId) {
         receiver_role: 'Cutting Dpt. Head',
         protocol_category: 'Staff Status Report',
         linked_reference_id: targetId,
-        subject_line: `Executed: ${emp ? emp.full_name : targetId} -> ${actionType}`,
+        subject_line: `Executed: ${emp ? emp.full_name : targetId} (${actionType})`,
         message_body: `Digital Unit executed Department Head directive for ${targetId}. Status: ${actionType} ${untilDate ? `(Until ${untilDate})` : ''}.`,
         comm_status: 'Filed Report'
     }]);
@@ -5059,7 +5059,7 @@ function renderGroupedReport() {
 
         <div class="mt-6 pt-3 border-t border-zinc-200 flex flex-wrap justify-between items-center gap-2 text-[10px] font-mono text-zinc-400">
             <span>CDMS+ DEPARTMENT REPORT</span>
-            <span>BODYLINE (PVT) LTD — HORANA PLANT 1</span>
+            <span>BODYLINE (PVT) LTD (HORANA PLANT 1)</span>
         </div>
     `;
 }
