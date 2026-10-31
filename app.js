@@ -252,21 +252,21 @@ function createSandboxDemoDatabase() {
     ];
 
     const cad_markers = [
-        { cad_marker_id: 'CAD-MK-01', style_code: 'TR-TAC-01', brand_buyer: 'Triumph', model_name: 'Triaction Control', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-TR-01', marker_status: 'Approved', sketch_url: '' },
-        { cad_marker_id: 'CAD-MK-02', style_code: 'TR-AMC-01', brand_buyer: 'Triumph', model_name: 'Amourette Charm', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-TR-01', marker_status: 'Approved', sketch_url: '' },
-        { cad_marker_id: 'CAD-MK-03', style_code: 'VS-BBV-10', brand_buyer: "Victoria's Secret", model_name: 'Body by Victoria', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-VS-01', marker_status: 'Approved', sketch_url: '' },
-        { cad_marker_id: 'CAD-MK-04', style_code: 'VS-SMC-20', brand_buyer: "Victoria's Secret", model_name: 'Smooth Memory Contour', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-VS-01', marker_status: 'Approved', sketch_url: '' },
-        { cad_marker_id: 'CAD-MK-05', style_code: 'W2AS4S', brand_buyer: 'Lululemon', model_name: 'Energy Longline', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-LL-01', marker_status: 'Approved', sketch_url: '' },
-        { cad_marker_id: 'CAD-MK-06', style_code: 'BV3636', brand_buyer: 'Nike', model_name: 'Swoosh Medium-Support', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CAD-C-CPH-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Sent to CAD', sketch_url: '' }
+        { cad_marker_id: 'CAD-MK-01', style_code: 'TR-TAC-01', brand_buyer: 'Triumph', model_name: 'Triaction Control', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-TR-01', marker_status: 'Approved', sketch_url: './patterns/pb-triumph.svg' },
+        { cad_marker_id: 'CAD-MK-02', style_code: 'TR-AMC-01', brand_buyer: 'Triumph', model_name: 'Amourette Charm', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-TR-01', marker_status: 'Approved', sketch_url: './patterns/pm-triumph.svg' },
+        { cad_marker_id: 'CAD-MK-03', style_code: 'VS-BBV-10', brand_buyer: "Victoria's Secret", model_name: 'Body by Victoria', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-VS-01', marker_status: 'Approved', sketch_url: './patterns/pb-vs.svg' },
+        { cad_marker_id: 'CAD-MK-04', style_code: 'VS-SMC-20', brand_buyer: "Victoria's Secret", model_name: 'Smooth Memory Contour', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-VS-01', marker_status: 'Approved', sketch_url: './patterns/pm-vs.svg' },
+        { cad_marker_id: 'CAD-MK-05', style_code: 'W2AS4S', brand_buyer: 'Lululemon', model_name: 'Energy Longline', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-LL-01', marker_status: 'Approved', sketch_url: './patterns/pb-lululemon.svg' },
+        { cad_marker_id: 'CAD-MK-06', style_code: 'BV3636', brand_buyer: 'Nike', model_name: 'Swoosh Medium-Support', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CAD-C-CPH-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Sent to CAD', sketch_url: './patterns/pb-nike.svg' }
     ];
 
     const pattern_assets = [
-        { asset_id: 'TR-PB-01', tooling_type: 'Pattern Block', model_name: 'Triaction Control', style_code: 'TR-TAC-01', brand_buyer: 'Triumph', size_category: '34C', storage_location: 'Rack A-01', operational_status: 'Active on Line', borrowed_by_id: 'CW-L1-CMO-01', shift_checkout: 'Morning', checkout_time: nowIso, last_used_date: todayStr, image_url: '' },
-        { asset_id: 'TR-PM-01', tooling_type: 'Pattern Mold', model_name: 'Amourette Charm', style_code: 'TR-AMC-01', brand_buyer: 'Triumph', size_category: '34D', storage_location: 'Mold Cabinet 01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: '' },
-        { asset_id: 'VS-PB-01', tooling_type: 'Pattern Block', model_name: 'Body by Victoria', style_code: 'VS-BBV-10', brand_buyer: "Victoria's Secret", size_category: '34B', storage_location: 'Rack B-01', operational_status: 'Active on Line', borrowed_by_id: 'CW-L2-CMO-01', shift_checkout: 'Morning', checkout_time: nowIso, last_used_date: todayStr, image_url: '' },
-        { asset_id: 'VS-PM-01', tooling_type: 'Pattern Mold', model_name: 'Smooth Memory Contour', style_code: 'VS-SMC-20', brand_buyer: "Victoria's Secret", size_category: '36B', storage_location: 'Mold Cabinet 03', operational_status: 'Inspection Flagged', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: '' },
-        { asset_id: 'LL-PB-01', tooling_type: 'Pattern Block', model_name: 'Energy Longline', style_code: 'W2AS4S', brand_buyer: 'Lululemon', size_category: 'S', storage_location: 'Rack C-01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: '' },
-        { asset_id: 'NK-PB-01', tooling_type: 'Pattern Block', model_name: 'Swoosh Medium-Support', style_code: 'BV3636', brand_buyer: 'Nike', size_category: 'M', storage_location: 'Rack D-01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: '' }
+        { asset_id: 'TR-PB-01', tooling_type: 'Pattern Block', model_name: 'Triaction Control', style_code: 'TR-TAC-01', brand_buyer: 'Triumph', size_category: '34C', storage_location: 'Rack A-01', operational_status: 'Active on Line', borrowed_by_id: 'CW-L1-CMO-01', shift_checkout: 'Morning', checkout_time: nowIso, last_used_date: todayStr, image_url: './patterns/pb-triumph.svg' },
+        { asset_id: 'TR-PM-01', tooling_type: 'Pattern Mold', model_name: 'Amourette Charm', style_code: 'TR-AMC-01', brand_buyer: 'Triumph', size_category: '34D', storage_location: 'Mold Cabinet 01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pm-triumph.svg' },
+        { asset_id: 'VS-PB-01', tooling_type: 'Pattern Block', model_name: 'Body by Victoria', style_code: 'VS-BBV-10', brand_buyer: "Victoria's Secret", size_category: '34B', storage_location: 'Rack B-01', operational_status: 'Active on Line', borrowed_by_id: 'CW-L2-CMO-01', shift_checkout: 'Morning', checkout_time: nowIso, last_used_date: todayStr, image_url: './patterns/pb-vs.svg' },
+        { asset_id: 'VS-PM-01', tooling_type: 'Pattern Mold', model_name: 'Smooth Memory Contour', style_code: 'VS-SMC-20', brand_buyer: "Victoria's Secret", size_category: '36B', storage_location: 'Mold Cabinet 03', operational_status: 'Inspection Flagged', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pm-vs.svg' },
+        { asset_id: 'LL-PB-01', tooling_type: 'Pattern Block', model_name: 'Energy Longline', style_code: 'W2AS4S', brand_buyer: 'Lululemon', size_category: 'S', storage_location: 'Rack C-01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pb-lululemon.svg' },
+        { asset_id: 'NK-PB-01', tooling_type: 'Pattern Block', model_name: 'Swoosh Medium-Support', style_code: 'BV3636', brand_buyer: 'Nike', size_category: 'M', storage_location: 'Rack D-01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pb-nike.svg' }
     ];
 
     const qc_defect_codes = [
@@ -418,7 +418,7 @@ const NO_DATA_IMAGE_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
 </svg>`);
 
 function hasCustomPhoto(url) {
-    return Boolean(url && url.trim() !== '' && url !== DEFAULT_AVATAR_SVG && !url.includes('unsplash.com') && !url.includes('placehold.co'));
+    return Boolean(url && url.trim() !== '' && url !== DEFAULT_AVATAR_SVG && url !== NO_DATA_IMAGE_SVG && !url.includes('unsplash.com') && !url.includes('placehold.co'));
 }
 
 function getAvatarUrl(url) {
@@ -1714,7 +1714,7 @@ function triggerSingleRowPhotoUpload(targetType, targetId) {
     const fileInput = document.getElementById('single-row-photo-input');
     fileInput.value = '';
     fileInput.onchange = async () => {
-        const dataUrl = await readAndCompressImage(fileInput, 360);
+        const dataUrl = await readAndCompressImage(fileInput, targetType === 'employee' ? 360 : 520);
         if (!dataUrl) return;
 
         if (targetType === 'employee') {
@@ -1725,11 +1725,22 @@ function triggerSingleRowPhotoUpload(targetType, targetId) {
             if (currentInspectedStaffId === targetId) openStaffProfileModal(targetId);
             showToast(`Updated profile photo for ${targetId}.`);
         } else if (targetType === 'pattern') {
+            const pat = DB.pattern_assets.find(p => p.asset_id === targetId);
+            if (pat) pat.image_url = dataUrl;
             await supa.from('pattern_assets').update({ image_url: dataUrl }).eq('asset_id', targetId);
             await writeAuditLog('UPDATE_ASSET_PHOTO', 'Pattern_Assets', targetId, { asset_id: targetId });
             await syncFromSupabase();
             renderDesignCadPortal();
+            if (!document.getElementById('view-tracker').classList.contains('hidden')) handlePatternSearch();
             showToast(`Updated item photo for ${targetId}.`);
+        } else if (targetType === 'cad_marker') {
+            const mk = DB.cad_markers.find(m => m.cad_marker_id === targetId);
+            if (mk) mk.sketch_url = dataUrl;
+            await supa.from('cad_markers').update({ sketch_url: dataUrl }).eq('cad_marker_id', targetId);
+            await writeAuditLog('UPDATE_DESIGN_PHOTO', 'CAD_Markers', targetId, { cad_marker_id: targetId });
+            await syncFromSupabase();
+            renderDesignCadPortal();
+            showToast(`Updated design photo for ${targetId}.`);
         }
     };
     fileInput.click();
@@ -1752,6 +1763,16 @@ async function removeItemOrStaffPhoto(targetType, targetId) {
         pat.image_url = '';
         await supa.from('pattern_assets').update({ image_url: '' }).eq('asset_id', targetId);
         await writeAuditLog('REMOVE_ASSET_PHOTO', 'Pattern_Assets', targetId, { photo_status: 'Removed (Asset Retained)' });
+        await syncFromSupabase();
+        renderDesignCadPortal();
+        if (!document.getElementById('view-tracker').classList.contains('hidden')) handlePatternSearch();
+        showToast(`Photo deleted for ${targetId}.`);
+    } else if (targetType === 'cad_marker') {
+        const mk = DB.cad_markers.find(m => m.cad_marker_id === targetId);
+        if (!mk || !hasCustomPhoto(mk.sketch_url)) return;
+        mk.sketch_url = '';
+        await supa.from('cad_markers').update({ sketch_url: '' }).eq('cad_marker_id', targetId);
+        await writeAuditLog('REMOVE_DESIGN_PHOTO', 'CAD_Markers', targetId, { photo_status: 'Removed (Design Retained)' });
         await syncFromSupabase();
         renderDesignCadPortal();
         showToast(`Photo deleted for ${targetId}.`);
@@ -2284,8 +2305,8 @@ function renderPatternCardHtml(p) {
     return `
         <div onclick="openScannerForAsset('${p.asset_id}')" class="product-card bg-white rounded-2xl border border-zinc-200 overflow-hidden cursor-pointer flex flex-col justify-between">
             <div>
-                <div class="h-40 w-full bg-zinc-100 relative overflow-hidden border-b border-zinc-100">
-                    <img src="${getItemImageUrl(p.image_url)}" class="w-full h-full object-cover" alt="${p.model_name}">
+                <div class="h-44 w-full bg-white relative overflow-hidden border-b border-zinc-100">
+                    <img src="${getItemImageUrl(p.image_url)}" class="w-full h-full object-contain bg-white" alt="${p.model_name}">
                     <span class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white/95 text-zinc-800 border border-zinc-200">${p.tooling_type}</span>
                     <span class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${badgeStyle(p.operational_status)}">${p.operational_status}</span>
                 </div>
@@ -2490,7 +2511,7 @@ function openScannerForAsset(assetId) {
     if (['Inspection Flagged', 'Decommissioned', 'Pending Removal'].includes(asset.operational_status)) {
         area.innerHTML = `
             <div class="text-center py-6 space-y-3">
-                <img src="${itemImg}" class="w-40 h-28 object-cover rounded-xl mx-auto border">
+                <img src="${itemImg}" class="w-40 h-28 object-contain bg-white rounded-xl mx-auto border">
                 <h4 class="text-base font-bold text-rose-600 uppercase">Restricted (${asset.operational_status})</h4>
                 <p class="text-xs text-zinc-600">${asset.asset_id} cannot be checked out while flagged.</p>
             </div>
@@ -2513,7 +2534,7 @@ function openScannerForAsset(assetId) {
         area.innerHTML = `
             <div class="space-y-4">
                 <div class="flex gap-3 items-center p-3 rounded-xl bg-zinc-50 border border-zinc-200">
-                    <img src="${itemImg}" class="w-20 h-14 rounded-lg object-cover border">
+                    <img src="${itemImg}" class="w-20 h-14 rounded-lg object-contain bg-white border">
                     <div>
                         <p class="text-xs font-medium text-zinc-500">Checked Out By: <strong class="text-zinc-900">${asset.borrowed_by_id || 'Floor Staff'}</strong></p>
                         <h4 class="text-sm font-bold text-zinc-900">${asset.model_name} (${asset.asset_id})</h4>
@@ -2572,7 +2593,7 @@ function openScannerForAsset(assetId) {
     area.innerHTML = `
         <div class="space-y-4">
             <div class="flex gap-3 items-center p-3 rounded-xl bg-zinc-50 border border-zinc-200">
-                <img src="${itemImg}" class="w-20 h-14 rounded-lg object-cover border">
+                <img src="${itemImg}" class="w-20 h-14 rounded-lg object-contain bg-white border">
                 <div>
                     <p class="text-xs font-medium text-zinc-500">${asset.brand_buyer} (${asset.style_code})</p>
                     <h4 class="text-base font-bold text-zinc-900">${asset.model_name} (${asset.asset_id})</h4>
@@ -3504,14 +3525,30 @@ async function renderDesignCadPortal() {
     if (cadListEl) {
         cadListEl.innerHTML = DB.cad_markers.map(m => {
             const isPendingCad = m.marker_status === 'Sent to CAD' || m.marker_status === 'Pending CAD Plotting';
+            const hasDesignPhoto = hasCustomPhoto(m.sketch_url);
             return `
-                <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-1.5">
-                    <div class="flex justify-between items-center">
-                        <span class="font-mono font-bold text-zinc-900">${m.cad_marker_id} • ${m.style_code}</span>
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isPendingCad ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">${m.marker_status}</span>
+                <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-2">
+                    <div class="flex items-center justify-between gap-2.5">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <img src="${getItemImageUrl(m.sketch_url)}" class="w-16 h-11 rounded-lg object-contain bg-white border border-zinc-200 shrink-0" alt="${m.model_name}">
+                            <div class="min-w-0">
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <span class="font-mono font-bold text-zinc-900">${m.cad_marker_id} • ${m.style_code}</span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isPendingCad ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">${m.marker_status}</span>
+                                </div>
+                                <p class="font-bold text-zinc-800 truncate">${m.model_name} (${m.brand_buyer})</p>
+                                <p class="text-[11px] text-zinc-500 truncate">${m.cad_tooling_material_code} • ${m.cutting_floor_fabric_code}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button type="button" onclick="triggerSingleRowPhotoUpload('cad_marker', '${m.cad_marker_id}')" class="px-2 py-1 rounded-lg bg-white hover:bg-zinc-100 border border-zinc-300 text-zinc-800 font-semibold text-[10px]">
+                                ${hasDesignPhoto ? 'Change Photo' : '+ Photo'}
+                            </button>
+                            <button type="button" ${hasDesignPhoto ? '' : 'disabled'} onclick="removeItemOrStaffPhoto('cad_marker', '${m.cad_marker_id}')" class="px-2 py-1 rounded-lg bg-white hover:bg-rose-50 border border-zinc-300 text-rose-600 font-semibold text-[10px] inline-flex items-center gap-1" title="Delete Photo">
+                                <i class="ph-bold ph-trash"></i> Delete
+                            </button>
+                        </div>
                     </div>
-                    <p class="font-bold text-zinc-800">${m.model_name} (${m.brand_buyer})</p>
-                    <p class="text-[11px] text-zinc-500">${m.cad_tooling_material_code} • ${m.cutting_floor_fabric_code}</p>
                     ${userId.startsWith('CAD') && isPendingCad ? `
                         <button type="button" onclick="cadApproveAndPushToPatternRoom('${m.cad_marker_id}', '${m.style_code}')" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white py-1.5 rounded-lg font-semibold text-[11px] mt-1">
                             Approve & Release to Pattern Room
@@ -3535,7 +3572,7 @@ async function renderDesignCadPortal() {
         return `
             <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
                 <div class="flex items-center gap-2.5 min-w-0">
-                    <img src="${getItemImageUrl(p.image_url)}" class="w-11 h-8 rounded-lg object-cover border shrink-0">
+                    <img src="${getItemImageUrl(p.image_url)}" class="w-16 h-11 rounded-lg object-contain bg-white border border-zinc-200 shrink-0" alt="${p.model_name}">
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-1.5">
                             <p class="font-bold text-zinc-900 truncate">${p.asset_id} • ${p.model_name}</p>
@@ -3553,11 +3590,9 @@ async function renderDesignCadPortal() {
                     <button type="button" onclick="triggerSingleRowPhotoUpload('pattern', '${p.asset_id}')" class="px-2 py-1 rounded-lg bg-white hover:bg-zinc-100 border border-zinc-300 text-zinc-800 font-semibold text-[10px]">
                         ${hasPhoto ? 'Change Photo' : '+ Photo'}
                     </button>
-                    ${hasPhoto ? `
-                        <button type="button" onclick="removeItemOrStaffPhoto('pattern', '${p.asset_id}')" class="px-2 py-1 rounded-lg bg-white hover:bg-rose-50 border border-zinc-300 text-rose-600 font-semibold text-[10px]" title="Delete Photo">
-                            <i class="ph-bold ph-trash"></i>
-                        </button>
-                    ` : ''}
+                    <button type="button" ${hasPhoto ? '' : 'disabled'} onclick="removeItemOrStaffPhoto('pattern', '${p.asset_id}')" class="px-2 py-1 rounded-lg bg-white hover:bg-rose-50 border border-zinc-300 text-rose-600 font-semibold text-[10px] inline-flex items-center gap-1" title="Delete Photo">
+                        <i class="ph-bold ph-trash"></i> Delete
+                    </button>
                     <button type="button" onclick="softDeleteRecord('pattern_assets', '${p.asset_id}')" class="px-2 py-1 rounded-lg bg-zinc-200/70 hover:bg-rose-600 hover:text-white text-zinc-700 font-semibold text-[10px]" title="Archive Item">
                         Archive
                     </button>
