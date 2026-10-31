@@ -185,6 +185,7 @@ async function toggleSandboxMode() {
             returnToWelcomeScreenImmediate();
         }
         updateModeButtonUI();
+        populateQuickRoleSelect();
         showToast('Sandbox Mode (0): Loaded temporary demo simulation data.');
     } else {
         sandboxMode = '1';
@@ -194,6 +195,7 @@ async function toggleSandboxMode() {
         }
         updateModeButtonUI();
         await fetchLiveSupabaseIntoDB();
+        populateQuickRoleSelect();
         showToast('Live Mode (1): Sandbox data removed and live database restored.');
     }
 }
@@ -230,13 +232,13 @@ function createSandboxDemoDatabase() {
         { employee_id: 'QCI-C-02', full_name: 'Nadeesha Kumari', department: 'QC - Cutting', role_designation: 'Quality Control Inspectors', work_location_zone: 'Cutting Floor', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
         { employee_id: 'RMWC-C-01', full_name: 'Ahamed Niyas', department: 'RMW - Cutting', role_designation: 'RMW Coordinators', work_location_zone: 'Raw Material Warehouse', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
         { employee_id: 'DDC-C-01', full_name: 'Kavindi Perera', department: 'Design - Cutting', role_designation: 'Design Dpt. Coordinators', work_location_zone: 'Design Department', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
-        { employee_id: 'CADC-C-01', full_name: 'Oshadhi Perera', department: 'Cutting - CAD', role_designation: 'CAD Coordinators', work_location_zone: 'CAD Room', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CADC-C-01', full_name: 'Sachith Perera', department: 'Cutting - CAD', role_designation: 'CAD Coordinators', work_location_zone: 'CAD Room', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
         { employee_id: 'CAD-C-MM-01', full_name: 'Ayesha Nazeer', department: 'Cutting - CAD', role_designation: 'Marker Makers', work_location_zone: 'CAD Room', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
         { employee_id: 'CAD-C-CPH-01', full_name: 'Rizwan Ashraff', department: 'Cutting - CAD', role_designation: 'CAD Pattern Handlers', work_location_zone: 'CAD Room', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
-        { employee_id: 'PR-C-PC-01', full_name: 'Menaka Rathnayake', department: 'Cutting - Pattern', role_designation: 'Pattern Coordinators', work_location_zone: 'Pattern Room', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'PR-C-PC-01', full_name: 'Kavya Tharmalingam', department: 'Cutting - Pattern', role_designation: 'Pattern Coordinators', work_location_zone: 'Pattern Room', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
         { employee_id: 'PR-C-PH-01', full_name: 'Daniel Joseph', department: 'Cutting - Pattern', role_designation: 'Pattern Handlers', work_location_zone: 'Pattern Room', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
         { employee_id: 'CDTE-01', full_name: 'Arjun Rajan', department: 'Digital - Cutting', role_designation: 'Digital Team Executive', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
-        { employee_id: 'DT-C-CST-01', full_name: 'Nadeeka Perera', department: 'Digital - Cutting', role_designation: 'CDMS Support Team', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'DT-C-CST-01', full_name: 'Shehani Mel', department: 'Digital - Cutting', role_designation: 'CDMS Support Team', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
         { employee_id: 'DT-C-CA-01', full_name: 'Ashan Mendis', department: 'Digital - Cutting', role_designation: 'CDMS Admins', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' }
     ];
 
@@ -380,21 +382,18 @@ const DEFAULT_AVATAR_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
   <path d="M20 112C20 88.804 37.9086 72 60 72C82.0914 72 100 88.804 100 112" fill="#A1A1AA"/>
 </svg>`);
 
-const DEMO_PORTRAIT_PALETTES = [
-    { bg: '#F1F5F9', skin: '#C68652', hair: '#1E1B18', shirt: '#1E293B', collar: '#FFFFFF', style: 'short-part' },
-    { bg: '#F4F4F5', skin: '#8D5524', hair: '#141210', shirt: '#0F172A', collar: '#E2E8F0', style: 'bun' },
-    { bg: '#EFECE6', skin: '#D2996C', hair: '#27201C', shirt: '#334155', collar: '#F8FAFC', style: 'crop' },
-    { bg: '#F3F4F6', skin: '#A56938', hair: '#181512', shirt: '#18181B', collar: '#E4E4E7', style: 'long' },
-    { bg: '#F5F5F4', skin: '#75421E', hair: '#111111', shirt: '#1E3A5F', collar: '#FFFFFF', style: 'curly' },
-    { bg: '#F8FAFC', skin: '#B97A45', hair: '#221D1A', shirt: '#27272A', collar: '#F4F4F5', style: 'waves' },
-    { bg: '#F1F5F9', skin: '#995D30', hair: '#1A1614', shirt: '#374151', collar: '#F9FAFB', style: 'side-sweep' },
-    { bg: '#F4F4F5', skin: '#C0814E', hair: '#1C1917', shirt: '#0F172A', collar: '#E2E8F0', style: 'bob' }
-];
+const FEMALE_PORTRAIT_SEED_IDS = new Set([
+    'CAD-C-CPH-02', 'CAD-C-MM-01', 'CAD-C-MM-03', 'CQCE-01', 'CS-L2-01', 'CS-L3-01',
+    'CW-L1-BU-01', 'CW-L1-BU-03', 'CW-L1-BU-05', 'CW-L2-BU-02', 'CW-L2-BU-04',
+    'CW-L3-BU-01', 'CW-L3-BU-03', 'CW-L3-BU-04', 'DDC-C-01', 'DT-C-CA-02',
+    'DT-C-CST-01', 'DT-C-CST-03', 'DT-C-CST-05', 'PR-C-PC-01', 'PR-C-PH-02',
+    'PR-C-PH-05', 'QCI-C-02', 'RMWC-C-03', 'SDC-C-03'
+]);
 
 const generatedPortraitCache = {};
 
 function generateWorkforcePortraitSvg(seedKey) {
-    const key = String(seedKey || 'STAFF').trim();
+    const key = String(seedKey || 'STAFF').trim().toUpperCase();
     if (generatedPortraitCache[key]) return generatedPortraitCache[key];
 
     let hash = 0;
@@ -402,46 +401,12 @@ function generateWorkforcePortraitSvg(seedKey) {
         hash = ((hash << 5) - hash) + key.charCodeAt(i);
         hash |= 0;
     }
-    const idx = Math.abs(hash) % DEMO_PORTRAIT_PALETTES.length;
-    const p = DEMO_PORTRAIT_PALETTES[idx];
-
-    let hairBack = '';
-    let hairFront = '';
-    if (p.style === 'bun') {
-        hairBack = `<circle cx="60" cy="20" r="12" fill="${p.hair}"/><path d="M36 46C36 28 84 28 84 46Z" fill="${p.hair}"/>`;
-        hairFront = `<path d="M36 42C42 26 78 26 84 42C76 34 44 34 36 42Z" fill="${p.hair}"/>`;
-    } else if (p.style === 'long') {
-        hairBack = `<path d="M33 44C33 24 87 24 87 44L90 78H30L33 44Z" fill="${p.hair}"/>`;
-        hairFront = `<path d="M35 42C45 27 75 27 85 42C74 33 46 33 35 42Z" fill="${p.hair}"/>`;
-    } else if (p.style === 'bob') {
-        hairBack = `<path d="M34 45C34 25 86 25 86 45L86 68H34L34 45Z" fill="${p.hair}"/>`;
-        hairFront = `<path d="M35 41C46 28 74 28 85 41C73 34 47 34 35 41Z" fill="${p.hair}"/>`;
-    } else if (p.style === 'curly') {
-        hairBack = `<circle cx="44" cy="30" r="10" fill="${p.hair}"/><circle cx="60" cy="26" r="12" fill="${p.hair}"/><circle cx="76" cy="30" r="10" fill="${p.hair}"/>`;
-        hairFront = `<path d="M36 42C38 27 82 27 84 42C76 34 44 34 36 42Z" fill="${p.hair}"/>`;
-    } else {
-        hairBack = `<path d="M36 44C36 25 84 25 84 44Z" fill="${p.hair}"/>`;
-        hairFront = `<path d="M36 41C40 24 80 24 84 41C75 31 45 31 36 41Z" fill="${p.hair}"/>`;
-    }
-
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
-        <rect width="120" height="120" fill="${p.bg}"/>
-        ${hairBack}
-        <path d="M22 120C24 91 39 78 60 78C81 78 96 91 98 120H22Z" fill="${p.shirt}"/>
-        <path d="M46 78L60 95L74 78" fill="${p.collar}"/>
-        <rect x="52" y="64" width="16" height="18" rx="6" fill="${p.skin}"/>
-        <circle cx="60" cy="48" r="22" fill="${p.skin}"/>
-        <circle cx="52" cy="47" r="2.2" fill="#18181B"/>
-        <circle cx="68" cy="47" r="2.2" fill="#18181B"/>
-        <path d="M48 42Q52 40 56 42" stroke="${p.hair}" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M64 42Q68 40 72 42" stroke="${p.hair}" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M54 57Q60 61 66 57" stroke="#573016" stroke-width="2" stroke-linecap="round" fill="none"/>
-        ${hairFront}
-    </svg>`;
-
-    const dataUri = "data:image/svg+xml;utf8," + encodeURIComponent(svg);
-    generatedPortraitCache[key] = dataUri;
-    return dataUri;
+    const isFemale = FEMALE_PORTRAIT_SEED_IDS.has(key);
+    const localPortraitUrl = isFemale
+        ? `./portraits/f${(Math.abs(hash) % 12) + 1}.jpg`
+        : `./portraits/m${(Math.abs(hash) % 16) + 1}.jpg`;
+    generatedPortraitCache[key] = localPortraitUrl;
+    return localPortraitUrl;
 }
 
 const NO_DATA_IMAGE_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
@@ -453,11 +418,11 @@ const NO_DATA_IMAGE_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
 </svg>`);
 
 function hasCustomPhoto(url) {
-    return Boolean(url && url.trim() !== '' && !url.includes('unsplash.com') && !url.includes('placehold.co'));
+    return Boolean(url && url.trim() !== '' && !url.includes('unsplash.com') && !url.includes('placehold.co') && !url.startsWith('./portraits/'));
 }
 
 function getAvatarUrl(url, seedKey = '') {
-    if (hasCustomPhoto(url)) return url;
+    if (url && url.trim() !== '' && !url.includes('unsplash.com') && !url.includes('placehold.co')) return url;
     if (seedKey) return generateWorkforcePortraitSvg(seedKey);
     return DEFAULT_AVATAR_SVG;
 }
@@ -741,29 +706,35 @@ function toggleInfoTip(tipId) {
     if (el) el.classList.toggle('hidden');
 }
 
-function refreshAllCustomSelects() {
-    document.querySelectorAll('select').forEach(sel => {
-        sel.classList.add('c-select-hidden');
+function updateSingleCustomSelectButton(sel) {
+    if (!sel) return;
+    sel.classList.add('c-select-hidden');
 
-        let btn = sel.nextElementSibling;
-        if (!btn || !btn.classList.contains('c-select-btn')) {
-            btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'c-select-btn';
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openCustomSelectMenu(sel, btn);
-            });
-            sel.parentNode.insertBefore(btn, sel.nextSibling);
-        }
+    let btn = sel.nextElementSibling;
+    if (!btn || !btn.classList.contains('c-select-btn')) {
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'c-select-btn';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openCustomSelectMenu(sel, btn);
+        });
+        sel.parentNode.insertBefore(btn, sel.nextSibling);
+    }
 
-        const selectedOpt = sel.options[sel.selectedIndex] || sel.options[0];
-        const labelText = selectedOpt ? selectedOpt.text : 'Select...';
+    const selectedOpt = sel.options[sel.selectedIndex] || sel.options[0];
+    const labelText = selectedOpt ? selectedOpt.text : 'Select...';
+    if (btn.dataset.lastLabel !== labelText) {
+        btn.dataset.lastLabel = labelText;
         btn.innerHTML = `
             <span class="truncate pr-1">${labelText}</span>
             <i class="ph-bold ph-caret-down text-zinc-400 shrink-0 text-xs"></i>
         `;
-    });
+    }
+}
+
+function refreshAllCustomSelects() {
+    document.querySelectorAll('select').forEach(updateSingleCustomSelectButton);
 }
 
 function openCustomSelectMenu(selectEl, triggerBtn) {
@@ -772,23 +743,28 @@ function openCustomSelectMenu(selectEl, triggerBtn) {
     if (!menu || !backdrop) return;
 
     activeCustomSelectEl = selectEl;
-    const options = Array.from(selectEl.options);
+    const opts = selectEl.options;
+    const selectedIdx = selectEl.selectedIndex;
+    const rowsHtml = [];
+
+    for (let idx = 0; idx < opts.length; idx++) {
+        const opt = opts[idx];
+        const isSelected = idx === selectedIdx;
+        rowsHtml.push(`
+            <button type="button" onclick="pickCustomSelectOption(${idx})" class="w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between gap-2 ${isSelected ? 'bg-zinc-900 text-white font-bold' : 'bg-white hover:bg-zinc-100 text-zinc-800 font-medium'}">
+                <span class="leading-snug truncate">${opt.text}</span>
+                ${isSelected ? '<i class="ph-bold ph-check text-xs shrink-0"></i>' : ''}
+            </button>
+        `);
+    }
 
     menu.innerHTML = `
         <div class="px-3.5 py-2.5 bg-zinc-50 border-b border-zinc-200 flex justify-between items-center sm:hidden">
             <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Select Option</span>
             <button type="button" onclick="closeCustomSelectMenu()" class="text-zinc-400 hover:text-zinc-800"><i class="ph-bold ph-x text-sm"></i></button>
         </div>
-        <div class="overflow-y-auto custom-scroll divide-y divide-zinc-100 max-h-[230px]">
-            ${options.map((opt, idx) => {
-                const isSelected = idx === selectEl.selectedIndex;
-                return `
-                    <button type="button" onclick="pickCustomSelectOption(${idx})" class="w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between gap-2 transition-colors ${isSelected ? 'bg-zinc-900 text-white font-bold' : 'bg-white hover:bg-zinc-100 text-zinc-800 font-medium'}">
-                        <span class="leading-snug">${opt.text}</span>
-                        ${isSelected ? '<i class="ph-bold ph-check text-xs shrink-0"></i>' : ''}
-                    </button>
-                `;
-            }).join('')}
+        <div class="overflow-y-auto custom-scroll divide-y divide-zinc-100 max-h-[240px]">
+            ${rowsHtml.join('')}
         </div>
     `;
 
@@ -810,7 +786,7 @@ function openCustomSelectMenu(selectEl, triggerBtn) {
             menu.style.top = `${Math.max(72, rect.top - 220)}px`;
         }
     } else {
-        const menuWidth = Math.max(rect.width, 220);
+        const menuWidth = Math.max(rect.width, 240);
         const leftPos = Math.min(rect.left, window.innerWidth - menuWidth - 16);
         menu.style.width = `${menuWidth}px`;
         menu.style.left = `${Math.max(12, leftPos)}px`;
@@ -826,11 +802,13 @@ function openCustomSelectMenu(selectEl, triggerBtn) {
 
 function pickCustomSelectOption(optionIndex) {
     if (!activeCustomSelectEl) return;
-    activeCustomSelectEl.selectedIndex = optionIndex;
-    activeCustomSelectEl.value = activeCustomSelectEl.options[optionIndex].value;
-    refreshAllCustomSelects();
-    activeCustomSelectEl.dispatchEvent(new Event('change', { bubbles: true }));
+    const sel = activeCustomSelectEl;
+    if (!sel.options[optionIndex]) return;
+    sel.selectedIndex = optionIndex;
+    sel.value = sel.options[optionIndex].value;
+    updateSingleCustomSelectButton(sel);
     closeCustomSelectMenu();
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 function closeCustomSelectMenu() {
@@ -998,6 +976,7 @@ async function syncFromSupabase() {
                 updateProfileUI(refreshed);
             }
         }
+        populateQuickRoleSelect();
         updateCommUnreadBadge();
         setTimeout(refreshAllCustomSelects, 20);
     } catch (err) {
@@ -1223,8 +1202,78 @@ function toggleAuthLock() {
     updateGatewayStatusLabel();
 }
 
+const SANDBOX_ROLE_DEFAULTS = {
+    'DH-01': { full_name: 'Jackson Emmanuel', department: 'Cutting', role_designation: 'Cutting Dpt. Head', work_location_zone: 'CD Operations Office' },
+    'CSE-01': { full_name: 'Aaron Emmanuel', department: 'Cutting', role_designation: 'Cutting Senior Executive', work_location_zone: 'CD Operations Office' },
+    'CS-L1-01': { full_name: 'Nathaniel Perera', department: 'Cutting', role_designation: 'Cutting Supervisors', work_location_zone: 'Cutting Floor' },
+    'PR-C-PC-01': { full_name: 'Kavya Tharmalingam', department: 'Cutting - Pattern', role_designation: 'Pattern Coordinators', work_location_zone: 'Pattern Room' },
+    'DDC-C-01': { full_name: 'Kavindi Perera', department: 'Design - Cutting', role_designation: 'Design Dpt. Coordinators', work_location_zone: 'Design Department' },
+    'CADC-C-01': { full_name: 'Sachith Perera', department: 'Cutting - CAD', role_designation: 'CAD Coordinators', work_location_zone: 'CAD Room' },
+    'SDC-C-01': { full_name: 'Tharindu Perera', department: 'Sewing - Cutting', role_designation: 'Sewing Dpt. Coordinator', work_location_zone: 'Sewing Department' },
+    'RMWC-C-01': { full_name: 'Ahamed Niyas', department: 'RMW - Cutting', role_designation: 'RMW Coordinators', work_location_zone: 'Raw Material Warehouse' },
+    'CQCE-01': { full_name: 'Imesha Fernando', department: 'QC - Cutting', role_designation: 'Quality Control Executive', work_location_zone: 'CD Operations Office' },
+    'QCI-C-01': { full_name: 'Mohamed Faiz', department: 'QC - Cutting', role_designation: 'Quality Control Inspectors', work_location_zone: 'Cutting Floor' },
+    'DT-C-CST-01': { full_name: 'Shehani Mel', department: 'Digital - Cutting', role_designation: 'CDMS Support Team', work_location_zone: 'CD Operations Office' },
+    'DT-C-CA-01': { full_name: 'Ashan Mendis', department: 'Digital - Cutting', role_designation: 'CDMS Admins', work_location_zone: 'CD Operations Office' },
+    'CDTE-01': { full_name: 'Arjun Rajan', department: 'Digital - Cutting', role_designation: 'Digital Team Executive', work_location_zone: 'CD Operations Office' }
+};
+
+const QUICK_ROLE_PRIORITY_ORDER = [
+    'DH-01', 'CSE-01', 'CS-L1-01', 'CS-L2-01', 'CS-L3-01',
+    'PR-C-PC-01', 'PR-C-PH-01', 'DDC-C-01', 'CADC-C-01', 'CAD-C-MM-01', 'CAD-C-CPH-01',
+    'SDC-C-01', 'RMWC-C-01', 'CQCE-01', 'QCI-C-01',
+    'DT-C-CST-01', 'DT-C-CA-01', 'CDTE-01'
+];
+
+function populateQuickRoleSelect() {
+    const sel = document.getElementById('quick-role-select');
+    if (!sel) return;
+
+    const previousVal = sel.value;
+    let portalStaff = DB.employees.filter(e =>
+        e &&
+        e.employee_id &&
+        !String(e.employee_id).toUpperCase().startsWith('CW-') &&
+        (!e.account_status || !e.account_status.startsWith('Suspended'))
+    );
+
+    if (portalStaff.length === 0) {
+        portalStaff = Object.entries(SANDBOX_ROLE_DEFAULTS).map(([empId, info]) => ({
+            employee_id: empId,
+            full_name: info.full_name,
+            role_designation: info.role_designation,
+            department: info.department,
+            work_location_zone: info.work_location_zone
+        }));
+    } else {
+        portalStaff = [...portalStaff].sort((a, b) => {
+            const idxA = QUICK_ROLE_PRIORITY_ORDER.indexOf(a.employee_id.toUpperCase());
+            const idxB = QUICK_ROLE_PRIORITY_ORDER.indexOf(b.employee_id.toUpperCase());
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.employee_id.localeCompare(b.employee_id);
+        });
+    }
+
+    sel.innerHTML = portalStaff.map(emp => {
+        const cleanId = emp.employee_id.trim();
+        return `<option value="${cleanId}">${emp.role_designation} — ${emp.full_name} (${cleanId})</option>`;
+    }).join('');
+
+    if (previousVal && portalStaff.some(e => e.employee_id === previousVal)) {
+        sel.value = previousVal;
+    } else if (sel.options.length > 0) {
+        sel.selectedIndex = 0;
+        sel.value = sel.options[0].value;
+    }
+
+    updateSingleCustomSelectButton(sel);
+}
+
 function openUserLoginModal() {
     setTopBarState('expanded-auth');
+    populateQuickRoleSelect();
     document.getElementById('user-login-modal').classList.remove('hidden');
     const helper = document.getElementById('quick-role-box');
     const stdInputs = document.getElementById('standard-login-inputs');
@@ -1238,7 +1287,7 @@ function openUserLoginModal() {
         stdInputs.classList.remove('hidden');
         morphDepartmentIconOnType(document.getElementById('login-emp-id').value);
     }
-    refreshAllCustomSelects();
+    updateSingleCustomSelectButton(document.getElementById('quick-role-select'));
 }
 
 function onQuickRoleChange() {
@@ -1255,18 +1304,22 @@ function morphDepartmentIconOnType(rawId) {
     const emp = DB.employees.find(e => e.employee_id.toUpperCase() === code);
     let cfg = { icon: 'ph-identification-badge', dept: 'Bodyline Staff Authentication', title: 'Staff Portal Sign In' };
 
-    if (code.startsWith('DH')) cfg = { icon: 'ph-buildings', dept: emp ? emp.full_name : 'CD Operations Office', title: 'Department Head Sign In' };
-    else if (code.startsWith('CSE')) cfg = { icon: 'ph-briefcase', dept: emp ? emp.full_name : 'CD Operations Office', title: 'Senior Executive Sign In' };
-    else if (code.startsWith('CS-')) cfg = { icon: 'ph-calendar-check', dept: emp ? emp.full_name : 'Cutting Floor', title: 'Cutting Supervisor Sign In' };
-    else if (code.startsWith('DDC')) cfg = { icon: 'ph-paint-brush-broad', dept: emp ? emp.full_name : 'Design Department', title: 'Design Coordinator Sign In' };
-    else if (code.startsWith('CAD')) cfg = { icon: 'ph-compass-tool', dept: emp ? emp.full_name : 'CAD Room', title: 'CAD Room Sign In' };
-    else if (code.startsWith('PR-')) cfg = { icon: 'ph-barcode', dept: emp ? emp.full_name : 'Pattern Room', title: 'Pattern Coordinator Sign In' };
-    else if (code.startsWith('SDC')) cfg = { icon: 'ph-scissors', dept: emp ? emp.full_name : 'Sewing Department', title: 'Sewing Coordinator Sign In' };
-    else if (code.startsWith('RMW')) cfg = { icon: 'ph-warehouse', dept: emp ? emp.full_name : 'Raw Material Warehouse', title: 'RMW Coordinator Sign In' };
-    else if (code.startsWith('CQCE')) cfg = { icon: 'ph-shield-check', dept: emp ? emp.full_name : 'Quality Control Office', title: 'QC Executive Sign In' };
-    else if (code.startsWith('QCI')) cfg = { icon: 'ph-warning-octagon', dept: emp ? emp.full_name : 'Quality Control Floor', title: 'QC Inspector Sign In' };
-    else if (code.startsWith('DT-C-CST')) cfg = { icon: 'ph-headset', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Support Sign In' };
-    else if (code.startsWith('CDTE') || code.startsWith('DT-')) cfg = { icon: 'ph-terminal-window', dept: emp ? emp.full_name : 'Digital Team', title: 'CDMS Admin Sign In' };
+    if (code.startsWith('DH')) cfg = { icon: 'ph-buildings', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'CD Operations Office', title: 'Department Head Sign In' };
+    else if (code.startsWith('CSE')) cfg = { icon: 'ph-briefcase', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'CD Operations Office', title: 'Senior Executive Sign In' };
+    else if (code.startsWith('CS-')) cfg = { icon: 'ph-calendar-check', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'Cutting Floor', title: 'Cutting Supervisor Sign In' };
+    else if (code.startsWith('DDC')) cfg = { icon: 'ph-paint-brush-broad', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'Design Department', title: 'Design Coordinator Sign In' };
+    else if (code.startsWith('CADC')) cfg = { icon: 'ph-compass-tool', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'CAD Room', title: 'CAD Coordinator Sign In' };
+    else if (code.startsWith('CAD-C-MM')) cfg = { icon: 'ph-compass-tool', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'CAD Room', title: 'Marker Maker Sign In' };
+    else if (code.startsWith('CAD')) cfg = { icon: 'ph-compass-tool', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'CAD Room', title: 'CAD Pattern Handler Sign In' };
+    else if (code.startsWith('PR-C-PC')) cfg = { icon: 'ph-barcode', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'Pattern Room', title: 'Pattern Coordinator Sign In' };
+    else if (code.startsWith('PR-')) cfg = { icon: 'ph-barcode', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'Pattern Room', title: 'Pattern Handler Sign In' };
+    else if (code.startsWith('SDC')) cfg = { icon: 'ph-scissors', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'Sewing Department', title: 'Sewing Coordinator Sign In' };
+    else if (code.startsWith('RMW')) cfg = { icon: 'ph-warehouse', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'Raw Material Warehouse', title: 'RMW Coordinator Sign In' };
+    else if (code.startsWith('CQCE')) cfg = { icon: 'ph-shield-check', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'Quality Control Office', title: 'QC Executive Sign In' };
+    else if (code.startsWith('QCI')) cfg = { icon: 'ph-warning-octagon', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'Quality Control Floor', title: 'QC Inspector Sign In' };
+    else if (code.startsWith('DT-C-CST')) cfg = { icon: 'ph-headset', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'Digital Team', title: 'CDMS Support Sign In' };
+    else if (code.startsWith('CDTE')) cfg = { icon: 'ph-terminal-window', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'Digital Team', title: 'Digital Team Executive Sign In' };
+    else if (code.startsWith('DT-')) cfg = { icon: 'ph-terminal-window', dept: emp ? `${emp.full_name} (${emp.employee_id})` : 'Digital Team', title: 'CDMS Admin Sign In' };
 
     icon.className = `ph-bold ${cfg.icon} text-2xl`;
     badge.innerText = cfg.dept;
@@ -1289,22 +1342,6 @@ function updateProfileUI(emp) {
         delBtn.disabled = !hasPhoto;
     }
 }
-
-const SANDBOX_ROLE_DEFAULTS = {
-    'DH-01': { full_name: 'Jackson Emmanuel', department: 'Cutting', role_designation: 'Cutting Dpt. Head', work_location_zone: 'CD Operations Office' },
-    'CSE-01': { full_name: 'Aaron Emmanuel', department: 'Cutting', role_designation: 'Cutting Senior Executive', work_location_zone: 'CD Operations Office' },
-    'CS-L1-01': { full_name: 'Nathaniel Perera', department: 'Cutting', role_designation: 'Cutting Supervisors', work_location_zone: 'Cutting Floor' },
-    'PR-C-PC-01': { full_name: 'Menaka Rathnayake', department: 'Cutting - Pattern', role_designation: 'Pattern Coordinators', work_location_zone: 'Pattern Room' },
-    'DDC-C-01': { full_name: 'Kavindi Perera', department: 'Design - Cutting', role_designation: 'Design Dpt. Coordinators', work_location_zone: 'Design Department' },
-    'CADC-C-01': { full_name: 'Oshadhi Perera', department: 'Cutting - CAD', role_designation: 'CAD Coordinators', work_location_zone: 'CAD Room' },
-    'SDC-C-01': { full_name: 'Tharindu Perera', department: 'Sewing - Cutting', role_designation: 'Sewing Dpt. Coordinator', work_location_zone: 'Sewing Department' },
-    'RMWC-C-01': { full_name: 'Ahamed Niyas', department: 'RMW - Cutting', role_designation: 'RMW Coordinators', work_location_zone: 'Raw Material Warehouse' },
-    'CQCE-01': { full_name: 'Imesha Fernando', department: 'QC - Cutting', role_designation: 'Quality Control Executive', work_location_zone: 'CD Operations Office' },
-    'QCI-C-01': { full_name: 'Mohamed Faiz', department: 'QC - Cutting', role_designation: 'Quality Control Inspectors', work_location_zone: 'Cutting Floor' },
-    'DT-C-CST-01': { full_name: 'Nadeeka Perera', department: 'Digital - Cutting', role_designation: 'CDMS Support Team', work_location_zone: 'CD Operations Office' },
-    'DT-C-CA-01': { full_name: 'Ashan Mendis', department: 'Digital - Cutting', role_designation: 'CDMS Admins', work_location_zone: 'CD Operations Office' },
-    'CDTE-01': { full_name: 'Arjun Rajan', department: 'Digital - Cutting', role_designation: 'Digital Team Executive', work_location_zone: 'CD Operations Office' }
-};
 
 async function executeDepartmentLogin() {
     if (isAuthBusy) return;
@@ -1427,7 +1464,7 @@ async function submitForgotPasswordRequest() {
         sender_name: emp.full_name,
         sender_role: emp.role_designation,
         receiver_id: 'DT-C-CST-01',
-        receiver_name: supportEmp ? supportEmp.full_name : 'Nadeeka Perera',
+        receiver_name: supportEmp ? supportEmp.full_name : 'Shehani Mel',
         receiver_role: 'CDMS Support Team',
         protocol_category: 'Password Reset',
         linked_reference_id: emp.employee_id,
@@ -1911,7 +1948,7 @@ async function submitAvatarChangeRequest(fileInput) {
         sender_name: currentLoggedInUser.full_name,
         sender_role: currentLoggedInUser.role_designation,
         receiver_id: 'DT-C-CST-01',
-        receiver_name: supportEmp ? supportEmp.full_name : 'Nadeeka Perera',
+        receiver_name: supportEmp ? supportEmp.full_name : 'Shehani Mel',
         receiver_role: 'CDMS Support Team',
         protocol_category: 'Avatar Request',
         linked_reference_id: currentLoggedInUser.employee_id,
