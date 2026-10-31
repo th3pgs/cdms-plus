@@ -252,41 +252,41 @@ function createSandboxDemoDatabase() {
     ];
 
     const cad_markers = [
-        { cad_marker_id: 'CAD-MK-01', style_code: 'BV3636', brand_buyer: 'Nike', model_name: 'Swoosh Medium-Support', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Approved', sketch_url: './patterns/pb-nike.svg' },
-        { cad_marker_id: 'CAD-MK-02', style_code: 'AJ0340', brand_buyer: 'Nike', model_name: 'Alpha High-Support', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Approved', sketch_url: './patterns/pm-nike.svg' },
-        { cad_marker_id: 'CAD-MK-03', style_code: 'CZ4456', brand_buyer: 'Nike', model_name: 'Indy Light-Support', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Approved', sketch_url: './patterns/pb-nike.svg' },
-        { cad_marker_id: 'CAD-MK-04', style_code: 'AQ4184', brand_buyer: 'Nike', model_name: 'Rival Molded Cup', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Approved', sketch_url: './patterns/pm-nike.svg' },
-        { cad_marker_id: 'CAD-MK-05', style_code: 'DD1205', brand_buyer: 'Nike', model_name: 'Dri-FIT Aero Swoosh', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Approved', sketch_url: './patterns/pb-nike.svg' },
-        { cad_marker_id: 'CAD-MK-06', style_code: 'DM0579', brand_buyer: 'Nike', model_name: 'Pro Sculpt Contour', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CAD-C-CPH-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Sent to CAD', sketch_url: './patterns/pm-nike.svg' },
-        { cad_marker_id: 'CAD-MK-07', style_code: 'W2AS4S', brand_buyer: 'Lululemon', model_name: 'Energy Longline', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-LL-01', marker_status: 'Approved', sketch_url: './patterns/pb-lululemon.svg' },
-        { cad_marker_id: 'CAD-MK-08', style_code: 'W2CC1S', brand_buyer: 'Lululemon', model_name: 'Like a Cloud', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-LL-01', marker_status: 'Approved', sketch_url: './patterns/pm-lululemon.svg' },
-        { cad_marker_id: 'CAD-MK-09', style_code: 'W2BL8S', brand_buyer: 'Lululemon', model_name: 'Align Wirefree', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-LL-01', marker_status: 'Approved', sketch_url: './patterns/pb-lululemon.svg' },
-        { cad_marker_id: 'CAD-MK-10', style_code: 'W2DW3S', brand_buyer: 'Lululemon', model_name: 'Free to Be Sculpt', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-LL-01', marker_status: 'Approved', sketch_url: './patterns/pm-lululemon.svg' },
-        { cad_marker_id: 'CAD-MK-11', style_code: 'TR-TAC-01', brand_buyer: 'Triumph', model_name: 'Triaction Control', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-TR-01', marker_status: 'Approved', sketch_url: './patterns/pb-triumph.svg' },
-        { cad_marker_id: 'CAD-MK-12', style_code: 'TR-AMC-01', brand_buyer: 'Triumph', model_name: 'Amourette Charm', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-TR-01', marker_status: 'Approved', sketch_url: './patterns/pm-triumph.svg' },
-        { cad_marker_id: 'CAD-MK-13', style_code: 'TR-BMU-02', brand_buyer: 'Triumph', model_name: 'Body Make-Up Soft', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-TR-01', marker_status: 'Approved', sketch_url: './patterns/pb-triumph.svg' },
-        { cad_marker_id: 'CAD-MK-14', style_code: 'VS-BBV-10', brand_buyer: "Victoria's Secret", model_name: 'Body by Victoria', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-VS-01', marker_status: 'Approved', sketch_url: './patterns/pb-vs.svg' },
-        { cad_marker_id: 'CAD-MK-15', style_code: 'VS-SMC-20', brand_buyer: "Victoria's Secret", model_name: 'Smooth Memory Contour', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-VS-01', marker_status: 'Approved', sketch_url: './patterns/pm-vs.svg' },
-        { cad_marker_id: 'CAD-MK-16', style_code: 'VS-DAD-11', brand_buyer: "Victoria's Secret", model_name: 'Dream Angels Demi', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-VS-01', marker_status: 'Approved', sketch_url: './patterns/pb-vs.svg' }
+        { cad_marker_id: 'CAD-MK-01', style_code: 'BV3636', brand_buyer: 'Nike', model_name: 'Swoosh Medium-Support', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Approved', sketch_url: './patterns/pattern-block-default.png' },
+        { cad_marker_id: 'CAD-MK-02', style_code: 'AJ0340', brand_buyer: 'Nike', model_name: 'Alpha High-Support', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Approved', sketch_url: './patterns/pattern-mold-default.png' },
+        { cad_marker_id: 'CAD-MK-03', style_code: 'CZ4456', brand_buyer: 'Nike', model_name: 'Indy Light-Support', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Approved', sketch_url: './patterns/pattern-block-default.png' },
+        { cad_marker_id: 'CAD-MK-04', style_code: 'AQ4184', brand_buyer: 'Nike', model_name: 'Rival Molded Cup', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Approved', sketch_url: './patterns/pattern-mold-default.png' },
+        { cad_marker_id: 'CAD-MK-05', style_code: 'DD1205', brand_buyer: 'Nike', model_name: 'Dri-FIT Aero Swoosh', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Approved', sketch_url: './patterns/pattern-block-default.png' },
+        { cad_marker_id: 'CAD-MK-06', style_code: 'DM0579', brand_buyer: 'Nike', model_name: 'Pro Sculpt Contour', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CAD-C-CPH-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Sent to CAD', sketch_url: './patterns/pattern-mold-default.png' },
+        { cad_marker_id: 'CAD-MK-07', style_code: 'W2AS4S', brand_buyer: 'Lululemon', model_name: 'Energy Longline', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-LL-01', marker_status: 'Approved', sketch_url: './patterns/pattern-block-default.png' },
+        { cad_marker_id: 'CAD-MK-08', style_code: 'W2CC1S', brand_buyer: 'Lululemon', model_name: 'Like a Cloud', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-LL-01', marker_status: 'Approved', sketch_url: './patterns/pattern-mold-default.png' },
+        { cad_marker_id: 'CAD-MK-09', style_code: 'W2BL8S', brand_buyer: 'Lululemon', model_name: 'Align Wirefree', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-LL-01', marker_status: 'Approved', sketch_url: './patterns/pattern-block-default.png' },
+        { cad_marker_id: 'CAD-MK-10', style_code: 'W2DW3S', brand_buyer: 'Lululemon', model_name: 'Free to Be Sculpt', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-LL-01', marker_status: 'Approved', sketch_url: './patterns/pattern-mold-default.png' },
+        { cad_marker_id: 'CAD-MK-11', style_code: 'TR-TAC-01', brand_buyer: 'Triumph', model_name: 'Triaction Control', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-TR-01', marker_status: 'Approved', sketch_url: './patterns/pattern-block-default.png' },
+        { cad_marker_id: 'CAD-MK-12', style_code: 'TR-AMC-01', brand_buyer: 'Triumph', model_name: 'Amourette Charm', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-TR-01', marker_status: 'Approved', sketch_url: './patterns/pattern-mold-default.png' },
+        { cad_marker_id: 'CAD-MK-13', style_code: 'TR-BMU-02', brand_buyer: 'Triumph', model_name: 'Body Make-Up Soft', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-TR-01', marker_status: 'Approved', sketch_url: './patterns/pattern-block-default.png' },
+        { cad_marker_id: 'CAD-MK-14', style_code: 'VS-BBV-10', brand_buyer: "Victoria's Secret", model_name: 'Body by Victoria', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-VS-01', marker_status: 'Approved', sketch_url: './patterns/pattern-block-default.png' },
+        { cad_marker_id: 'CAD-MK-15', style_code: 'VS-SMC-20', brand_buyer: "Victoria's Secret", model_name: 'Smooth Memory Contour', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-VS-01', marker_status: 'Approved', sketch_url: './patterns/pattern-mold-default.png' },
+        { cad_marker_id: 'CAD-MK-16', style_code: 'VS-DAD-11', brand_buyer: "Victoria's Secret", model_name: 'Dream Angels Demi', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-VS-01', marker_status: 'Approved', sketch_url: './patterns/pattern-block-default.png' }
     ];
 
     const pattern_assets = [
-        { asset_id: 'NK-PB-01', tooling_type: 'Pattern Block', model_name: 'Swoosh Medium-Support', style_code: 'BV3636', brand_buyer: 'Nike', size_category: 'M', storage_location: 'Rack D-01', operational_status: 'Active on Line', borrowed_by_id: 'CW-L3-CMO-01', shift_checkout: 'Morning', checkout_time: nowIso, last_used_date: todayStr, image_url: './patterns/pb-nike.svg' },
-        { asset_id: 'NK-PM-01', tooling_type: 'Pattern Mold', model_name: 'Alpha High-Support', style_code: 'AJ0340', brand_buyer: 'Nike', size_category: 'L', storage_location: 'Mold Cabinet 03', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pm-nike.svg' },
-        { asset_id: 'NK-PB-02', tooling_type: 'Pattern Block', model_name: 'Indy Light-Support', style_code: 'CZ4456', brand_buyer: 'Nike', size_category: 'S', storage_location: 'Rack D-02', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pb-nike.svg' },
-        { asset_id: 'NK-PM-02', tooling_type: 'Pattern Mold', model_name: 'Rival Molded Cup', style_code: 'AQ4184', brand_buyer: 'Nike', size_category: 'M', storage_location: 'Mold Cabinet 04', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pm-nike.svg' },
-        { asset_id: 'NK-PB-03', tooling_type: 'Pattern Block', model_name: 'Dri-FIT Aero Swoosh', style_code: 'DD1205', brand_buyer: 'Nike', size_category: 'L', storage_location: 'Rack D-01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pb-nike.svg' },
-        { asset_id: 'NK-PM-03', tooling_type: 'Pattern Mold', model_name: 'Pro Sculpt Contour', style_code: 'DM0579', brand_buyer: 'Nike', size_category: 'S', storage_location: 'Mold Cabinet 03', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pm-nike.svg' },
-        { asset_id: 'LL-PB-01', tooling_type: 'Pattern Block', model_name: 'Energy Longline', style_code: 'W2AS4S', brand_buyer: 'Lululemon', size_category: 'S', storage_location: 'Rack C-01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pb-lululemon.svg' },
-        { asset_id: 'LL-PM-01', tooling_type: 'Pattern Mold', model_name: 'Like a Cloud', style_code: 'W2CC1S', brand_buyer: 'Lululemon', size_category: 'M', storage_location: 'Mold Cabinet 01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pm-lululemon.svg' },
-        { asset_id: 'LL-PB-02', tooling_type: 'Pattern Block', model_name: 'Align Wirefree', style_code: 'W2BL8S', brand_buyer: 'Lululemon', size_category: 'M', storage_location: 'Rack C-02', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pb-lululemon.svg' },
-        { asset_id: 'LL-PM-02', tooling_type: 'Pattern Mold', model_name: 'Free to Be Sculpt', style_code: 'W2DW3S', brand_buyer: 'Lululemon', size_category: 'L', storage_location: 'Mold Cabinet 02', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pm-lululemon.svg' },
-        { asset_id: 'TR-PB-01', tooling_type: 'Pattern Block', model_name: 'Triaction Control', style_code: 'TR-TAC-01', brand_buyer: 'Triumph', size_category: '34C', storage_location: 'Rack A-01', operational_status: 'Active on Line', borrowed_by_id: 'CW-L1-CMO-01', shift_checkout: 'Morning', checkout_time: nowIso, last_used_date: todayStr, image_url: './patterns/pb-triumph.svg' },
-        { asset_id: 'TR-PM-01', tooling_type: 'Pattern Mold', model_name: 'Amourette Charm', style_code: 'TR-AMC-01', brand_buyer: 'Triumph', size_category: '34D', storage_location: 'Mold Cabinet 01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pm-triumph.svg' },
-        { asset_id: 'TR-PB-02', tooling_type: 'Pattern Block', model_name: 'Body Make-Up Soft', style_code: 'TR-BMU-02', brand_buyer: 'Triumph', size_category: '36C', storage_location: 'Rack A-02', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pb-triumph.svg' },
-        { asset_id: 'VS-PB-01', tooling_type: 'Pattern Block', model_name: 'Body by Victoria', style_code: 'VS-BBV-10', brand_buyer: "Victoria's Secret", size_category: '34B', storage_location: 'Rack B-01', operational_status: 'Active on Line', borrowed_by_id: 'CW-L2-CMO-01', shift_checkout: 'Morning', checkout_time: nowIso, last_used_date: todayStr, image_url: './patterns/pb-vs.svg' },
-        { asset_id: 'VS-PM-01', tooling_type: 'Pattern Mold', model_name: 'Smooth Memory Contour', style_code: 'VS-SMC-20', brand_buyer: "Victoria's Secret", size_category: '36B', storage_location: 'Mold Cabinet 03', operational_status: 'Inspection Flagged', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pm-vs.svg' },
-        { asset_id: 'VS-PB-02', tooling_type: 'Pattern Block', model_name: 'Dream Angels Demi', style_code: 'VS-DAD-11', brand_buyer: "Victoria's Secret", size_category: '36D', storage_location: 'Rack B-02', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pb-vs.svg' }
+        { asset_id: 'NK-PB-01', tooling_type: 'Pattern Block', model_name: 'Swoosh Medium-Support', style_code: 'BV3636', brand_buyer: 'Nike', size_category: 'M', storage_location: 'Rack D-01', operational_status: 'Active on Line', borrowed_by_id: 'CW-L3-CMO-01', shift_checkout: 'Morning', checkout_time: nowIso, last_used_date: todayStr, image_url: './patterns/pattern-block-default.png' },
+        { asset_id: 'NK-PM-01', tooling_type: 'Pattern Mold', model_name: 'Alpha High-Support', style_code: 'AJ0340', brand_buyer: 'Nike', size_category: 'L', storage_location: 'Mold Cabinet 03', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-mold-default.png' },
+        { asset_id: 'NK-PB-02', tooling_type: 'Pattern Block', model_name: 'Indy Light-Support', style_code: 'CZ4456', brand_buyer: 'Nike', size_category: 'S', storage_location: 'Rack D-02', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-block-default.png' },
+        { asset_id: 'NK-PM-02', tooling_type: 'Pattern Mold', model_name: 'Rival Molded Cup', style_code: 'AQ4184', brand_buyer: 'Nike', size_category: 'M', storage_location: 'Mold Cabinet 04', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-mold-default.png' },
+        { asset_id: 'NK-PB-03', tooling_type: 'Pattern Block', model_name: 'Dri-FIT Aero Swoosh', style_code: 'DD1205', brand_buyer: 'Nike', size_category: 'L', storage_location: 'Rack D-01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-block-default.png' },
+        { asset_id: 'NK-PM-03', tooling_type: 'Pattern Mold', model_name: 'Pro Sculpt Contour', style_code: 'DM0579', brand_buyer: 'Nike', size_category: 'S', storage_location: 'Mold Cabinet 03', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-mold-default.png' },
+        { asset_id: 'LL-PB-01', tooling_type: 'Pattern Block', model_name: 'Energy Longline', style_code: 'W2AS4S', brand_buyer: 'Lululemon', size_category: 'S', storage_location: 'Rack C-01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-block-default.png' },
+        { asset_id: 'LL-PM-01', tooling_type: 'Pattern Mold', model_name: 'Like a Cloud', style_code: 'W2CC1S', brand_buyer: 'Lululemon', size_category: 'M', storage_location: 'Mold Cabinet 01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-mold-default.png' },
+        { asset_id: 'LL-PB-02', tooling_type: 'Pattern Block', model_name: 'Align Wirefree', style_code: 'W2BL8S', brand_buyer: 'Lululemon', size_category: 'M', storage_location: 'Rack C-02', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-block-default.png' },
+        { asset_id: 'LL-PM-02', tooling_type: 'Pattern Mold', model_name: 'Free to Be Sculpt', style_code: 'W2DW3S', brand_buyer: 'Lululemon', size_category: 'L', storage_location: 'Mold Cabinet 02', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-mold-default.png' },
+        { asset_id: 'TR-PB-01', tooling_type: 'Pattern Block', model_name: 'Triaction Control', style_code: 'TR-TAC-01', brand_buyer: 'Triumph', size_category: '34C', storage_location: 'Rack A-01', operational_status: 'Active on Line', borrowed_by_id: 'CW-L1-CMO-01', shift_checkout: 'Morning', checkout_time: nowIso, last_used_date: todayStr, image_url: './patterns/pattern-block-default.png' },
+        { asset_id: 'TR-PM-01', tooling_type: 'Pattern Mold', model_name: 'Amourette Charm', style_code: 'TR-AMC-01', brand_buyer: 'Triumph', size_category: '34D', storage_location: 'Mold Cabinet 01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-mold-default.png' },
+        { asset_id: 'TR-PB-02', tooling_type: 'Pattern Block', model_name: 'Body Make-Up Soft', style_code: 'TR-BMU-02', brand_buyer: 'Triumph', size_category: '36C', storage_location: 'Rack A-02', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-block-default.png' },
+        { asset_id: 'VS-PB-01', tooling_type: 'Pattern Block', model_name: 'Body by Victoria', style_code: 'VS-BBV-10', brand_buyer: "Victoria's Secret", size_category: '34B', storage_location: 'Rack B-01', operational_status: 'Active on Line', borrowed_by_id: 'CW-L2-CMO-01', shift_checkout: 'Morning', checkout_time: nowIso, last_used_date: todayStr, image_url: './patterns/pattern-block-default.png' },
+        { asset_id: 'VS-PM-01', tooling_type: 'Pattern Mold', model_name: 'Smooth Memory Contour', style_code: 'VS-SMC-20', brand_buyer: "Victoria's Secret", size_category: '36B', storage_location: 'Mold Cabinet 03', operational_status: 'Inspection Flagged', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-mold-default.png' },
+        { asset_id: 'VS-PB-02', tooling_type: 'Pattern Block', model_name: 'Dream Angels Demi', style_code: 'VS-DAD-11', brand_buyer: "Victoria's Secret", size_category: '36D', storage_location: 'Rack B-02', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: './patterns/pattern-block-default.png' }
     ];
 
     const qc_defect_codes = [
@@ -318,6 +318,10 @@ function createSandboxDemoDatabase() {
     // Pre-assign QR codes to all demo employees and 5 of the 6 demo patterns (leaving NK-PB-01 unassigned to demonstrate QR assignment)
     let recCounter = 1;
     const system_settings_audit = [
+        { record_id: recCounter++, record_type: 'PARAMETER', category: 'Brand', setting_value: 'Nike', prefix_data: 'NK', json_backup_data: './brand-logos/nike.svg', requested_by_id: 'DT-C-CA-01', request_status: 'Active', created_at: nowIso },
+        { record_id: recCounter++, record_type: 'PARAMETER', category: 'Brand', setting_value: 'Lululemon', prefix_data: 'LL', json_backup_data: './brand-logos/lululemon.svg', requested_by_id: 'DT-C-CA-01', request_status: 'Active', created_at: nowIso },
+        { record_id: recCounter++, record_type: 'PARAMETER', category: 'Brand', setting_value: "Victoria's Secret", prefix_data: 'VS', json_backup_data: './brand-logos/vs.svg', requested_by_id: 'DT-C-CA-01', request_status: 'Active', created_at: nowIso },
+        { record_id: recCounter++, record_type: 'PARAMETER', category: 'Brand', setting_value: 'Triumph', prefix_data: 'TR', json_backup_data: './brand-logos/triumph.svg', requested_by_id: 'DT-C-CA-01', request_status: 'Active', created_at: nowIso },
         ...employees.map(e => ({
             record_id: recCounter++,
             record_type: 'QR_ASSIGNED',
@@ -444,6 +448,64 @@ function hasCustomPhoto(url) {
 function getAvatarUrl(url) {
     if (hasCustomPhoto(url)) return url;
     return DEFAULT_AVATAR_SVG;
+}
+
+// --- Brand Logo Pipeline ---
+// Brand logos live on the Brand parameter row (System_Settings_Audit.json_backup_data).
+// Value can be a data URL (admin upload), a relative path (./brand-logos/*.svg) or BRAND_LOGO_REMOVED.
+// Pattern images stay clean; the logo is overlaid at render time in the bottom-left corner.
+const BRAND_LOGO_REMOVED = 'NO_LOGO';
+const BUILT_IN_BRAND_LOGOS = [
+    { match: ['nike'], url: './brand-logos/nike.svg' },
+    { match: ['lululemon', 'lulu'], url: './brand-logos/lululemon.svg' },
+    { match: ["victoria's secret", 'victorias secret', 'victoria'], url: './brand-logos/vs.svg' },
+    { match: ['triumph'], url: './brand-logos/triumph.svg' }
+];
+
+function getBuiltInBrandLogo(brandName) {
+    const b = String(brandName || '').toLowerCase().trim();
+    if (!b) return '';
+    const hit = BUILT_IN_BRAND_LOGOS.find(entry => entry.match.some(m => b === m || b.startsWith(m)));
+    return hit ? hit.url : '';
+}
+
+function getBrandParamRow(brandName) {
+    const b = String(brandName || '').toLowerCase().trim();
+    if (!b) return null;
+    return (DB.system_settings_audit || []).find(
+        s => s.record_type === 'PARAMETER' && s.category === 'Brand' && String(s.setting_value || '').toLowerCase().trim() === b
+    ) || null;
+}
+
+function getBrandLogoUrl(brandName) {
+    if (!brandName) return '';
+    const row = getBrandParamRow(brandName);
+    if (row && row.json_backup_data) {
+        if (row.json_backup_data === BRAND_LOGO_REMOVED) return '';
+        return row.json_backup_data;
+    }
+    return getBuiltInBrandLogo(brandName);
+}
+
+function escapeAttr(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+// Minimal black logo floating on a soft white glow that fades out of the bottom-left corner.
+function renderBrandCornerBadgeHtml(brandName, compact = false) {
+    const logoUrl = getBrandLogoUrl(brandName);
+    if (!logoUrl) return '';
+    const glowW = compact ? '62%' : '46%';
+    const glowH = compact ? '78%' : '62%';
+    const pad = compact ? '5px 6px' : '10px 12px';
+    const logoH = compact ? '11px' : '22px';
+    const logoMaxW = compact ? '38px' : '84px';
+    return `
+        <div class="brand-corner-glow" style="position:absolute;left:0;bottom:0;width:${glowW};height:${glowH};pointer-events:none;z-index:5;background:radial-gradient(ellipse at 0% 100%, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.85) 28%, rgba(255,255,255,0.45) 52%, rgba(255,255,255,0) 75%);"></div>
+        <div style="position:absolute;left:0;bottom:0;padding:${pad};pointer-events:none;z-index:6;display:flex;align-items:flex-end;">
+            <img src="${escapeAttr(logoUrl)}" alt="${escapeAttr(brandName)}" style="height:${logoH};max-width:${logoMaxW};width:auto;object-fit:contain;opacity:0.92;filter:drop-shadow(0 0 2px rgba(255,255,255,0.95));">
+        </div>
+    `;
 }
 
 function getItemImageUrl(url) {
@@ -622,7 +684,7 @@ function openPatternQrTagModal(assetId) {
             <div>
                 <p class="font-mono text-base font-black text-zinc-900">${asset.asset_id}</p>
                 <p class="text-xs font-bold text-zinc-700">${asset.model_name} (${asset.style_code})</p>
-                <p class="text-[11px] text-zinc-500">${asset.brand_buyer} • Size ${asset.size_category} • ${asset.storage_location}</p>
+                <p class="text-[11px] text-zinc-500">${asset.brand_buyer} â€¢ Size ${asset.size_category} â€¢ ${asset.storage_location}</p>
             </div>
             <div>
                 <span class="inline-block px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
@@ -655,12 +717,12 @@ function printQrTagOrBadge(kind, targetId) {
         heading = 'BODYLINE STAFF QR BADGE';
         title = emp ? emp.full_name : targetId;
         subtitle = emp ? emp.role_designation : 'Cutting Department';
-        meta = emp ? `${emp.department} • ${emp.work_location_zone}` : '';
+        meta = emp ? `${emp.department} â€¢ ${emp.work_location_zone}` : '';
     } else {
         const asset = DB.pattern_assets.find(p => p.asset_id === targetId);
         heading = asset && asset.tooling_type === 'Pattern Mold' ? '3D MOLD QR TAG' : 'PATTERN BLOCK QR TAG';
         title = asset ? `${asset.model_name} (${asset.style_code})` : targetId;
-        subtitle = asset ? `${asset.brand_buyer} • Size ${asset.size_category}` : 'Pattern Room Asset';
+        subtitle = asset ? `${asset.brand_buyer} â€¢ Size ${asset.size_category}` : 'Pattern Room Asset';
         meta = asset ? `Storage: ${asset.storage_location}` : '';
     }
 
@@ -1179,6 +1241,42 @@ function readAndCompressImageFile(file, maxWidth = 360) {
         };
         reader.readAsDataURL(file);
     });
+}
+
+// Brand logos keep their transparency: SVG is stored as-is, raster logos are resized and saved as PNG (never JPEG).
+function readBrandLogoFile(file, maxWidth = 480) {
+    return new Promise((resolve) => {
+        if (!file) return resolve(null);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const src = e.target.result;
+            if ((file.type || '').includes('svg')) return resolve(src);
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const scale = Math.min(1, maxWidth / img.width);
+                canvas.width = Math.round(img.width * scale);
+                canvas.height = Math.round(img.height * scale);
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = () => resolve(src);
+            img.src = src;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// Re-renders every surface that shows brand corner logos after a brand parameter changes.
+function refreshBrandLogoSurfaces() {
+    try {
+        const tracker = document.getElementById('view-tracker');
+        if (tracker && !tracker.classList.contains('hidden')) handlePatternSearch();
+        const design = document.getElementById('view-design-cad');
+        if (design && !design.classList.contains('hidden')) renderDesignCadPortal();
+    } catch (err) {
+        console.error('Brand logo refresh error:', err);
+    }
 }
 
 function readAndCompressImage(fileInput, maxWidth = 360) {
@@ -1734,7 +1832,7 @@ function triggerSingleRowPhotoUpload(targetType, targetId) {
     const fileInput = document.getElementById('single-row-photo-input');
     fileInput.value = '';
     fileInput.onchange = async () => {
-        const dataUrl = await readAndCompressImage(fileInput, targetType === 'employee' ? 360 : 520);
+        const dataUrl = await readAndCompressImage(fileInput, targetType === 'employee' ? 360 : 720);
         if (!dataUrl) return;
 
         if (targetType === 'employee') {
@@ -1825,7 +1923,7 @@ function openStaffProfileModal(empId) {
     document.getElementById('spm-avatar').src = getAvatarUrl(emp.avatar_url, emp.employee_id);
     document.getElementById('spm-name').innerText = emp.full_name;
     document.getElementById('spm-role').innerText = emp.role_designation;
-    document.getElementById('spm-dept-zone').innerText = `${emp.department} • ${emp.work_location_zone}`;
+    document.getElementById('spm-dept-zone').innerText = `${emp.department} â€¢ ${emp.work_location_zone}`;
 
     const pill = document.getElementById('spm-status-pill');
     pill.innerText = status;
@@ -2321,16 +2419,15 @@ function renderPatternCardHtml(p) {
         if (st.includes('Locked')) return 'bg-amber-50 text-amber-700 border-amber-200';
         return 'bg-rose-50 text-rose-700 border-rose-200';
     };
-    const isMold = (p.tooling_type || '').toLowerCase().includes('mold') || (p.asset_id || '').includes('-PM-');
-    const fitClass = isMold ? 'object-cover bg-white' : 'object-contain bg-white';
 
     return `
         <div onclick="openScannerForAsset('${p.asset_id}')" class="product-card bg-white rounded-2xl border border-zinc-200 overflow-hidden cursor-pointer flex flex-col justify-between">
             <div>
-                <div class="h-44 w-full bg-white relative overflow-hidden border-b border-zinc-100">
-                    <img src="${getItemImageUrl(p.image_url)}" class="w-full h-full ${fitClass}" alt="${p.model_name}">
+                <div class="aspect-[2/1] w-full bg-white relative overflow-hidden border-b border-zinc-100">
+                    <img src="${getItemImageUrl(p.image_url)}" class="w-full h-full object-contain" alt="${p.model_name}">
                     <span class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white/95 text-zinc-800 border border-zinc-200">${p.tooling_type}</span>
                     <span class="absolute top-2.5 right-2.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${badgeStyle(p.operational_status)}">${p.operational_status}</span>
+                    ${renderBrandCornerBadgeHtml(p.brand_buyer)}
                 </div>
                 <div class="p-4">
                     <div class="flex justify-between items-center text-[11px] font-medium text-zinc-500 mb-0.5">
@@ -2529,13 +2626,15 @@ function openScannerForAsset(assetId) {
     document.getElementById('verify-modal').classList.remove('hidden');
     const area = document.getElementById('modal-dynamic-area');
     const itemImg = getItemImageUrl(asset.image_url);
-    const isMold = (asset.tooling_type || '').toLowerCase().includes('mold') || (asset.asset_id || '').includes('-PM-');
-    const fitClass = isMold ? 'object-cover bg-white' : 'object-contain bg-white';
+    const hasPhoto = hasCustomPhoto(asset.image_url);
 
     if (['Inspection Flagged', 'Decommissioned', 'Pending Removal'].includes(asset.operational_status)) {
         area.innerHTML = `
             <div class="text-center py-6 space-y-3">
-                <img src="${itemImg}" class="w-40 h-28 ${fitClass} rounded-xl mx-auto border">
+                <div class="relative w-44 aspect-[2/1] rounded-xl mx-auto overflow-hidden border border-zinc-200 bg-white">
+                    <img src="${itemImg}" class="w-full h-full object-contain" alt="${asset.model_name}">
+                    ${renderBrandCornerBadgeHtml(asset.brand_buyer, true)}
+                </div>
                 <h4 class="text-base font-bold text-rose-600 uppercase">Restricted (${asset.operational_status})</h4>
                 <p class="text-xs text-zinc-600">${asset.asset_id} cannot be checked out while flagged.</p>
             </div>
@@ -2558,11 +2657,24 @@ function openScannerForAsset(assetId) {
         area.innerHTML = `
             <div class="space-y-4">
                 <div class="flex gap-3 items-center p-3 rounded-xl bg-zinc-50 border border-zinc-200">
-                    <img src="${itemImg}" class="w-20 h-14 rounded-lg ${fitClass} border">
-                    <div>
+                    <div class="relative w-24 aspect-[2/1] rounded-lg overflow-hidden border border-zinc-200 shrink-0 bg-white">
+                        <img src="${itemImg}" class="w-full h-full object-contain" alt="${asset.model_name}">
+                        ${renderBrandCornerBadgeHtml(asset.brand_buyer, true)}
+                    </div>
+                    <div class="min-w-0 flex-1">
                         <p class="text-xs font-medium text-zinc-500">Checked Out By: <strong class="text-zinc-900">${asset.borrowed_by_id || 'Floor Staff'}</strong></p>
                         <h4 class="text-sm font-bold text-zinc-900">${asset.model_name} (${asset.asset_id})</h4>
                         <p class="text-xs text-zinc-500">Rack: ${asset.storage_location}</p>
+                        <div class="mt-1 flex items-center gap-2">
+                            <button type="button" onclick="triggerSingleRowPhotoUpload('pattern', '${asset.asset_id}')" class="text-[10px] text-zinc-600 hover:text-zinc-900 font-semibold underline">
+                                ${hasPhoto ? 'Change Photo' : 'Upload Photo'}
+                            </button>
+                            ${hasPhoto ? `
+                                <button type="button" onclick="removeItemOrStaffPhoto('pattern', '${asset.asset_id}')" class="text-[10px] text-rose-600 hover:text-rose-800 font-semibold underline">
+                                    Delete Photo
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
                 </div>
 
@@ -2617,11 +2729,24 @@ function openScannerForAsset(assetId) {
     area.innerHTML = `
         <div class="space-y-4">
             <div class="flex gap-3 items-center p-3 rounded-xl bg-zinc-50 border border-zinc-200">
-                <img src="${itemImg}" class="w-20 h-14 rounded-lg ${fitClass} border">
-                <div>
+                <div class="relative w-24 aspect-[2/1] rounded-lg overflow-hidden border border-zinc-200 shrink-0 bg-white">
+                    <img src="${itemImg}" class="w-full h-full object-contain" alt="${asset.model_name}">
+                    ${renderBrandCornerBadgeHtml(asset.brand_buyer, true)}
+                </div>
+                <div class="min-w-0 flex-1">
                     <p class="text-xs font-medium text-zinc-500">${asset.brand_buyer} (${asset.style_code})</p>
                     <h4 class="text-base font-bold text-zinc-900">${asset.model_name} (${asset.asset_id})</h4>
                     <p class="text-xs text-zinc-500">Size ${asset.size_category} / ${asset.storage_location}</p>
+                    <div class="mt-1 flex items-center gap-2">
+                        <button type="button" onclick="triggerSingleRowPhotoUpload('pattern', '${asset.asset_id}')" class="text-[10px] text-zinc-600 hover:text-zinc-900 font-semibold underline">
+                            ${hasPhoto ? 'Change Photo' : 'Upload Photo'}
+                        </button>
+                        ${hasPhoto ? `
+                            <button type="button" onclick="removeItemOrStaffPhoto('pattern', '${asset.asset_id}')" class="text-[10px] text-rose-600 hover:text-rose-800 font-semibold underline">
+                                Delete Photo
+                            </button>
+                        ` : ''}
+                    </div>
                 </div>
             </div>
 
@@ -2873,7 +2998,7 @@ async function renderDeptHeadPortal() {
                 <img src="${getItemImageUrl(a.image_url)}" class="w-11 h-8 rounded-lg object-cover border">
                 <div class="flex-1 min-w-0">
                     <p class="font-bold text-zinc-900 truncate">${a.model_name} (${a.asset_id})</p>
-                    <p class="text-zinc-500 truncate">${worker ? worker.full_name : (a.borrowed_by_id || 'Assigned')} • ${a.shift_checkout || 'Morning'}</p>
+                    <p class="text-zinc-500 truncate">${worker ? worker.full_name : (a.borrowed_by_id || 'Assigned')} â€¢ ${a.shift_checkout || 'Morning'}</p>
                 </div>
             </div>
         `;
@@ -2892,7 +3017,7 @@ async function renderDeptHeadPortal() {
                     <span>${l.qc_log_id} (${l.defect_code})</span>
                     <span class="px-2 py-0.5 rounded border text-[10px] font-bold ${riskStyle}">${risk}</span>
                 </div>
-                <p class="text-zinc-600">Item: <strong class="font-mono text-zinc-800">${l.asset_id}</strong> • ${l.production_line} • Plies: ${l.ruined_ply_count}</p>
+                <p class="text-zinc-600">Item: <strong class="font-mono text-zinc-800">${l.asset_id}</strong> â€¢ ${l.production_line} â€¢ Plies: ${l.ruined_ply_count}</p>
                 <span class="inline-block px-2 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 text-[10px] font-semibold">${l.resolution_status}</span>
             </div>
         `;
@@ -3056,7 +3181,7 @@ async function renderSupervisorPortal() {
             <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs flex justify-between items-center">
                 <div>
                     <p class="font-bold text-zinc-900">${p.asset_id} (${p.model_name})</p>
-                    <p class="text-[11px] text-zinc-500">${emp ? emp.full_name : p.borrowed_by_id} • ${p.shift_checkout || 'Morning'}</p>
+                    <p class="text-[11px] text-zinc-500">${emp ? emp.full_name : p.borrowed_by_id} â€¢ ${p.shift_checkout || 'Morning'}</p>
                 </div>
                 <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold text-[10px]">Active</span>
             </div>
@@ -3154,10 +3279,10 @@ function renderCseOrderVerificationHub() {
         return `
             <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-2">
                 <div class="flex justify-between items-center">
-                    <span class="font-mono font-bold text-zinc-900">${o.order_id} • ${o.style_code} (${o.target_size})</span>
+                    <span class="font-mono font-bold text-zinc-900">${o.order_id} â€¢ ${o.style_code} (${o.target_size})</span>
                     <span class="px-2 py-0.5 rounded text-[10px] font-bold ${o.priority_level === 'Urgent' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-zinc-200 text-zinc-800'}">${o.priority_level}</span>
                 </div>
-                <p class="text-zinc-600">Qty: <strong>${o.target_bundle_qty} pcs</strong> • Status: <strong>${o.order_status}</strong></p>
+                <p class="text-zinc-600">Qty: <strong>${o.target_bundle_qty} pcs</strong> â€¢ Status: <strong>${o.order_status}</strong></p>
                 ${isQueued ? `
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                         <select id="cse-target-line-${o.order_id}" class="p-2 bg-white border border-zinc-300 rounded-lg text-xs">
@@ -3170,7 +3295,7 @@ function renderCseOrderVerificationHub() {
                         </button>
                     </div>
                 ` : `
-                    <p class="text-[11px] text-emerald-700 font-semibold">${o.assigned_line} ${o.assigned_operator_id ? `• ${o.assigned_operator_id} (${o.scheduled_date})` : ''}</p>
+                    <p class="text-[11px] text-emerald-700 font-semibold">${o.assigned_line} ${o.assigned_operator_id ? `â€¢ ${o.assigned_operator_id} (${o.scheduled_date})` : ''}</p>
                 `}
             </div>
         `;
@@ -3219,10 +3344,10 @@ function renderSupervisorOrderExecutionHub() {
         return `
             <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-2">
                 <div class="flex justify-between items-center">
-                    <span class="font-mono font-bold text-zinc-900">${o.order_id} • ${o.style_code} (${o.target_size})</span>
+                    <span class="font-mono font-bold text-zinc-900">${o.order_id} â€¢ ${o.style_code} (${o.target_size})</span>
                     <span class="px-2 py-0.5 rounded bg-zinc-200 text-zinc-800 font-bold text-[10px]">${o.order_status}</span>
                 </div>
-                <p class="text-zinc-600">Qty: <strong>${o.target_bundle_qty} pcs</strong> • ${o.assigned_line}</p>
+                <p class="text-zinc-600">Qty: <strong>${o.target_bundle_qty} pcs</strong> â€¢ ${o.assigned_line}</p>
                 ${!isCompleted ? `
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <input id="sup-ord-date-${o.order_id}" type="date" value="${o.scheduled_date || todayStr}" min="${todayStr}" class="p-2 bg-white border border-zinc-300 rounded-lg text-xs">
@@ -3550,20 +3675,21 @@ async function renderDesignCadPortal() {
         cadListEl.innerHTML = DB.cad_markers.map(m => {
             const isPendingCad = m.marker_status === 'Sent to CAD' || m.marker_status === 'Pending CAD Plotting';
             const hasDesignPhoto = hasCustomPhoto(m.sketch_url);
-            const isMold = (m.cad_tooling_material_code || '').toUpperCase().includes('PLS');
-            const fitClass = isMold ? 'object-cover bg-white' : 'object-contain bg-white';
             return `
                 <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-2">
                     <div class="flex items-center justify-between gap-2.5">
                         <div class="flex items-center gap-2.5 min-w-0">
-                            <img src="${getItemImageUrl(m.sketch_url)}" class="w-16 h-11 rounded-lg ${fitClass} border border-zinc-200 shrink-0" alt="${m.model_name}">
+                            <div class="relative w-20 aspect-[2/1] rounded-lg overflow-hidden border border-zinc-200 shrink-0 bg-white">
+                                <img src="${getItemImageUrl(m.sketch_url)}" class="w-full h-full object-contain" alt="${m.model_name}">
+                                ${renderBrandCornerBadgeHtml(m.brand_buyer, true)}
+                            </div>
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-1.5">
-                                    <span class="font-mono font-bold text-zinc-900">${m.cad_marker_id} • ${m.style_code}</span>
+                                    <span class="font-mono font-bold text-zinc-900">${m.cad_marker_id} â€¢ ${m.style_code}</span>
                                     <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isPendingCad ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">${m.marker_status}</span>
                                 </div>
                                 <p class="font-bold text-zinc-800 truncate">${m.model_name} (${m.brand_buyer})</p>
-                                <p class="text-[11px] text-zinc-500 truncate">${m.cad_tooling_material_code} • ${m.cutting_floor_fabric_code}</p>
+                                <p class="text-[11px] text-zinc-500 truncate">${m.cad_tooling_material_code} â€¢ ${m.cutting_floor_fabric_code}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
@@ -3595,20 +3721,21 @@ async function renderDesignCadPortal() {
     document.getElementById('cad-markers-mini-list').innerHTML = DB.pattern_assets.map(p => {
         const hasPhoto = hasCustomPhoto(p.image_url);
         const qrOk = isPatternQrAssigned(p.asset_id);
-        const isMold = (p.tooling_type || '').toLowerCase().includes('mold') || (p.asset_id || '').includes('-PM-');
-        const fitClass = isMold ? 'object-cover bg-white' : 'object-contain bg-white';
         return `
             <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
                 <div class="flex items-center gap-2.5 min-w-0">
-                    <img src="${getItemImageUrl(p.image_url)}" class="w-16 h-11 rounded-lg ${fitClass} border border-zinc-200 shrink-0" alt="${p.model_name}">
+                    <div class="relative w-20 aspect-[2/1] rounded-lg overflow-hidden border border-zinc-200 shrink-0 bg-white">
+                        <img src="${getItemImageUrl(p.image_url)}" class="w-full h-full object-contain" alt="${p.model_name}">
+                        ${renderBrandCornerBadgeHtml(p.brand_buyer, true)}
+                    </div>
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-1.5">
-                            <p class="font-bold text-zinc-900 truncate">${p.asset_id} • ${p.model_name}</p>
+                            <p class="font-bold text-zinc-900 truncate">${p.asset_id} â€¢ ${p.model_name}</p>
                             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${qrOk ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}">
                                 ${qrOk ? 'QR Active' : 'No QR'}
                             </span>
                         </div>
-                        <p class="text-[11px] text-zinc-500 truncate">${p.brand_buyer} (${p.style_code}) • ${p.storage_location}</p>
+                        <p class="text-[11px] text-zinc-500 truncate">${p.brand_buyer} (${p.style_code}) â€¢ ${p.storage_location}</p>
                     </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5 sm:shrink-0">
@@ -3651,7 +3778,7 @@ async function createStyleAndMarker() {
         return showToast(`Duplicate style blocked: ${duplicateStyle.style_code} (${duplicateStyle.model_name}) already exists in database.`, 'error');
     }
 
-    const uploadedImg = await readAndCompressImage(sketchFile);
+    const uploadedImg = await readAndCompressImage(sketchFile, 720);
     const mkId = getNextSequentialId(DB.cad_markers, 'cad_marker_id', 'CAD-MK-', 2);
 
     const isDesignUser = currentLoggedInUser && currentLoggedInUser.employee_id.startsWith('DDC');
@@ -3753,7 +3880,7 @@ async function registerNewPatternAsset() {
         return showToast(`Duplicate ${type} blocked: ${dupBySpec.asset_id} already exists for Style ${styleCode} (Size ${size}).`, 'error');
     }
 
-    const uploadedImg = await readAndCompressImage(photoInput);
+    const uploadedImg = await readAndCompressImage(photoInput, 720);
     const styleObj = DB.cad_markers.find(m => m.style_code === styleCode) || { model_name: 'Custom Style', brand_buyer: 'Triumph' };
 
     const newAsset = {
@@ -3838,12 +3965,12 @@ async function renderSupplyPortal() {
         return `
             <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-wrap justify-between items-center gap-3 text-xs">
                 <div>
-                    <p class="font-bold text-zinc-900">${o.order_id} • ${o.style_code} (Size ${o.target_size})</p>
-                    <p class="text-zinc-500 mt-0.5">Qty: <strong>${o.target_bundle_qty} pcs</strong> • ${o.assigned_line}</p>
+                    <p class="font-bold text-zinc-900">${o.order_id} â€¢ ${o.style_code} (Size ${o.target_size})</p>
+                    <p class="text-zinc-500 mt-0.5">Qty: <strong>${o.target_bundle_qty} pcs</strong> â€¢ ${o.assigned_line}</p>
                     ${o.order_notes ? `<p class="text-[11px] text-zinc-500 italic mt-0.5">"${o.order_notes}"</p>` : ''}
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="px-2.5 py-1 rounded font-bold text-[10px] ${o.priority_level === 'Urgent' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-zinc-200 text-zinc-800'}">${o.priority_level} • ${o.order_status}</span>
+                    <span class="px-2.5 py-1 rounded font-bold text-[10px] ${o.priority_level === 'Urgent' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-zinc-200 text-zinc-800'}">${o.priority_level} â€¢ ${o.order_status}</span>
                     ${canReceiveBundles ? `
                         <button type="button" onclick="sewingConfirmBundleReceipt('${o.order_id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-bold text-[11px]">
                             Receive Bundles
@@ -3858,8 +3985,8 @@ async function renderSupplyPortal() {
         <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex justify-between items-center gap-3 text-xs">
             <div>
                 <p class="font-bold text-zinc-900">${m.material_code} (${m.material_category})</p>
-                <p class="text-zinc-600">${m.material_name_specs} • ${m.target_brand_usage}</p>
-                <p class="text-[11px] text-zinc-400">${m.rmw_storage_bay} • <strong class="text-zinc-800">${m.lot_status}</strong></p>
+                <p class="text-zinc-600">${m.material_name_specs} â€¢ ${m.target_brand_usage}</p>
+                <p class="text-[11px] text-zinc-400">${m.rmw_storage_bay} â€¢ <strong class="text-zinc-800">${m.lot_status}</strong></p>
             </div>
             ${userId.startsWith('RMW') ? `
                 <button type="button" onclick="dispatchRmwMaterial('${m.material_code}')" class="bg-zinc-900 hover:bg-zinc-800 text-white px-3 py-1.5 rounded-lg font-semibold text-[11px] shrink-0">
@@ -4127,9 +4254,9 @@ async function renderQcPortal() {
                 <div class="space-y-0.5">
                     <div class="flex items-center gap-2">
                         <span class="px-2 py-0.5 rounded ${riskBadgeStyle} text-[10px] font-bold">${riskTier} risk</span>
-                        <p class="font-bold text-zinc-900">${l.qc_log_id} • ${l.defect_code} on ${l.asset_id} (${l.production_line})</p>
+                        <p class="font-bold text-zinc-900">${l.qc_log_id} â€¢ ${l.defect_code} on ${l.asset_id} (${l.production_line})</p>
                     </div>
-                    <p class="text-zinc-500">Inspector: ${l.inspector_id} • Plies: ${l.ruined_ply_count} ${l.involved_employee_id ? `• Op: ${l.involved_employee_id}` : ''}</p>
+                    <p class="text-zinc-500">Inspector: ${l.inspector_id} â€¢ Plies: ${l.ruined_ply_count} ${l.involved_employee_id ? `â€¢ Op: ${l.involved_employee_id}` : ''}</p>
                     ${l.inspector_notes ? `<p class="text-[11px] text-zinc-600 italic">"${l.inspector_notes}"</p>` : ''}
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5 ml-auto">
@@ -4188,7 +4315,7 @@ function previewDefectAction() {
     const def = sourceList.find(d => d.defect_code === code);
     if (!def) return;
     document.getElementById('qc-action-preview').innerHTML = `
-        <span><strong>Status:</strong> ${def.target_asset_status} • <strong>Resolver:</strong> ${def.assigned_resolver_role_id}</span>
+        <span><strong>Status:</strong> ${def.target_asset_status} â€¢ <strong>Resolver:</strong> ${def.assigned_resolver_role_id}</span>
     `;
 }
 
@@ -4353,12 +4480,32 @@ async function renderAdminPortal() {
     renderDhSuspensionOrdersQueue();
 
     const params = DB.system_settings_audit.filter(s => s.record_type === 'PARAMETER');
-    document.getElementById('system-settings-list').innerHTML = params.map(p => `
-        <li class="p-2.5 rounded-xl bg-white border border-zinc-200 flex justify-between items-center">
-            <span><strong>${p.category}:</strong> ${p.setting_value} ${p.prefix_data ? `(${p.prefix_data})` : ''}</span>
-            <button type="button" onclick="deleteSystemParam(${p.record_id})" class="text-zinc-400 hover:text-rose-600"><i class="ph-bold ph-trash"></i></button>
-        </li>
-    `).join('');
+    document.getElementById('system-settings-list').innerHTML = params.map(p => {
+        const brandLogo = p.category === 'Brand' ? getBrandLogoUrl(p.setting_value) : '';
+        return `
+            <li class="p-2.5 rounded-xl bg-white border border-zinc-200 flex justify-between items-center gap-2">
+                <span class="flex items-center gap-2 min-w-0">
+                    ${brandLogo ? `<img src="${brandLogo}" class="w-7 h-5 object-contain bg-zinc-50 border border-zinc-200 rounded p-0.5 shrink-0" alt="Logo">` : ''}
+                    <span class="truncate"><strong>${p.category}:</strong> ${p.setting_value} ${p.prefix_data ? `(${p.prefix_data})` : ''}</span>
+                </span>
+                <div class="flex items-center gap-1 shrink-0">
+                    ${p.category === 'Brand' ? `
+                        <button type="button" onclick="triggerBrandLogoUpload(${p.record_id})" class="text-zinc-400 hover:text-zinc-800 p-1 rounded hover:bg-zinc-100" title="${brandLogo ? 'Change Brand Logo' : 'Upload Brand Logo'}">
+                            <i class="ph-bold ${brandLogo ? 'ph-pencil-simple' : 'ph-image'}"></i>
+                        </button>
+                        ${brandLogo ? `
+                            <button type="button" onclick="removeBrandLogo(${p.record_id})" class="text-zinc-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50" title="Remove Brand Logo (keep brand)">
+                                <i class="ph-bold ph-image-broken"></i>
+                            </button>
+                        ` : ''}
+                    ` : ''}
+                    <button type="button" onclick="deleteSystemParam(${p.record_id})" class="text-zinc-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50" title="Delete Parameter">
+                        <i class="ph-bold ph-trash"></i>
+                    </button>
+                </div>
+            </li>
+        `;
+    }).join('');
 
     const vaultBadge = document.getElementById('trash-vault-count-badge');
     if (vaultBadge) vaultBadge.innerText = (DB.discarded_trash_vault || []).length;
@@ -4612,6 +4759,7 @@ function switchAdminSubTab(tab) {
     });
     document.getElementById(`admin-panel-${tab}`).classList.remove('hidden');
     document.getElementById(`adm-sub-${tab}`).className = 'px-3.5 py-2 rounded-xl bg-zinc-900 text-white';
+    if (tab === 'params') toggleBrandLogoInputVisibility();
     refreshAllCustomSelects();
 }
 
@@ -4687,10 +4835,17 @@ async function registerNewEmployee() {
     showToast(`Registered ${name} (${id}) & assigned QR badge.`);
 }
 
+function toggleBrandLogoInputVisibility() {
+    const cat = document.getElementById('sys-cat')?.value;
+    const sec = document.getElementById('sys-brand-logo-section');
+    if (sec) sec.classList.toggle('hidden', cat !== 'Brand');
+}
+
 async function addSystemSetting() {
     const cat = document.getElementById('sys-cat').value;
     const val = document.getElementById('sys-val').value.trim();
     const prefix = document.getElementById('sys-prefix').value.trim().toUpperCase();
+    const logoFile = document.getElementById('sys-brand-logo-file');
     if (!val) return showToast('Enter parameter value.', 'error');
 
     const dupParam = DB.system_settings_audit.find(
@@ -4700,27 +4855,73 @@ async function addSystemSetting() {
         return showToast(`Parameter "${val}" already exists under ${cat}.`, 'error');
     }
 
+    let logoData = '';
+    if (cat === 'Brand' && logoFile && logoFile.files && logoFile.files.length > 0) {
+        logoData = await readBrandLogoFile(logoFile.files[0]);
+    }
+
     const row = {
         record_type: 'PARAMETER',
         category: cat,
         setting_value: val,
         prefix_data: prefix,
+        json_backup_data: logoData || null,
         requested_by_id: currentLoggedInUser ? currentLoggedInUser.employee_id : 'DT-C-CA-01',
         request_status: 'Active'
     };
     await supa.from('system_settings_audit').insert([row]);
-    await writeAuditLog('ADD_PARAMETER', 'System_Settings_Audit', val, row);
+    await writeAuditLog('ADD_PARAMETER', 'System_Settings_Audit', val, { ...row, json_backup_data: logoData ? '[logo image]' : null });
     document.getElementById('sys-val').value = '';
     document.getElementById('sys-prefix').value = '';
+    if (logoFile) logoFile.value = '';
+    await syncFromSupabase();
     await renderAdminPortal();
-    showToast(`Saved ${cat}: ${val}`);
+    refreshBrandLogoSurfaces();
+    showToast(`Saved ${cat}: ${val}${logoData ? ' with brand logo' : ''}`);
 }
 
 async function deleteSystemParam(recId) {
     const target = DB.system_settings_audit.find(s => s.record_id === recId);
-    await writeAuditLog('REMOVE_PARAMETER', 'System_Settings_Audit', recId, target || {});
+    await writeAuditLog('REMOVE_PARAMETER', 'System_Settings_Audit', recId, target ? { ...target, json_backup_data: target.json_backup_data ? '[logo image]' : null } : {});
     await supa.from('system_settings_audit').delete().eq('record_id', recId);
+    await syncFromSupabase();
     await renderAdminPortal();
+    refreshBrandLogoSurfaces();
+    showToast('Parameter removed.');
+}
+
+// Upload / replace the logo of an existing Brand parameter
+function triggerBrandLogoUpload(recId) {
+    const param = DB.system_settings_audit.find(s => s.record_id === recId);
+    if (!param) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png,image/svg+xml,image/webp';
+    input.onchange = async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const logoData = await readBrandLogoFile(file);
+        if (!logoData) return showToast('Could not read logo file.', 'error');
+        await supa.from('system_settings_audit').update({ json_backup_data: logoData }).eq('record_id', recId);
+        await writeAuditLog('UPDATE_BRAND_LOGO', 'System_Settings_Audit', param.setting_value, { brand: param.setting_value, logo_updated: true });
+        await syncFromSupabase();
+        await renderAdminPortal();
+        refreshBrandLogoSurfaces();
+        showToast(`Updated brand logo for ${param.setting_value}.`);
+    };
+    input.click();
+}
+
+// Remove only the logo (brand parameter is kept). Stores a sentinel so built-in fallback logos are also hidden.
+async function removeBrandLogo(recId) {
+    const param = DB.system_settings_audit.find(s => s.record_id === recId);
+    if (!param) return;
+    await supa.from('system_settings_audit').update({ json_backup_data: BRAND_LOGO_REMOVED }).eq('record_id', recId);
+    await writeAuditLog('REMOVE_BRAND_LOGO', 'System_Settings_Audit', param.setting_value, { brand: param.setting_value, logo_removed: true });
+    await syncFromSupabase();
+    await renderAdminPortal();
+    refreshBrandLogoSurfaces();
+    showToast(`Logo removed for ${param.setting_value}.`);
 }
 
 

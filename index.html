@@ -823,7 +823,7 @@
                 <div id="admin-panel-params" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-3 h-fit">
                         <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Add System Parameter</h4>
-                        <select id="sys-cat" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
+                        <select id="sys-cat" onchange="toggleBrandLogoInputVisibility()" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
                             <option value="Brand">Buyer Brand</option>
                             <option value="Size">Cup / Garment Size</option>
                             <option value="Rack">Pattern Storage Rack</option>
@@ -831,6 +831,18 @@
                         </select>
                         <input id="sys-val" type="text" placeholder="Value (e.g. Lindex, 34D, Rack E-01)" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
                         <input id="sys-prefix" type="text" placeholder="Brand Prefix (e.g. LDX)" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs font-mono">
+                        <div id="sys-brand-logo-section" class="space-y-1.5 pt-1">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-semibold text-zinc-600 block">Brand Logo Image (Optional)</label>
+                                <button type="button" onclick="toggleInfoTip('tip-brand-logo-spec')" class="info-icon-btn" title="Logo Format & Dimensions">
+                                    <i class="ph-bold ph-info"></i>
+                                </button>
+                            </div>
+                            <p id="tip-brand-logo-spec" class="hidden text-[11px] text-zinc-500 bg-white p-2.5 rounded-xl border border-zinc-200 leading-relaxed">
+                                <strong>Preferred resolution:</strong> 480×240px (2:1) transparent PNG, or an SVG, with pure black artwork and no background. Minimum 240×120px. The logo is shown in the bottom-left corner of every pattern photo for this brand, on a soft white corner glow. Use the pencil / image icons in the list to replace or remove it later.
+                            </p>
+                            <input id="sys-brand-logo-file" type="file" accept="image/png,image/svg+xml,image/webp" class="w-full text-xs text-zinc-600 file:mr-2.5 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-200 file:text-zinc-800">
+                        </div>
                         <button type="button" onclick="addSystemSetting()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
                             Save Parameter
                         </button>
