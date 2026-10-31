@@ -180,12 +180,12 @@ async function toggleSandboxMode() {
 
     if (sandboxMode === '1') {
         sandboxMode = '0';
-        DB = createEmptyDatabase();
+        DB = createSandboxDemoDatabase();
         if (currentMode !== 'gateway') {
             returnToWelcomeScreenImmediate();
         }
         updateModeButtonUI();
-        showToast('Sandbox Mode (0): Started with empty testing data.');
+        showToast('Sandbox Mode (0): Loaded temporary demo simulation data.');
     } else {
         sandboxMode = '1';
         DB = createEmptyDatabase();
@@ -199,8 +199,179 @@ async function toggleSandboxMode() {
 }
 
 
-// --- Placeholder Graphics & Brand Logo Loader ---
-// Uses inline SVGs when an employee or pattern asset has no custom photo uploaded.
+// --- Sandbox Simulation Dataset, Placeholder Portraits & Brand Logo Loader ---
+// Generates a temporary in-memory demo dataset for Sandbox Mode (0) and renders local SVG portraits.
+
+function createSandboxDemoDatabase() {
+    const todayStr = getLocalDateString();
+    const tomorrowObj = new Date();
+    tomorrowObj.setDate(tomorrowObj.getDate() + 1);
+    const tomorrowStr = getLocalDateString(tomorrowObj);
+    const nowIso = new Date().toISOString();
+
+    const employees = [
+        { employee_id: 'DH-01', full_name: 'Jackson Emmanuel', department: 'Cutting', role_designation: 'Cutting Dpt. Head', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CSE-01', full_name: 'Aaron Emmanuel', department: 'Cutting', role_designation: 'Cutting Senior Executive', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CS-L1-01', full_name: 'Nathaniel Perera', department: 'Cutting', role_designation: 'Cutting Supervisors', work_location_zone: 'Cutting Floor', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CS-L2-01', full_name: 'Rifa Mohamed', department: 'Cutting', role_designation: 'Cutting Supervisors', work_location_zone: 'Cutting Floor', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CS-L3-01', full_name: 'Oshani Wickramasinghe', department: 'Cutting', role_designation: 'Cutting Supervisors', work_location_zone: 'Cutting Floor', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CW-L1-FS-01', full_name: 'Nimal Perera', department: 'Cutting', role_designation: 'Fabric Spreaders', work_location_zone: 'Cutting Floor - Line 1', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CW-L2-FS-01', full_name: 'Kasun Wijesinghe', department: 'Cutting', role_designation: 'Fabric Spreaders', work_location_zone: 'Cutting Floor - Line 2', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CW-L3-FS-01', full_name: 'Tharindu Jayawardena', department: 'Cutting', role_designation: 'Fabric Spreaders', work_location_zone: 'Cutting Floor - Line 3', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CW-L1-CMO-01', full_name: 'Gayan Abeysekara', department: 'Cutting', role_designation: 'Cutting Machine Operators', work_location_zone: 'Cutting Floor - Line 1', active_checkout_count: 1, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CW-L1-CMO-02', full_name: 'Dilshan Madushanka', department: 'Cutting', role_designation: 'Cutting Machine Operators', work_location_zone: 'Cutting Floor - Line 1', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CW-L2-CMO-01', full_name: 'Akila Senanayake', department: 'Cutting', role_designation: 'Cutting Machine Operators', work_location_zone: 'Cutting Floor - Line 2', active_checkout_count: 1, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CW-L3-CMO-01', full_name: 'Supun Karunaratne', department: 'Cutting', role_designation: 'Cutting Machine Operators', work_location_zone: 'Cutting Floor - Line 3', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CW-L1-BU-01', full_name: 'Shehani Silva', department: 'Cutting', role_designation: 'Bundling Unit', work_location_zone: 'Cutting Floor - Line 1', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CW-L2-BU-01', full_name: 'Amila Perera', department: 'Cutting', role_designation: 'Bundling Unit', work_location_zone: 'Cutting Floor - Line 2', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'SDC-C-01', full_name: 'Tharindu Perera', department: 'Sewing - Cutting', role_designation: 'Sewing Dpt. Coordinator', work_location_zone: 'Sewing Department', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CQCE-01', full_name: 'Imesha Fernando', department: 'QC - Cutting', role_designation: 'Quality Control Executive', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'QCI-C-01', full_name: 'Mohamed Faiz', department: 'QC - Cutting', role_designation: 'Quality Control Inspectors', work_location_zone: 'Cutting Floor', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'QCI-C-02', full_name: 'Nadeesha Kumari', department: 'QC - Cutting', role_designation: 'Quality Control Inspectors', work_location_zone: 'Cutting Floor', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'RMWC-C-01', full_name: 'Ahamed Niyas', department: 'RMW - Cutting', role_designation: 'RMW Coordinators', work_location_zone: 'Raw Material Warehouse', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'DDC-C-01', full_name: 'Kavindi Perera', department: 'Design - Cutting', role_designation: 'Design Dpt. Coordinators', work_location_zone: 'Design Department', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CADC-C-01', full_name: 'Oshadhi Perera', department: 'Cutting - CAD', role_designation: 'CAD Coordinators', work_location_zone: 'CAD Room', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CAD-C-MM-01', full_name: 'Ayesha Nazeer', department: 'Cutting - CAD', role_designation: 'Marker Makers', work_location_zone: 'CAD Room', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CAD-C-CPH-01', full_name: 'Rizwan Ashraff', department: 'Cutting - CAD', role_designation: 'CAD Pattern Handlers', work_location_zone: 'CAD Room', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'PR-C-PC-01', full_name: 'Menaka Rathnayake', department: 'Cutting - Pattern', role_designation: 'Pattern Coordinators', work_location_zone: 'Pattern Room', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'PR-C-PH-01', full_name: 'Daniel Joseph', department: 'Cutting - Pattern', role_designation: 'Pattern Handlers', work_location_zone: 'Pattern Room', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'CDTE-01', full_name: 'Arjun Rajan', department: 'Digital - Cutting', role_designation: 'Digital Team Executive', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'DT-C-CST-01', full_name: 'Nadeeka Perera', department: 'Digital - Cutting', role_designation: 'CDMS Support Team', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' },
+        { employee_id: 'DT-C-CA-01', full_name: 'Ashan Mendis', department: 'Digital - Cutting', role_designation: 'CDMS Admins', work_location_zone: 'CD Operations Office', active_checkout_count: 0, avatar_url: '', account_password: 'bodyline123', account_status: 'Active' }
+    ];
+
+    const rmw_materials = [
+        { material_code: 'MAT-CRD-01', material_category: 'CAD Tooling Material', material_name_specs: 'Heavy Kraft Pattern Cardboard (350 GSM)', target_brand_usage: 'CAD Pattern Blocks', rmw_storage_bay: 'RMW-Bay-T1', managed_by_rmw_id: 'RMWC-C-01', lot_status: 'Dispatched to CAD' },
+        { material_code: 'MAT-PLS-01', material_category: 'CAD Tooling Material', material_name_specs: 'ABS Thermo-Molding Plastic Resin (3.0mm)', target_brand_usage: 'CAD 3D Molds', rmw_storage_bay: 'RMW-Bay-T2', managed_by_rmw_id: 'RMWC-C-01', lot_status: 'In Warehouse' },
+        { material_code: 'FAB-TR-01', material_category: 'Cutting Floor Fabric', material_name_specs: 'High-Elastane Microfiber Jersey (78% Polyamide)', target_brand_usage: 'Triumph', rmw_storage_bay: 'RMW-Bay-F1', managed_by_rmw_id: 'RMWC-C-01', lot_status: 'Dispatched to Cutting Floor' },
+        { material_code: 'FAB-VS-01', material_category: 'Cutting Floor Fabric', material_name_specs: 'Soft-Touch Nylon Tricot (82% Polyamide)', target_brand_usage: "Victoria's Secret", rmw_storage_bay: 'RMW-Bay-F2', managed_by_rmw_id: 'RMWC-C-01', lot_status: 'Dispatched to Cutting Floor' },
+        { material_code: 'FAB-LL-01', material_category: 'Cutting Floor Fabric', material_name_specs: 'Interlock Technical Compression (77% Nylon)', target_brand_usage: 'Lululemon', rmw_storage_bay: 'RMW-Bay-F3', managed_by_rmw_id: 'RMWC-C-01', lot_status: 'In Warehouse' },
+        { material_code: 'FAB-NK-01', material_category: 'Cutting Floor Fabric', material_name_specs: 'Dri-FIT Compression Recycled Poly (82% Poly)', target_brand_usage: 'Nike', rmw_storage_bay: 'RMW-Bay-F4', managed_by_rmw_id: 'RMWC-C-01', lot_status: 'In Warehouse' }
+    ];
+
+    const cad_markers = [
+        { cad_marker_id: 'CAD-MK-01', style_code: 'TR-TAC-01', brand_buyer: 'Triumph', model_name: 'Triaction Control', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-TR-01', marker_status: 'Approved', sketch_url: '' },
+        { cad_marker_id: 'CAD-MK-02', style_code: 'TR-AMC-01', brand_buyer: 'Triumph', model_name: 'Amourette Charm', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-TR-01', marker_status: 'Approved', sketch_url: '' },
+        { cad_marker_id: 'CAD-MK-03', style_code: 'VS-BBV-10', brand_buyer: "Victoria's Secret", model_name: 'Body by Victoria', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-VS-01', marker_status: 'Approved', sketch_url: '' },
+        { cad_marker_id: 'CAD-MK-04', style_code: 'VS-SMC-20', brand_buyer: "Victoria's Secret", model_name: 'Smooth Memory Contour', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-PLS-01', cutting_floor_fabric_code: 'FAB-VS-01', marker_status: 'Approved', sketch_url: '' },
+        { cad_marker_id: 'CAD-MK-05', style_code: 'W2AS4S', brand_buyer: 'Lululemon', model_name: 'Energy Longline', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CADC-C-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-LL-01', marker_status: 'Approved', sketch_url: '' },
+        { cad_marker_id: 'CAD-MK-06', style_code: 'BV3636', brand_buyer: 'Nike', model_name: 'Swoosh Medium-Support', design_coordinator_id: 'DDC-C-01', cad_handler_id: 'CAD-C-CPH-01', cad_tooling_material_code: 'MAT-CRD-01', cutting_floor_fabric_code: 'FAB-NK-01', marker_status: 'Sent to CAD', sketch_url: '' }
+    ];
+
+    const pattern_assets = [
+        { asset_id: 'TR-PB-01', tooling_type: 'Pattern Block', model_name: 'Triaction Control', style_code: 'TR-TAC-01', brand_buyer: 'Triumph', size_category: '34C', storage_location: 'Rack A-01', operational_status: 'Active on Line', borrowed_by_id: 'CW-L1-CMO-01', shift_checkout: 'Morning', checkout_time: nowIso, last_used_date: todayStr, image_url: '' },
+        { asset_id: 'TR-PM-01', tooling_type: 'Pattern Mold', model_name: 'Amourette Charm', style_code: 'TR-AMC-01', brand_buyer: 'Triumph', size_category: '34D', storage_location: 'Mold Cabinet 01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: '' },
+        { asset_id: 'VS-PB-01', tooling_type: 'Pattern Block', model_name: 'Body by Victoria', style_code: 'VS-BBV-10', brand_buyer: "Victoria's Secret", size_category: '34B', storage_location: 'Rack B-01', operational_status: 'Active on Line', borrowed_by_id: 'CW-L2-CMO-01', shift_checkout: 'Morning', checkout_time: nowIso, last_used_date: todayStr, image_url: '' },
+        { asset_id: 'VS-PM-01', tooling_type: 'Pattern Mold', model_name: 'Smooth Memory Contour', style_code: 'VS-SMC-20', brand_buyer: "Victoria's Secret", size_category: '36B', storage_location: 'Mold Cabinet 03', operational_status: 'Inspection Flagged', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: '' },
+        { asset_id: 'LL-PB-01', tooling_type: 'Pattern Block', model_name: 'Energy Longline', style_code: 'W2AS4S', brand_buyer: 'Lululemon', size_category: 'S', storage_location: 'Rack C-01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: '' },
+        { asset_id: 'NK-PB-01', tooling_type: 'Pattern Block', model_name: 'Swoosh Medium-Support', style_code: 'BV3636', brand_buyer: 'Nike', size_category: 'M', storage_location: 'Rack D-01', operational_status: 'Available in Room', borrowed_by_id: null, shift_checkout: null, checkout_time: null, last_used_date: todayStr, image_url: '' }
+    ];
+
+    const qc_defect_codes = [
+        { defect_code: 'DEF-01', defect_name_symptom: 'Frayed or Torn Cardboard Pattern Block Edge', fault_category: 'Pattern Block Fault', severity_level: 'Medium risk', target_asset_status: 'Inspection Flagged', reported_by_role_id: 'QCI-C-01', assigned_resolver_role_id: 'PR-C-PC-01', mandatory_system_action: 'Flag pattern for Pattern Room inspection and replacement' },
+        { defect_code: 'DEF-02', defect_name_symptom: 'Warped or Cracked 3D Plastic Pattern Mold', fault_category: '3D Mold Fault', severity_level: 'High risk', target_asset_status: 'Pending Removal', reported_by_role_id: 'QCI-C-01', assigned_resolver_role_id: 'DH-01', mandatory_system_action: 'Immediate line stop, lock mold QR, and alert Management' },
+        { defect_code: 'DEF-03', defect_name_symptom: 'Bundle Ticket Missing Ply Sequential Numbering', fault_category: 'Bundling Fault', severity_level: 'Low risk', target_asset_status: 'Active on Line (No Lock)', reported_by_role_id: 'QCI-C-01', assigned_resolver_role_id: 'CS-L1-01', mandatory_system_action: 'Log minor symptom for shift supervisor review' },
+        { defect_code: 'DEF-04', defect_name_symptom: 'Fabric Spreading Layer Tension Distortion', fault_category: 'Spreading Fault', severity_level: 'Medium risk', target_asset_status: 'Active on Line (No Lock)', reported_by_role_id: 'QCI-C-02', assigned_resolver_role_id: 'CS-L2-01', mandatory_system_action: 'Send Re-Cut Request to Supervisor & Log Ply Defect' }
+    ];
+
+    const shift_assignments = [
+        { assignment_id: 1, borrower_id: 'CW-L1-CMO-01', supervisor_id: 'CS-L1-01', assigned_date: todayStr, shift_type: 'Morning', production_line: 'Line 1' },
+        { assignment_id: 2, borrower_id: 'CW-L2-CMO-01', supervisor_id: 'CS-L2-01', assigned_date: todayStr, shift_type: 'Morning', production_line: 'Line 2' },
+        { assignment_id: 3, borrower_id: 'CW-L1-FS-01', supervisor_id: 'CS-L1-01', assigned_date: todayStr, shift_type: 'Afternoon', production_line: 'Line 1' },
+        { assignment_id: 4, borrower_id: 'CW-L1-CMO-02', supervisor_id: 'CS-L1-01', assigned_date: tomorrowStr, shift_type: 'Morning', production_line: 'Line 1' }
+    ];
+
+    const cutting_orders = [
+        { order_id: 'ORD-001', style_code: 'TR-TAC-01', sewing_coordinator_id: 'SDC-C-01', approved_by_exec_id: 'CSE-01', target_size: '34C', target_bundle_qty: 1200, priority_level: 'Urgent', assigned_line: 'Line 1', order_status: 'Scheduled on Line', order_notes: 'Priority sewing batch for Line 1', scheduled_date: todayStr, scheduled_shift: 'Morning', assigned_operator_id: 'CW-L1-CMO-01', pattern_box_cleared: true },
+        { order_id: 'ORD-002', style_code: 'VS-BBV-10', sewing_coordinator_id: 'SDC-C-01', approved_by_exec_id: 'CSE-01', target_size: '34B', target_bundle_qty: 950, priority_level: 'Normal', assigned_line: 'Line 2', order_status: 'Bundled for Sewing', order_notes: 'Ready for Sewing pickup', scheduled_date: todayStr, scheduled_shift: 'Morning', assigned_operator_id: 'CW-L2-CMO-01', pattern_box_cleared: true },
+        { order_id: 'ORD-003', style_code: 'W2AS4S', sewing_coordinator_id: 'SDC-C-01', approved_by_exec_id: 'CSE-01', target_size: 'S', target_bundle_qty: 800, priority_level: 'Normal', assigned_line: 'Line 1', order_status: 'Queued', order_notes: 'Awaiting Senior Executive routing', scheduled_date: null, scheduled_shift: null, assigned_operator_id: null, pattern_box_cleared: false }
+    ];
+
+    const qc_inspection_logs = [
+        { qc_log_id: 'QCL-001', asset_id: 'TR-PB-01', defect_code: 'DEF-03', inspector_id: 'QCI-C-01', resolver_id: 'CS-L1-01', production_line: 'Line 1', ruined_ply_count: 4, logged_timestamp: nowIso, resolution_status: 'Resolved', severity_tier: 'Low', involved_employee_id: 'CW-L1-BU-01', inspector_notes: 'Bundle ticket reprinted on floor', exec_acknowledged: true, acknowledged_by_id: 'CQCE-01' },
+        { qc_log_id: 'QCL-002', asset_id: 'VS-PB-01', defect_code: 'DEF-04', inspector_id: 'QCI-C-02', resolver_id: 'CS-L2-01', production_line: 'Line 2', ruined_ply_count: 12, logged_timestamp: nowIso, resolution_status: 'Open (Active on Line (No Lock))', severity_tier: 'Medium', involved_employee_id: 'CW-L2-FS-01', inspector_notes: 'Spreading tension adjusted on table 2', exec_acknowledged: true, acknowledged_by_id: 'CQCE-01' },
+        { qc_log_id: 'QCL-003', asset_id: 'VS-PM-01', defect_code: 'DEF-02', inspector_id: 'QCI-C-01', resolver_id: 'DH-01', production_line: 'Line 2', ruined_ply_count: 28, logged_timestamp: nowIso, resolution_status: 'Open (Inspection Flagged)', severity_tier: 'High', involved_employee_id: 'CW-L2-CMO-01', inspector_notes: 'Hairline crack on mold contour edge', exec_acknowledged: false, acknowledged_by_id: null }
+    ];
+
+    // Pre-assign QR codes to all demo employees and 5 of the 6 demo patterns (leaving NK-PB-01 unassigned to demonstrate QR assignment)
+    let recCounter = 1;
+    const system_settings_audit = [
+        ...employees.map(e => ({
+            record_id: recCounter++,
+            record_type: 'QR_ASSIGNED',
+            category: 'EMPLOYEE_QR',
+            setting_value: e.employee_id,
+            prefix_data: e.department.substring(0, 12),
+            requested_by_id: 'DT-C-CA-01',
+            request_status: 'Active',
+            created_at: nowIso
+        })),
+        ...pattern_assets.filter(p => p.asset_id !== 'NK-PB-01').map(p => ({
+            record_id: recCounter++,
+            record_type: 'QR_ASSIGNED',
+            category: 'PATTERN_QR',
+            setting_value: p.asset_id,
+            prefix_data: p.style_code,
+            requested_by_id: 'PR-C-PC-01',
+            request_status: 'Active',
+            created_at: nowIso
+        }))
+    ];
+
+    const department_communications = [
+        {
+            comm_id: 1,
+            sender_id: 'QCI-C-01',
+            sender_name: 'Mohamed Faiz',
+            sender_role: 'Quality Control Inspectors',
+            receiver_id: 'DH-01',
+            receiver_name: 'Jackson Emmanuel',
+            receiver_role: 'Cutting Dpt. Head',
+            protocol_category: 'High Risk QC Alert',
+            linked_reference_id: 'QCL-003',
+            subject_line: 'URGENT: High Risk Defect on VS-PM-01 (Line 2)',
+            message_body: 'URGENT HIGH RISK DEFECT: DEF-02 (Warped or Cracked 3D Plastic Pattern Mold) on Asset VS-PM-01 at Line 2. Ruined plies: 28.',
+            comm_status: 'Pending Approval',
+            logged_timestamp: nowIso
+        },
+        {
+            comm_id: 2,
+            sender_id: 'CSE-01',
+            sender_name: 'Aaron Emmanuel',
+            sender_role: 'Cutting Senior Executive',
+            receiver_id: 'CS-L1-01',
+            receiver_name: 'Nathaniel Perera',
+            receiver_role: 'Cutting Supervisors',
+            protocol_category: 'Line Directive',
+            linked_reference_id: 'ORD-001',
+            subject_line: 'Execute Cut Order ORD-001 (Line 1)',
+            message_body: 'Schedule operator and verify Pattern Box permission for Order ORD-001 (TR-TAC-01).',
+            comm_status: 'Approved',
+            logged_timestamp: nowIso
+        }
+    ];
+
+    const immutable_audit_logs = [
+        { audit_id: 1, actor_id: 'CW-L1-CMO-01', actor_name: 'Gayan Abeysekara', actor_role: 'Cutting Machine Operators', action_verb: 'BORROW_ASSET', target_entity: 'Pattern_Assets', target_id: 'TR-PB-01', immutable_snapshot: JSON.stringify({ operator: 'CW-L1-CMO-01', shift: 'Morning' }), created_at: nowIso },
+        { audit_id: 2, actor_id: 'QCI-C-01', actor_name: 'Mohamed Faiz', actor_role: 'Quality Control Inspectors', action_verb: 'QC_DEFECT_FLAG', target_entity: 'QC_Inspection_Logs', target_id: 'QCL-003', immutable_snapshot: JSON.stringify({ asset_id: 'VS-PM-01', severity_tier: 'High' }), created_at: nowIso }
+    ];
+
+    return {
+        employees,
+        pattern_assets,
+        cad_markers,
+        rmw_materials,
+        qc_defect_codes,
+        shift_assignments,
+        pending_requests: [],
+        cutting_orders,
+        qc_inspection_logs,
+        system_settings_audit,
+        department_communications,
+        immutable_audit_logs,
+        discarded_trash_vault: []
+    };
+}
 
 const DEFAULT_AVATAR_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
@@ -208,6 +379,70 @@ const DEFAULT_AVATAR_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
   <circle cx="60" cy="44" r="22" fill="#A1A1AA"/>
   <path d="M20 112C20 88.804 37.9086 72 60 72C82.0914 72 100 88.804 100 112" fill="#A1A1AA"/>
 </svg>`);
+
+const DEMO_PORTRAIT_PALETTES = [
+    { bg: '#F1F5F9', skin: '#C68652', hair: '#1E1B18', shirt: '#1E293B', collar: '#FFFFFF', style: 'short-part' },
+    { bg: '#F4F4F5', skin: '#8D5524', hair: '#141210', shirt: '#0F172A', collar: '#E2E8F0', style: 'bun' },
+    { bg: '#EFECE6', skin: '#D2996C', hair: '#27201C', shirt: '#334155', collar: '#F8FAFC', style: 'crop' },
+    { bg: '#F3F4F6', skin: '#A56938', hair: '#181512', shirt: '#18181B', collar: '#E4E4E7', style: 'long' },
+    { bg: '#F5F5F4', skin: '#75421E', hair: '#111111', shirt: '#1E3A5F', collar: '#FFFFFF', style: 'curly' },
+    { bg: '#F8FAFC', skin: '#B97A45', hair: '#221D1A', shirt: '#27272A', collar: '#F4F4F5', style: 'waves' },
+    { bg: '#F1F5F9', skin: '#995D30', hair: '#1A1614', shirt: '#374151', collar: '#F9FAFB', style: 'side-sweep' },
+    { bg: '#F4F4F5', skin: '#C0814E', hair: '#1C1917', shirt: '#0F172A', collar: '#E2E8F0', style: 'bob' }
+];
+
+const generatedPortraitCache = {};
+
+function generateWorkforcePortraitSvg(seedKey) {
+    const key = String(seedKey || 'STAFF').trim();
+    if (generatedPortraitCache[key]) return generatedPortraitCache[key];
+
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+        hash = ((hash << 5) - hash) + key.charCodeAt(i);
+        hash |= 0;
+    }
+    const idx = Math.abs(hash) % DEMO_PORTRAIT_PALETTES.length;
+    const p = DEMO_PORTRAIT_PALETTES[idx];
+
+    let hairBack = '';
+    let hairFront = '';
+    if (p.style === 'bun') {
+        hairBack = `<circle cx="60" cy="20" r="12" fill="${p.hair}"/><path d="M36 46C36 28 84 28 84 46Z" fill="${p.hair}"/>`;
+        hairFront = `<path d="M36 42C42 26 78 26 84 42C76 34 44 34 36 42Z" fill="${p.hair}"/>`;
+    } else if (p.style === 'long') {
+        hairBack = `<path d="M33 44C33 24 87 24 87 44L90 78H30L33 44Z" fill="${p.hair}"/>`;
+        hairFront = `<path d="M35 42C45 27 75 27 85 42C74 33 46 33 35 42Z" fill="${p.hair}"/>`;
+    } else if (p.style === 'bob') {
+        hairBack = `<path d="M34 45C34 25 86 25 86 45L86 68H34L34 45Z" fill="${p.hair}"/>`;
+        hairFront = `<path d="M35 41C46 28 74 28 85 41C73 34 47 34 35 41Z" fill="${p.hair}"/>`;
+    } else if (p.style === 'curly') {
+        hairBack = `<circle cx="44" cy="30" r="10" fill="${p.hair}"/><circle cx="60" cy="26" r="12" fill="${p.hair}"/><circle cx="76" cy="30" r="10" fill="${p.hair}"/>`;
+        hairFront = `<path d="M36 42C38 27 82 27 84 42C76 34 44 34 36 42Z" fill="${p.hair}"/>`;
+    } else {
+        hairBack = `<path d="M36 44C36 25 84 25 84 44Z" fill="${p.hair}"/>`;
+        hairFront = `<path d="M36 41C40 24 80 24 84 41C75 31 45 31 36 41Z" fill="${p.hair}"/>`;
+    }
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+        <rect width="120" height="120" fill="${p.bg}"/>
+        ${hairBack}
+        <path d="M22 120C24 91 39 78 60 78C81 78 96 91 98 120H22Z" fill="${p.shirt}"/>
+        <path d="M46 78L60 95L74 78" fill="${p.collar}"/>
+        <rect x="52" y="64" width="16" height="18" rx="6" fill="${p.skin}"/>
+        <circle cx="60" cy="48" r="22" fill="${p.skin}"/>
+        <circle cx="52" cy="47" r="2.2" fill="#18181B"/>
+        <circle cx="68" cy="47" r="2.2" fill="#18181B"/>
+        <path d="M48 42Q52 40 56 42" stroke="${p.hair}" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M64 42Q68 40 72 42" stroke="${p.hair}" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M54 57Q60 61 66 57" stroke="#573016" stroke-width="2" stroke-linecap="round" fill="none"/>
+        ${hairFront}
+    </svg>`;
+
+    const dataUri = "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+    generatedPortraitCache[key] = dataUri;
+    return dataUri;
+}
 
 const NO_DATA_IMAGE_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260" fill="none">
@@ -221,9 +456,10 @@ function hasCustomPhoto(url) {
     return Boolean(url && url.trim() !== '' && !url.includes('unsplash.com') && !url.includes('placehold.co'));
 }
 
-function getAvatarUrl(url) {
-    if (!hasCustomPhoto(url)) return DEFAULT_AVATAR_SVG;
-    return url;
+function getAvatarUrl(url, seedKey = '') {
+    if (hasCustomPhoto(url)) return url;
+    if (seedKey) return generateWorkforcePortraitSvg(seedKey);
+    return DEFAULT_AVATAR_SVG;
 }
 
 function getItemImageUrl(url) {
@@ -1038,7 +1274,7 @@ function morphDepartmentIconOnType(rawId) {
 }
 
 function updateProfileUI(emp) {
-    const av = getAvatarUrl(emp.avatar_url);
+    const av = getAvatarUrl(emp.avatar_url, emp.employee_id);
     const hasPhoto = hasCustomPhoto(emp.avatar_url);
     const headerAv = document.getElementById('header-user-avatar');
     if (headerAv) headerAv.src = av;
@@ -1205,34 +1441,6 @@ async function submitForgotPasswordRequest() {
     await syncFromSupabase();
     backToLoginFromRecovery();
     showToast('Reset request sent to CDMS Support Team.');
-}
-
-async function executeAdminBreakGlassRecovery() {
-    const execId = (document.getElementById('bg-exec-id')?.value || '').trim().toUpperCase();
-    const dhId = (document.getElementById('bg-dh-id')?.value || '').trim().toUpperCase();
-    const masterKey = (document.getElementById('bg-master-key')?.value || '').trim();
-
-    if (execId !== 'CDTE-01' || dhId !== 'DH-01' || masterKey !== 'MAS-BODYLINE-RECOVERY') {
-        return showToast('Dual-Custody check failed. Verify CDTE-01, DH-01, and Master Key.', 'error');
-    }
-
-    const emergencyTemp = `ADM-${Math.floor(1000 + Math.random() * 9000)}`;
-    await supa.from('employees').update({
-        temp_password: emergencyTemp,
-        must_reset_password: true,
-        account_status: 'Active'
-    }).eq('employee_id', 'DT-C-CA-01');
-
-    await writeAuditLog('ADMIN_BREAKGLASS_RECOVERY', 'Employees', 'DT-C-CA-01', {
-        authorized_by: ['CDTE-01', 'DH-01'],
-        issued_temp_password: emergencyTemp
-    });
-    await syncFromSupabase();
-    backToLoginFromRecovery();
-    document.getElementById('login-emp-id').value = 'DT-C-CA-01';
-    document.getElementById('login-emp-pass').value = emergencyTemp;
-    morphDepartmentIconOnType('DT-C-CA-01');
-    showToast(`Emergency Admin Temp Password Issued: ${emergencyTemp}`);
 }
 
 function openPasswordChangeModal(forced = false) {
@@ -1532,7 +1740,7 @@ function openStaffProfileModal(empId) {
     const isSuspended = status.startsWith('Suspended');
 
     document.getElementById('spm-emp-id-badge').innerText = emp.employee_id;
-    document.getElementById('spm-avatar').src = getAvatarUrl(emp.avatar_url);
+    document.getElementById('spm-avatar').src = getAvatarUrl(emp.avatar_url, emp.employee_id);
     document.getElementById('spm-name').innerText = emp.full_name;
     document.getElementById('spm-role').innerText = emp.role_designation;
     document.getElementById('spm-dept-zone').innerText = `${emp.department} • ${emp.work_location_zone}`;
@@ -2304,10 +2512,10 @@ function openScannerForAsset(assetId) {
                     return `
                         <button type="button" onclick="executeAssetBorrow('${asset.asset_id}', '${op.employee_id}')" class="w-full text-left p-2 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-xs flex justify-between items-center">
                             <span class="flex items-center gap-2">
-                                <img src="${getAvatarUrl(op.avatar_url)}" class="w-6 h-6 rounded-full object-cover border border-zinc-300">
+                                <img src="${getAvatarUrl(op.avatar_url, op.employee_id)}" class="w-6 h-6 rounded-full object-cover border border-zinc-300">
                                 <span><strong class="text-zinc-900">${op.full_name}</strong> <span class="font-mono text-zinc-400">(${op.employee_id})</span></span>
                             </span>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isSched ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${isSched ? 'Cleared' : '15m Lock'}</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isSched ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${isSched ? 'Cleared' : 'Hold'}</span>
                         </button>
                     `;
                 }).join('')}
@@ -2580,16 +2788,24 @@ async function renderDeptHeadPortal() {
         `;
     }).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No active deployments.</p>';
 
-    document.getElementById('dh-qc-oversight').innerHTML = DB.qc_inspection_logs.map(l => `
-        <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-1">
-            <div class="flex justify-between font-bold text-zinc-900">
-                <span>${l.qc_log_id} (${l.defect_code})</span>
-                <span class="text-rose-600 font-mono">${l.asset_id}</span>
+    document.getElementById('dh-qc-oversight').innerHTML = DB.qc_inspection_logs.map(l => {
+        const defObj = DB.qc_defect_codes.find(d => d.defect_code === l.defect_code);
+        const tier = l.severity_tier || (defObj ? mapDefectToTier(defObj) : 'Medium');
+        const risk = `${tier} risk`;
+        const riskStyle = tier === 'High'
+            ? 'bg-rose-50 text-rose-700 border-rose-200'
+            : (tier === 'Low' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200');
+        return `
+            <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-1.5">
+                <div class="flex justify-between items-center font-bold text-zinc-900">
+                    <span>${l.qc_log_id} (${l.defect_code})</span>
+                    <span class="px-2 py-0.5 rounded border text-[10px] font-bold ${riskStyle}">${risk}</span>
+                </div>
+                <p class="text-zinc-600">Item: <strong class="font-mono text-zinc-800">${l.asset_id}</strong> • ${l.production_line} • Plies: ${l.ruined_ply_count}</p>
+                <span class="inline-block px-2 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 text-[10px] font-semibold">${l.resolution_status}</span>
             </div>
-            <p class="text-zinc-600">${l.production_line} • Plies: ${l.ruined_ply_count}</p>
-            <span class="inline-block px-2 py-0.5 rounded bg-white border border-zinc-200 text-zinc-700 text-[10px] font-semibold">${l.resolution_status}</span>
-        </div>
-    `).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No QC logs recorded.</p>';
+        `;
+    }).join('') || '<p class="text-xs text-zinc-400 py-6 text-center">No QC logs recorded.</p>';
 
     // Browsable Staff Status & Disciplinary Reports
     const staffReports = DB.department_communications.filter(
@@ -2777,7 +2993,7 @@ async function renderSupervisorPortal() {
         const locked = !isExec && selectedOperatorForAssign === op.employee_id;
         return `
             <div onclick="${isExec ? '' : `lockOperatorForCalendar('${op.employee_id}')`}" class="p-2 rounded-xl border ${locked ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-900'} ${isExec ? 'cursor-default' : 'cursor-pointer hover:border-zinc-900'} flex items-center gap-2 text-xs transition-colors">
-                <img src="${getAvatarUrl(op.avatar_url)}" class="w-7 h-7 rounded-full object-cover shrink-0 border border-zinc-300">
+                <img src="${getAvatarUrl(op.avatar_url, op.employee_id)}" class="w-7 h-7 rounded-full object-cover shrink-0 border border-zinc-300">
                 <div class="truncate">
                     <p class="font-bold truncate">${op.full_name}</p>
                     <p class="text-[10px] opacity-75 font-mono">${op.employee_id}</p>
@@ -3192,6 +3408,7 @@ async function renderDesignCadPortal() {
     await syncFromSupabase();
     const userId = currentLoggedInUser ? currentLoggedInUser.employee_id.toUpperCase() : 'PR-C-PC-01';
 
+    const gridWrap = document.getElementById('design-cad-grid-wrapper');
     const panelDesign = document.getElementById('panel-role-design');
     const panelCad = document.getElementById('panel-role-cad');
     const panelPattern = document.getElementById('panel-role-pattern');
@@ -3201,10 +3418,15 @@ async function renderDesignCadPortal() {
 
     if (userId.startsWith('DDC')) {
         if (panelPattern) panelPattern.classList.add('hidden');
+        if (panelInv) panelInv.classList.add('hidden');
+        if (gridWrap) gridWrap.className = 'grid grid-cols-1 lg:grid-cols-2 gap-5';
     } else if (userId.startsWith('CAD')) {
         if (panelDesign) panelDesign.classList.add('hidden');
+        if (gridWrap) gridWrap.className = 'grid grid-cols-1 lg:grid-cols-3 gap-5';
     } else {
         if (panelDesign) panelDesign.classList.add('hidden');
+        if (panelCad) panelCad.classList.add('hidden');
+        if (gridWrap) gridWrap.className = 'grid grid-cols-1 lg:grid-cols-2 gap-5';
     }
 
     const brands = getSystemParametersByCategory('Brand');
@@ -3265,29 +3487,31 @@ async function renderDesignCadPortal() {
         const hasPhoto = hasCustomPhoto(p.image_url);
         const qrOk = isPatternQrAssigned(p.asset_id);
         return `
-            <div class="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <div class="flex items-center gap-2.5">
-                    <img src="${getItemImageUrl(p.image_url)}" class="w-11 h-8 rounded-lg object-cover border">
-                    <div>
-                        <div class="flex items-center gap-1.5">
-                            <p class="font-bold text-zinc-900">${p.asset_id} • ${p.model_name}</p>
+            <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <img src="${getItemImageUrl(p.image_url)}" class="w-11 h-8 rounded-lg object-cover border shrink-0">
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <p class="font-bold text-zinc-900 truncate">${p.asset_id} • ${p.model_name}</p>
                             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${qrOk ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}">
                                 ${qrOk ? 'QR Active' : 'No QR'}
                             </span>
                         </div>
-                        <p class="text-[11px] text-zinc-500">${p.brand_buyer} (${p.style_code}) • ${p.storage_location}</p>
+                        <p class="text-[11px] text-zinc-500 truncate">${p.brand_buyer} (${p.style_code}) • ${p.storage_location}</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-1 ml-auto">
-                    <button type="button" onclick="assignPatternQrCode('${p.asset_id}')" class="px-2 py-1 rounded-lg ${qrOk ? 'bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-300' : 'bg-zinc-900 hover:bg-zinc-800 text-white'} font-semibold text-[10px]">
+                <div class="flex flex-wrap items-center gap-1.5 sm:shrink-0">
+                    <button type="button" onclick="assignPatternQrCode('${p.asset_id}')" class="px-2.5 py-1 rounded-lg ${qrOk ? 'bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-300' : 'bg-zinc-900 hover:bg-zinc-800 text-white'} font-semibold text-[10px] inline-flex items-center gap-1">
                         <i class="ph-bold ph-qr-code"></i> ${qrOk ? 'QR Tag' : 'Assign QR'}
                     </button>
                     <button type="button" onclick="triggerSingleRowPhotoUpload('pattern', '${p.asset_id}')" class="px-2 py-1 rounded-lg bg-white hover:bg-zinc-100 border border-zinc-300 text-zinc-800 font-semibold text-[10px]">
-                        ${hasPhoto ? 'Photo' : '+ Photo'}
+                        ${hasPhoto ? 'Change Photo' : '+ Photo'}
                     </button>
-                    <button type="button" ${!hasPhoto ? 'disabled' : ''} onclick="removeItemOrStaffPhoto('pattern', '${p.asset_id}')" class="px-2 py-1 rounded-lg bg-white hover:bg-rose-50 border border-zinc-300 text-rose-600 font-semibold text-[10px]" title="Delete Photo">
-                        <i class="ph-bold ph-trash"></i>
-                    </button>
+                    ${hasPhoto ? `
+                        <button type="button" onclick="removeItemOrStaffPhoto('pattern', '${p.asset_id}')" class="px-2 py-1 rounded-lg bg-white hover:bg-rose-50 border border-zinc-300 text-rose-600 font-semibold text-[10px]" title="Delete Photo">
+                            <i class="ph-bold ph-trash"></i>
+                        </button>
+                    ` : ''}
                     <button type="button" onclick="softDeleteRecord('pattern_assets', '${p.asset_id}')" class="px-2 py-1 rounded-lg bg-zinc-200/70 hover:bg-rose-600 hover:text-white text-zinc-700 font-semibold text-[10px]" title="Archive Item">
                         Archive
                     </button>
@@ -3609,8 +3833,8 @@ function selectQcSeverityTier(tier) {
         const btn = document.getElementById(`qc-tier-${t}`);
         if (!btn) return;
         btn.className = t === tier
-            ? 'px-2 py-0.5 rounded-md bg-zinc-900 text-white'
-            : 'px-2 py-0.5 rounded-md text-zinc-600 hover:text-zinc-900';
+            ? 'py-1.5 px-1 rounded-lg bg-zinc-900 text-white transition-colors'
+            : 'py-1.5 px-1 rounded-lg text-zinc-600 hover:text-zinc-900 transition-colors';
     });
 
     populateQcDefectCodesByTier();
@@ -3994,10 +4218,15 @@ async function renderAdminPortal() {
     const avatarReqs = DB.department_communications.filter(
         c => c.protocol_category === 'Avatar Request' && c.comm_status === 'Pending Approval'
     );
+    const photoReqBadge = document.getElementById('pending-photo-req-badge');
+    if (photoReqBadge) {
+        photoReqBadge.innerText = avatarReqs.length;
+        photoReqBadge.classList.toggle('hidden', avatarReqs.length === 0);
+    }
     document.getElementById('support-avatar-requests-list').innerHTML = avatarReqs.map(r => `
         <div class="p-3 rounded-xl bg-white border border-zinc-200 flex items-center justify-between gap-3 text-xs">
             <div class="flex items-center gap-2.5">
-                <img src="${getAvatarUrl(r.resolution_note)}" class="w-9 h-9 rounded-full object-cover border border-zinc-300">
+                <img src="${getAvatarUrl(r.resolution_note, r.sender_id)}" class="w-9 h-9 rounded-full object-cover border border-zinc-300">
                 <div>
                     <p class="font-bold text-zinc-900">${r.sender_name}</p>
                     <p class="text-[10px] text-zinc-500">${r.sender_id}</p>
@@ -4076,10 +4305,10 @@ function renderAdminEmployeeList() {
         return `
             <tr class="hover:bg-zinc-50">
                 <td class="p-2.5 flex items-center gap-2.5">
-                    <img src="${getAvatarUrl(e.avatar_url)}" class="w-8 h-8 rounded-full object-cover border border-zinc-300">
-                    <div>
-                        <p class="font-bold text-zinc-900">${e.full_name}</p>
-                        <p class="text-[10px] text-zinc-500">${e.role_designation}</p>
+                    <img src="${getAvatarUrl(e.avatar_url, e.employee_id)}" class="w-8 h-8 rounded-full object-cover border border-zinc-300 shrink-0">
+                    <div class="min-w-0">
+                        <p class="font-bold text-zinc-900 truncate">${e.full_name}</p>
+                        <p class="text-[10px] text-zinc-500 truncate">${e.role_designation}</p>
                     </div>
                 </td>
                 <td class="p-2.5 font-mono font-bold text-zinc-700">${e.employee_id}</td>
@@ -4249,50 +4478,6 @@ async function adminGrantTempPassword(commId, targetEmpId) {
     await writeAuditLog('ISSUE_TEMP_PASSWORD', 'Employees', targetEmpId, { tempPass });
     await renderAdminPortal();
     showToast(`Temp Password ${tempPass} issued for ${targetEmpId}.`);
-}
-
-async function executeLeadershipReplacement() {
-    if (!isCurrentUserPrivilegedAdmin()) {
-        return showToast('Only CDMS Admin can execute Leadership Handover.', 'error');
-    }
-    const seatId = document.getElementById('leader-seat-select').value;
-    const newName = (document.getElementById('leader-new-name')?.value || '').trim();
-    const reason = (document.getElementById('leader-handover-reason')?.value || '').trim();
-
-    if (!newName || !reason) {
-        return showToast('Enter Incoming Officer Name and Handover Note.', 'error');
-    }
-
-    const existingSeat = DB.employees.find(e => e.employee_id === seatId);
-    const previousHolder = existingSeat ? existingSeat.full_name : 'Previous Officer';
-    const newTempPass = `LDR-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    await supa.from('employees').update({
-        full_name: newName,
-        avatar_url: '',
-        temp_password: newTempPass,
-        must_reset_password: true
-    }).eq('employee_id', seatId);
-
-    await supa.from('department_communications').insert([{
-        sender_id: currentLoggedInUser.employee_id,
-        sender_name: currentLoggedInUser.full_name,
-        sender_role: currentLoggedInUser.role_designation,
-        receiver_id: 'DH-01',
-        receiver_name: newName,
-        receiver_role: 'Cutting Dpt. Head',
-        protocol_category: 'Staff Status Report',
-        linked_reference_id: seatId,
-        subject_line: `Leadership Handover (${seatId}): ${previousHolder} -> ${newName}`,
-        message_body: `Reason: ${reason} | Initial Temp Password: ${newTempPass}`,
-        comm_status: 'Filed Report'
-    }]);
-
-    await writeAuditLog('LEADERSHIP_SUCCESSION', 'Employees', seatId, { outgoing: previousHolder, incoming: newName, reason });
-    document.getElementById('leader-new-name').value = '';
-    document.getElementById('leader-handover-reason').value = '';
-    await renderAdminPortal();
-    showToast(`${seatId} handed over to ${newName} (Temp Pass: ${newTempPass}).`);
 }
 
 async function supportResetKioskLocks() {

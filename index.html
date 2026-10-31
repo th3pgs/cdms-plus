@@ -274,25 +274,25 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div class="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5 mb-3">Approval Queue</h3>
-                    <div id="dh-approvals-list" class="space-y-2.5 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
+                    <div id="dh-approvals-list" class="space-y-2.5 overflow-y-auto max-h-80 pr-1 custom-scroll"></div>
                 </div>
                 <div class="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5 mb-3">Active Deployments</h3>
-                    <div id="dh-active-processes" class="space-y-2.5 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
+                    <div id="dh-active-processes" class="space-y-2.5 overflow-y-auto max-h-80 pr-1 custom-scroll"></div>
                 </div>
                 <div class="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-100 pb-2.5 mb-3">QC Defect Logs</h3>
-                    <div id="dh-qc-oversight" class="space-y-2.5 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
+                    <div id="dh-qc-oversight" class="space-y-2.5 overflow-y-auto max-h-80 pr-1 custom-scroll"></div>
                 </div>
                 <div class="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col">
                     <div class="flex justify-between items-center border-b border-zinc-100 pb-2.5 mb-3">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Staff Status Reports</h3>
                         <button type="button" onclick="openStaffReportQuickView()" class="text-[10px] font-bold text-zinc-700 hover:underline">Print View</button>
                     </div>
-                    <div id="dh-disciplinary-reports-list" class="space-y-2.5 overflow-y-auto max-h-96 pr-1 custom-scroll"></div>
+                    <div id="dh-disciplinary-reports-list" class="space-y-2.5 overflow-y-auto max-h-80 pr-1 custom-scroll"></div>
                 </div>
             </div>
         </main>
@@ -401,7 +401,7 @@
 
         <!-- View 5: Design Studio, CAD Marker Pipeline & Pattern Asset Registration -->
         <main id="view-design-cad" class="hidden flex-1 flex-col p-3.5 sm:p-6 max-w-7xl mx-auto w-full pb-24">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div id="design-cad-grid-wrapper" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
                 <!-- Design Coordinator Panel -->
                 <div id="panel-role-design" class="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200 flex flex-col gap-3">
@@ -608,18 +608,18 @@
                     </div>
                     <select id="qc-asset-select" class="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs"></select>
 
-                    <div class="flex justify-between items-center pt-1">
-                        <label class="text-xs font-semibold text-zinc-600">2. Defect Reason & Risk Level</label>
-                        <div class="flex items-center gap-1">
-                            <div class="inline-flex bg-zinc-100 p-0.5 rounded-lg border border-zinc-200 text-[10px] font-bold">
-                                <button type="button" onclick="selectQcSeverityTier('ALL')" id="qc-tier-ALL" class="px-2 py-0.5 rounded-md bg-zinc-900 text-white">All</button>
-                                <button type="button" onclick="selectQcSeverityTier('Low')" id="qc-tier-Low" class="px-2 py-0.5 rounded-md text-zinc-600">Low risk</button>
-                                <button type="button" onclick="selectQcSeverityTier('Medium')" id="qc-tier-Medium" class="px-2 py-0.5 rounded-md text-zinc-600">Medium risk</button>
-                                <button type="button" onclick="selectQcSeverityTier('High')" id="qc-tier-High" class="px-2 py-0.5 rounded-md text-zinc-600">High risk</button>
-                            </div>
-                            <button type="button" onclick="document.getElementById('new-defect-creator-box').classList.toggle('hidden')" title="Register New Defect Code" class="px-2 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[10px] font-bold">
-                                + New
+                    <div class="space-y-2 pt-1">
+                        <div class="flex justify-between items-center gap-2">
+                            <label class="text-xs font-semibold text-zinc-600">2. Defect Reason & Risk Level</label>
+                            <button type="button" onclick="document.getElementById('new-defect-creator-box').classList.toggle('hidden')" title="Register New Defect Code" class="px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[10px] font-bold shrink-0">
+                                + New Code
                             </button>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1 bg-zinc-100 p-1 rounded-xl border border-zinc-200 text-[11px] font-bold text-center">
+                            <button type="button" onclick="selectQcSeverityTier('ALL')" id="qc-tier-ALL" class="py-1.5 px-1 rounded-lg bg-zinc-900 text-white transition-colors">All</button>
+                            <button type="button" onclick="selectQcSeverityTier('Low')" id="qc-tier-Low" class="py-1.5 px-1 rounded-lg text-zinc-600 hover:text-zinc-900 transition-colors">Low risk</button>
+                            <button type="button" onclick="selectQcSeverityTier('Medium')" id="qc-tier-Medium" class="py-1.5 px-1 rounded-lg text-zinc-600 hover:text-zinc-900 transition-colors">Medium risk</button>
+                            <button type="button" onclick="selectQcSeverityTier('High')" id="qc-tier-High" class="py-1.5 px-1 rounded-lg text-zinc-600 hover:text-zinc-900 transition-colors">High risk</button>
                         </div>
                     </div>
 
@@ -687,26 +687,10 @@
                 <!-- Sub-Tab 1: Employee Directory, Photo Approvals & Registration -->
                 <div id="admin-panel-emp" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="space-y-4">
-                        <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 space-y-2">
-                            <div class="flex justify-between items-center">
-                                <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Bulk Photo Upload</h4>
-                                <button type="button" onclick="toggleInfoTip('tip-bulk-photo')" class="info-icon-btn"><i class="ph-bold ph-info"></i></button>
-                            </div>
-                            <p id="tip-bulk-photo" class="hidden text-[11px] text-zinc-500 bg-white p-2 rounded-lg border border-zinc-200">
-                                Name image files by Employee ID (e.g. <code class="font-mono">DH-01.jpg</code>) or click <strong class="font-mono">...</strong> on any employee row to manage their photo.
-                            </p>
-                            <input id="bulk-emp-photos" type="file" accept="image/*" multiple onchange="handleBulkEmployeePhotos(this)" class="w-full text-xs text-zinc-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-900 file:text-white cursor-pointer">
-                        </div>
-
-                        <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2">Pending Photo Approvals</h4>
-                            <div id="support-avatar-requests-list" class="space-y-2 max-h-40 overflow-y-auto custom-scroll"></div>
-                        </div>
-
                         <div class="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col gap-2.5">
                             <div class="flex justify-between items-center">
-                                <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Register New Employee</h4>
-                                <span class="text-[10px] text-zinc-400">Auto-ID</span>
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-700">Register New Employee</h4>
+                                <span class="text-[10px] text-zinc-400 font-mono">Auto-ID</span>
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                 <select id="reg-emp-dept" onchange="autoGenerateEmployeeId()" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs">
@@ -740,9 +724,35 @@
                             <input id="reg-emp-init-pass" type="text" placeholder="Initial Password (default: bodyline123)" class="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-xs font-mono">
                             <input id="reg-emp-photo" type="file" accept="image/*" class="w-full text-xs text-zinc-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-200 file:text-zinc-800">
                             <button type="button" onclick="registerNewEmployee()" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold py-2.5 rounded-xl">
-                                Register Employee
+                                Register Employee & Assign QR
                             </button>
                             <div id="emp-qr-preview-box" class="text-center pt-1"></div>
+                        </div>
+
+                        <div class="bg-zinc-50 p-3.5 rounded-xl border border-zinc-200">
+                            <button type="button" onclick="document.getElementById('admin-photo-tools-drawer').classList.toggle('hidden')" class="w-full flex justify-between items-center text-xs font-bold uppercase tracking-wider text-zinc-600 hover:text-zinc-900">
+                                <span class="flex items-center gap-2">
+                                    <span>Photo Requests & Bulk Upload</span>
+                                    <span id="pending-photo-req-badge" class="hidden px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold">0</span>
+                                </span>
+                                <i class="ph-bold ph-caret-down"></i>
+                            </button>
+                            <div id="admin-photo-tools-drawer" class="hidden mt-3 space-y-3 border-t border-zinc-200 pt-3">
+                                <div>
+                                    <h5 class="text-[11px] font-bold text-zinc-500 mb-1.5">Pending Photo Approvals</h5>
+                                    <div id="support-avatar-requests-list" class="space-y-2 max-h-36 overflow-y-auto custom-scroll"></div>
+                                </div>
+                                <div class="border-t border-zinc-200 pt-2.5 space-y-1.5">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-[11px] font-bold text-zinc-500">Bulk Photo Upload (by Employee ID)</span>
+                                        <button type="button" onclick="toggleInfoTip('tip-bulk-photo')" class="info-icon-btn"><i class="ph-bold ph-info"></i></button>
+                                    </div>
+                                    <p id="tip-bulk-photo" class="hidden text-[11px] text-zinc-500 bg-white p-2 rounded-lg border border-zinc-200">
+                                        Name image files by Employee ID (e.g. <code class="font-mono">DH-01.jpg</code>) or click <strong class="font-mono">...</strong> on any employee row to manage their photo.
+                                    </p>
+                                    <input id="bulk-emp-photos" type="file" accept="image/*" multiple onchange="handleBulkEmployeePhotos(this)" class="w-full text-xs text-zinc-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-900 file:text-white cursor-pointer">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
