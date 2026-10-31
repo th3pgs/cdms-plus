@@ -2322,7 +2322,7 @@ function renderPatternCardHtml(p) {
         return 'bg-rose-50 text-rose-700 border-rose-200';
     };
     const isMold = (p.tooling_type || '').toLowerCase().includes('mold') || (p.asset_id || '').includes('-PM-');
-    const fitClass = isMold ? 'object-fill bg-white' : 'object-contain bg-white';
+    const fitClass = isMold ? 'object-cover bg-white' : 'object-contain bg-white';
 
     return `
         <div onclick="openScannerForAsset('${p.asset_id}')" class="product-card bg-white rounded-2xl border border-zinc-200 overflow-hidden cursor-pointer flex flex-col justify-between">
@@ -2530,7 +2530,7 @@ function openScannerForAsset(assetId) {
     const area = document.getElementById('modal-dynamic-area');
     const itemImg = getItemImageUrl(asset.image_url);
     const isMold = (asset.tooling_type || '').toLowerCase().includes('mold') || (asset.asset_id || '').includes('-PM-');
-    const fitClass = isMold ? 'object-fill bg-white' : 'object-contain bg-white';
+    const fitClass = isMold ? 'object-cover bg-white' : 'object-contain bg-white';
 
     if (['Inspection Flagged', 'Decommissioned', 'Pending Removal'].includes(asset.operational_status)) {
         area.innerHTML = `
@@ -3551,7 +3551,7 @@ async function renderDesignCadPortal() {
             const isPendingCad = m.marker_status === 'Sent to CAD' || m.marker_status === 'Pending CAD Plotting';
             const hasDesignPhoto = hasCustomPhoto(m.sketch_url);
             const isMold = (m.cad_tooling_material_code || '').toUpperCase().includes('PLS');
-            const fitClass = isMold ? 'object-fill bg-white' : 'object-contain bg-white';
+            const fitClass = isMold ? 'object-cover bg-white' : 'object-contain bg-white';
             return `
                 <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs space-y-2">
                     <div class="flex items-center justify-between gap-2.5">
@@ -3596,7 +3596,7 @@ async function renderDesignCadPortal() {
         const hasPhoto = hasCustomPhoto(p.image_url);
         const qrOk = isPatternQrAssigned(p.asset_id);
         const isMold = (p.tooling_type || '').toLowerCase().includes('mold') || (p.asset_id || '').includes('-PM-');
-        const fitClass = isMold ? 'object-fill bg-white' : 'object-contain bg-white';
+        const fitClass = isMold ? 'object-cover bg-white' : 'object-contain bg-white';
         return `
             <div class="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
                 <div class="flex items-center gap-2.5 min-w-0">
